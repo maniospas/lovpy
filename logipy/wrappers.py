@@ -1,53 +1,36 @@
 import types
 import warnings
 
-from logipy.logic.rules import apply_method_rules
 from logipy.logic.properties import LogipyPropertyException
 import logipy.logic.properties as logipy_properties
+from logipy.logic.timed_property_graph import *
+from logipy.logic.monitored_predicate import *
+from logipy.logic import prover
+from logipy.monitor.time_source import global_stamp_and_increment
 
 
-def _is_callable(obj):
-    """Returns true if given object is a callable.
+_SPECIAL_NAMES = [
+    '__abs__', '__add__', '__and__', '__call__', '__cmp__', '__coerce__',
+    '__contains__', '__delitem__', '__delslice__', '__div__', '__divmod__',
+    '__eq__', '__floordiv__', '__ge__', '__getitem__',
+    '__getslice__', '__gt__', '__hex__', '__iadd__', '__iand__',
+    '__idiv__', '__idivmod__', '__ifloordiv__', '__ilshift__', '__imod__',
+    '__imul__', '__invert__', '__ior__', '__ipow__', '__irshift__',
+    '__isub__', '__iter__', '__itruediv__', '__ixor__', '__le__',
+    '__long__', '__lshift__', '__lt__', '__mod__', '__mul__', '__ne__',
+    '__neg__', '__oct__', '__or__', '__pos__', '__pow__', '__len__',
+    '__radd__', # comment to not create string errors
+    '__float__', '__int__', '__bool__', '__hash__', '__str__',
+    '__rand__', '__rdiv__', '__rdivmod__', '__reduce__', '__reduce_ex__',
+    '__reversed__', '__rfloorfiv__', '__rlshift__', '__rmod__',
+    '__rmul__', '__ror__', '__rpow__', '__rrshift__', '__rshift__', '__rsub__',
+    '__rtruediv__', '__rxor__', '__setitem__', '__setslice__', '__sub__',
+    '__truediv__', '__xor__', '__next__', #'__repr__',
+]
 
-    Provides support for wrapped objects.
-    """
-    if isinstance(obj, LogipyPrimitive):
-        return callable(obj.get_logipy_value())
-    return callable(obj)
-
-
-def logipy_value(obj):
-    if isinstance(obj, LogipyPrimitive):
-        return obj.get_logipy_value()
-    return obj
-
-
-def error(message):
-    raise Exception(message)
-
+_PRIMITIVE_CONVERTERS = set(['__float__', '__int__', '__bool__', '__str__', '__hash__', '__len__'])
 
 __logipy_past_warnings = set()
-def logipy_warning(logipy_warning_message):
-    if logipy_warning_message in __logipy_past_warnings:
-        return
-    __logipy_past_warnings.add(logipy_warning_message)
-    warnings.warn(logipy_warning_message)
-        
-
-def logipy_call(method, *args, **kwargs):
-    """Call a callable object inside a LogipyMethod wrapper.
-
-    :param method: The callable object to be wrapped and called.
-    :param args: Arguments to be passed to the callable object.
-    :param kwargs: Keyword arguments to be passed to the callable object.
-
-    # TODO: Bettern return comment.
-    :return: Upon successful verification, returns the value returned
-    by the callable.
-    """
-    if isinstance(method, LogipyMethod):
-        return method(*args, **kwargs)
-    return LogipyMethod(method)(*args, **kwargs)
 
 
 class LogipyMethod:
@@ -70,45 +53,65 @@ class LogipyMethod:
 
     def __call__(self, *args, **kwargs):
         """Wrapper method for monitoring the calls on a callable object."""
-        properties = logipy_properties.empty_properties()
-        # apply_method_rules(self.__method.__name__, unbound_variable, "call", args, kwargs)
+        # A graph to include the state of caller, the state of args and the new steps.
+        total_execution_graph = TimedPropertyGraph()
 
-        # Monitor "call" predicate.
-        if self.__parent_object is not None:
-            if isinstance(self.__parent_object, LogipyPrimitive):
-                logipy_properties.combine(properties, self.__parent_object.get_logipy_properties())
-                apply_method_rules(self.__method.__name__, self.__parent_object,
-                                   "call", args, kwargs)
+        # Monitor "call" predicate on parent object.
+        if self.__parent_object is not None and isinstance(self.__parent_object, LogipyPrimitive):
+            # logipy_properties.combine(properties, self.__parent_object.get_logipy_properties())
+            # apply_method_rules(self.__method.__name__, self.__parent_object,
+            #                    "call", args, kwargs)
+            call_graph = Call(self.__method.__name__).convert_to_graph()
+            call_graph.set_timestamp(global_stamp_and_increment())
 
-        # Monitor "called by" predicate.
-        for arg in args:
+            self.__parent_object.get_execution_graph().logical_and(call_graph)
+            prover.prove_set_of_properties(logipy_properties.get_global_properties(),
+                                           self.__parent_object.get_execution_graph())
+
+            total_execution_graph.logical_and(self.__parent_object.get_execution_graph())
+
+        # Monitor "called by" predicate on arguments passed to current call.
+        args_list = list(args)
+        args_list.extend(kwargs.values())
+        for arg in args_list:
             if isinstance(arg, LogipyPrimitive):
-                logipy_properties.combine(properties, arg.get_logipy_properties())
-                apply_method_rules(self.__method.__name__, arg, "called by", args, kwargs)
-        for arg in kwargs.values():
-            if isinstance(arg, LogipyPrimitive):
-                logipy_properties.combine(properties, arg.get_logipy_properties())
-                apply_method_rules(self.__method.__name__, arg, "called by", args, kwargs)
+                # logipy_properties.combine(properties, arg.get_logipy_properties())
+                # apply_method_rules(self.__method.__name__, arg, "called by", args, kwargs)
 
-        # Monitor "returned by" predicate.
+                # Add the called by predicate to the execution graphs of all arguments.
+                called_by_graph = CalledBy(self.__method.__name__).convert_to_graph()
+                called_by_graph.set_timestamp(global_stamp_and_increment())
+
+                arg.get_execution_graph().logical_and(called_by_graph)
+                prover.prove_set_of_properties(logipy_properties.get_global_properties(),
+                                               arg.get_execution_graph())
+
+                total_execution_graph.logical_and(arg.get_execution_graph())
+
         # TODO: FIND THE BEST WAY TO DO THE FOLLOWING
+        # Monitor "returned by" predicate.
         try:
             ret = self.__method(*args, **kwargs)
         except Exception as err:
             if not isinstance(err, LogipyPropertyException):
-                args = [arg.get_logipy_value() if isinstance(arg, LogipyPrimitive) else arg for arg in args]
-                kwargs = {key: arg.get_logipy_value() if isinstance(arg, LogipyPrimitive) else arg for key, arg in kwargs.items()}
+                args = [arg.get_logipy_value() if isinstance(arg, LogipyPrimitive) else arg for arg
+                        in args]
+                kwargs = {key: arg.get_logipy_value() if isinstance(arg, LogipyPrimitive) else arg
+                          for key, arg in kwargs.items()}
                 ret = self.__method(*args, **kwargs)
                 logipy_warning(
-                    "A method " + method_name +
+                    "A method " + self.__method.__name__ +
                     " was called a second time at least once by casting away LogipyPrimitive " +
                     "due to invoking the error: " + str(err))
             else:
                 raise err
-        # ret = self.__method(*args, **kwargs)
-        ret = LogipyPrimitive(ret, properties)
-        apply_method_rules(self.__method.__name__, ret, "returned by", args, kwargs)
-        # print(self.__method.__name__)
+        # apply_method_rules(self.__method.__name__, ret, "returned by", args, kwargs)
+        ret = LogipyPrimitive(ret, total_execution_graph)
+        returned_by_graph = ReturnedBy(self.__method.__name__).convert_to_graph()
+        returned_by_graph.set_timestamp(global_stamp_and_increment())
+        ret.get_execution_graph().logical_and(returned_by_graph)
+        prover.prove_set_of_properties(logipy_properties.get_global_properties(),
+                                       ret.get_execution_graph())
 
         return ret
 
@@ -120,23 +123,21 @@ class LogipyPrimitive:
 
     __logipy_id_count = 0  # Counter for each instantiated LogipyPrimitive so far.
 
-    def __init__(self, value, properties=None):
-        # Convert a single property string, to a proper iterable.
-        if properties is not None and isinstance(properties, str):
-            properties = [properties]
+    def __init__(self, value, previous_execution_graph=None):
+        self.execution_graph = TimedPropertyGraph()
 
         if isinstance(value, LogipyPrimitive):
-            # If given value is already a LogipyPrimitive, copy its properties.
+            # If given value is already a LogipyPrimitive, copy its execution graph.
             self.__logipy_value = value.__logipy_value
-            self.__logipy_properties = logipy_properties.empty_properties()
-            logipy_properties.combine(self.__logipy_properties, value.__logipy_properties)
+            self.execution_graph.logical_and(value.get_execution_graph())
+            self.timestamp = value.timestamp
         else:
             # If given value is not a LogipyPrimitive, instantiate a new set of properties.
             self.__logipy_value = value
-            self.__logipy_properties = logipy_properties.empty_properties()
+            self.timestamp = 0
 
-        if properties is not None:
-            logipy_properties.combine(self.__logipy_properties, properties)
+        if previous_execution_graph is not None:
+            self.execution_graph.logical_and(previous_execution_graph)
 
         self.__logipy_id = str(LogipyPrimitive.__logipy_id_count)
         LogipyPrimitive.__logipy_id_count += 1  # TODO: Make it thread safe.
@@ -144,11 +145,17 @@ class LogipyPrimitive:
     def get_logipy_id(self):
         return self.__logipy_id
 
-    def get_logipy_properties(self):
-        return self.__logipy_properties
-
     def get_logipy_value(self):
         return self.__logipy_value
+
+    def get_timestamp(self):
+        return self.timestamp
+
+    def increase_time(self):
+        self.timestamp += 1
+
+    def get_execution_graph(self):
+        return self.execution_graph
 
     def __getattr__(self, method_name):
         # TODO: Rewrite function with a single exit point.
@@ -162,7 +169,7 @@ class LogipyPrimitive:
                 value = getattr(self.__logipy_value, method_name)
                 if isinstance(value, LogipyPrimitive):
                     return value
-                return LogipyPrimitive(value, self.__logipy_properties)
+                return LogipyPrimitive(value, self.__execution_graph)
         else:
             raise AttributeError()
 
@@ -182,34 +189,45 @@ class LogipyPrimitive:
     #     return hash(self.__logipy_value)
 
     def __repr__(self):
-        return repr(self.__logipy_value)+" ("+", ".join(self.__logipy_properties)+")"
+        return repr(self.__logipy_value) +" (" +", ".join(self.__execution_graph) + ")"
 
 
-_special_names = [
-    '__abs__', '__add__', '__and__', '__call__', '__cmp__', '__coerce__',
-    '__contains__', '__delitem__', '__delslice__', '__div__', '__divmod__',
-    '__eq__', '__floordiv__', '__ge__', '__getitem__',
-    '__getslice__', '__gt__', '__hex__', '__iadd__', '__iand__',
-    '__idiv__', '__idivmod__', '__ifloordiv__', '__ilshift__', '__imod__',
-    '__imul__', '__invert__', '__ior__', '__ipow__', '__irshift__',
-    '__isub__', '__iter__', '__itruediv__', '__ixor__', '__le__',
-    '__long__', '__lshift__', '__lt__', '__mod__', '__mul__', '__ne__',
-    '__neg__', '__oct__', '__or__', '__pos__', '__pow__', '__len__',
-    '__radd__', # comment to not create string errors
-    '__float__', '__int__', '__bool__', '__hash__', '__str__',
-    '__rand__', '__rdiv__', '__rdivmod__', '__reduce__', '__reduce_ex__',
-    '__reversed__', '__rfloorfiv__', '__rlshift__', '__rmod__',
-    '__rmul__', '__ror__', '__rpow__', '__rrshift__', '__rshift__', '__rsub__',
-    '__rtruediv__', '__rxor__', '__setitem__', '__setslice__', '__sub__',
-    '__truediv__', '__xor__', '__next__', #'__repr__',
-]
+def logipy_call(method, *args, **kwargs):
+    """Call a callable object inside a LogipyMethod wrapper.
 
-_primitive_converters = set(['__float__', '__int__', '__bool__', '__str__', '__hash__', '__len__'])
+    :param method: The callable object to be wrapped and called.
+    :param args: Arguments to be passed to the callable object.
+    :param kwargs: Keyword arguments to be passed to the callable object.
+
+    # TODO: Bettern return comment.
+    :return: Upon successful verification, returns the value returned
+    by the callable.
+    """
+    if isinstance(method, LogipyMethod):
+        return method(*args, **kwargs)
+    return LogipyMethod(method)(*args, **kwargs)
+
+
+def logipy_value(obj):
+    if isinstance(obj, LogipyPrimitive):
+        return obj.get_logipy_value()
+    return obj
+
+
+def error(message):
+    raise Exception(message)
+
+
+def logipy_warning(logipy_warning_message):
+    if logipy_warning_message in __logipy_past_warnings:
+        return
+    __logipy_past_warnings.add(logipy_warning_message)
+    warnings.warn(logipy_warning_message)
 
 
 def _make_primitive_method(method_name):
     def method(self, *args, **kwargs):
-        if method_name in _primitive_converters:
+        if method_name in _PRIMITIVE_CONVERTERS:
             return getattr(self.get_logipy_value(), method_name)(*args, **kwargs)
         return LogipyMethod(getattr(self.get_logipy_value(), method_name), self)(*args, **kwargs)
 
@@ -223,12 +241,20 @@ def _make_primitive_method(method_name):
         # ret = LogipyPrimitive(getattr(self.logipy_value(), method_name)(*args, **kwargs), graph_logic)
         # _apply_method_rules(method_name, ret, return_rules, *args, **kwargs)
         # return ret
-
     return method
 
 
-for method_name in _special_names:
+def _is_callable(obj):
+    """Returns true if given object is a callable.
+
+    Provides support for wrapped objects.
+    """
+    if isinstance(obj, LogipyPrimitive):
+        return callable(obj.get_logipy_value())
+    return callable(obj)
+
+
+for method_name in _SPECIAL_NAMES:
     setattr(LogipyPrimitive, method_name, _make_primitive_method(method_name))
 
-
-#unbound_variable = LogipyPrimitive(None)
+# unbound_variable = LogipyPrimitive(None)
