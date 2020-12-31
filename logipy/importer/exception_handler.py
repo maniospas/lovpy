@@ -1,13 +1,16 @@
-import sys, traceback
 from os import path
+import sys
+import traceback
 
 
 def logipy_exception_handler(type, value, tb):
+    # TODO: Find the correct erroneous line on original code.
+
     file = sys.stderr
     for line in traceback.TracebackException(type, value, tb).format():
         splt = line.split("\"",3)
         if len(splt) > 1:
-            if splt[1].endswith("logipy\\wrappers.py") or splt[1].endswith("logipy\\logic\\rules.py") or splt[1].endswith("logipy\\logic\\properties.py"):
+            if splt[1].endswith("logipy\\wrappers.py") or splt[1].endswith("logipy\\logic\\rules.py") or splt[1].endswith("logipy\\logic\\graph_logic.py"):
                 continue
             if splt[1].endswith(".py") and path.exists(splt[1][:-3]+".lpy"):
                 splt[1] = splt[1][:-3]+".lpy"
