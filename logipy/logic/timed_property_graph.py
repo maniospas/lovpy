@@ -257,7 +257,11 @@ class TimedPropertyGraph:
         return self.graph
 
     def get_copy(self):
-        return copy.deepcopy(self)
+        copy_obj = type(self)()
+        copy_obj.graph = self.graph.copy()
+        copy_obj.root_node = self.root_node  # Node references remain the same.
+        copy_obj.time_source = self.time_source
+        return copy_obj
 
     def _add_node(self, node):
         self.graph.add_node(node)
