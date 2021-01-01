@@ -85,7 +85,7 @@ def get_fundamental_clauses(formula):
         exc_text = "WHEN and THEN clauses are required in specifications syntax.\n"
         exc_text += "The following specifications is invalid:\n"
         exc_text += formula
-        raise Exception()
+        raise Exception(exc_text)
 
     return given_clause, when_clause, then_clause
 
