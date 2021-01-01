@@ -61,14 +61,17 @@ class LogipyMethod:
             # logipy_properties.combine(properties, self.__parent_object.get_logipy_properties())
             # apply_method_rules(self.__method.__name__, self.__parent_object,
             #                    "call", args, kwargs)
-            call_graph = Call(self.__method.__name__).convert_to_graph()
-            call_graph.set_timestamp(global_stamp_and_increment())
+            current_timestamp = Timestamp(global_stamp_and_increment())
 
-            self.__parent_object.get_execution_graph().logical_and(call_graph)
+            call_graph = Call(self.__method.__name__).convert_to_graph()
+            call_graph.set_timestamp(current_timestamp)
+
+            self.__parent_object.get_execution_graph().logical_and(call_graph, current_timestamp)
             prover.prove_set_of_properties(logipy_properties.get_global_properties(),
                                            self.__parent_object.get_execution_graph())
 
-            total_execution_graph.logical_and(self.__parent_object.get_execution_graph())
+            total_execution_graph.logical_and(
+                self.__parent_object.get_execution_graph(), current_timestamp)
 
         # Monitor "called by" predicate on arguments passed to current call.
         args_list = list(args)
@@ -79,14 +82,16 @@ class LogipyMethod:
                 # apply_method_rules(self.__method.__name__, arg, "called by", args, kwargs)
 
                 # Add the called by predicate to the execution graphs of all arguments.
-                called_by_graph = CalledBy(self.__method.__name__).convert_to_graph()
-                called_by_graph.set_timestamp(global_stamp_and_increment())
+                current_timestamp = Timestamp(global_stamp_and_increment())
 
-                arg.get_execution_graph().logical_and(called_by_graph)
+                called_by_graph = CalledBy(self.__method.__name__).convert_to_graph()
+                called_by_graph.set_timestamp(current_timestamp)
+
+                arg.get_execution_graph().logical_and(called_by_graph, current_timestamp)
                 prover.prove_set_of_properties(logipy_properties.get_global_properties(),
                                                arg.get_execution_graph())
 
-                total_execution_graph.logical_and(arg.get_execution_graph())
+                total_execution_graph.logical_and(arg.get_execution_graph(), current_timestamp)
 
         # TODO: FIND THE BEST WAY TO DO THE FOLLOWING
         # Monitor "returned by" predicate.
@@ -107,9 +112,11 @@ class LogipyMethod:
                 raise err
         # apply_method_rules(self.__method.__name__, ret, "returned by", args, kwargs)
         ret = LogipyPrimitive(ret, total_execution_graph)
+        current_timestamp = Timestamp(global_stamp_and_increment())
+
         returned_by_graph = ReturnedBy(self.__method.__name__).convert_to_graph()
-        returned_by_graph.set_timestamp(global_stamp_and_increment())
-        ret.get_execution_graph().logical_and(returned_by_graph)
+        returned_by_graph.set_timestamp(current_timestamp)
+        ret.get_execution_graph().logical_and(returned_by_graph, current_timestamp)
         prover.prove_set_of_properties(logipy_properties.get_global_properties(),
                                        ret.get_execution_graph())
 
@@ -124,20 +131,22 @@ class LogipyPrimitive:
     __logipy_id_count = 0  # Counter for each instantiated LogipyPrimitive so far.
 
     def __init__(self, value, previous_execution_graph=None):
-        self.execution_graph = TimedPropertyGraph()
-
         if isinstance(value, LogipyPrimitive):
             # If given value is already a LogipyPrimitive, copy its execution graph.
             self.__logipy_value = value.__logipy_value
-            self.execution_graph.logical_and(value.get_execution_graph())
+            self.execution_graph = value.get_execution_graph().get_copy()
             self.timestamp = value.timestamp
         else:
             # If given value is not a LogipyPrimitive, instantiate a new set of properties.
             self.__logipy_value = value
+            self.execution_graph = TimedPropertyGraph()
             self.timestamp = 0
 
         if previous_execution_graph is not None:
-            self.execution_graph.logical_and(previous_execution_graph)
+            previous_copy = previous_execution_graph.get_copy()
+            previous_copy.logical_and(self.execution_graph,
+                                      self.execution_graph.get_most_recent_timestamp())
+            self.execution_graph = previous_copy
 
         self.__logipy_id = str(LogipyPrimitive.__logipy_id_count)
         LogipyPrimitive.__logipy_id_count += 1  # TODO: Make it thread safe.
