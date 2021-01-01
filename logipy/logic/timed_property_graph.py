@@ -111,11 +111,14 @@ class TimedPropertyGraph:
             root_edges = list(self.graph.edges(self.root_node, data=IMPLICATION_PROPERTY_NAME))
             for edge in root_edges:
                 if edge[2] == ASSUMPTION_GRAPH:
-                    assumption = self.graph.subgraph(networkx.dfs_postorder_nodes(edge[1]))
+                    assumption = self.graph.subgraph(networkx.dfs_postorder_nodes(
+                        self.graph, edge[1]))
                 elif edge[2] == CONCLUSION_GRAPH:
-                    conclusion = self.graph.subgraph(networkx.dfs_postorder_nodes(edge[1]))
+                    conclusion = self.graph.subgraph(networkx.dfs_postorder_nodes(
+                        self.graph, edge[1]))
 
-        return assumption, conclusion
+        return self._inflate_property_graph_from_subgraph(assumption), \
+            self._inflate_property_graph_from_subgraph(conclusion)
 
     def replace_subgraph(self, old_subgraph, new_subgraph):
         old_leaves = _get_leaf_nodes(old_subgraph)
@@ -148,7 +151,6 @@ class TimedPropertyGraph:
         # TODO: Remove old edges and nodes that doesn't participate in any other path.
 
         return True
-
 
     def contains_property_graph(self, property_graph):
         property_leaves = _get_leaf_nodes(property_graph)
@@ -273,6 +275,17 @@ class TimedPropertyGraph:
         self.graph.add_edge(start_node, end_node, **data_dict)
         if self.get_root_node() is None or end_node == self.get_root_node():
             self.root_node = start_node
+
+    def _inflate_property_graph_from_subgraph(self, subgraph):
+        property_graph = TimedPropertyGraph()
+        property_graph.graph = subgraph
+        property_graph.time_source = self.time_source
+        for node_in_degree in subgraph.in_degree():
+            if node_in_degree[1] == 0:
+                property_graph.root_node = node_in_degree[0]
+        if not property_graph.root_node:
+            raise Exception("Provided subgraph doesn't contain any root node.")
+        return property_graph
 
 
 class PredicateGraph(TimedPropertyGraph):
