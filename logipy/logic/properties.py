@@ -1,3 +1,6 @@
+from logipy.monitor.time_source import get_global_time_source
+
+
 global_properties = list()  # Storage for graph properties that apply everywhere.
 
 
@@ -11,6 +14,7 @@ def get_global_properties():
 
 
 def add_global_property(property_graph):
+    property_graph.set_time_source(get_global_time_source())
     global_properties.append(property_graph)
 
 

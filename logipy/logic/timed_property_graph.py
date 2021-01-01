@@ -4,6 +4,8 @@ import networkx
 from networkx.readwrite.graphml import write_graphml
 
 from logipy.logic.logical_operators import *
+from logipy.logic.timestamps import *
+from logipy.monitor.time_source import get_global_time_source
 
 
 TIMESTAMP_PROPERTY_NAME = "timestamp"
@@ -13,42 +15,56 @@ CONCLUSION_GRAPH = "conclusion"
 
 
 class TimedPropertyGraph:
-    def __init__(self, time_source=None):
+    def __init__(self, time_source=get_global_time_source()):
         self.graph = networkx.DiGraph()
         self.root_node = None
         self.time_source = time_source
 
-    def logical_and(self, property_graph):
+    def logical_and(self, property_graph, timestamp=None):
         was_empty = self.graph.number_of_nodes() == 0
 
-        self.graph.add_edges_from(property_graph.graph.edges())
+        if timestamp and isinstance(timestamp, RelativeTimestamp):
+            timestamp.set_time_source(self.time_source)
 
+        self.graph.add_edges_from(property_graph.graph.edges(data=True))
         if not was_empty:
             # TODO: Implement recursive naming.
             and_node = AndOperator(self.get_root_node(), property_graph.get_root_node())
-            self._add_edge(and_node, self.get_root_node())
-            self._add_edge(and_node, property_graph.get_root_node())
+            self._add_edge(and_node, self.get_root_node(), {TIMESTAMP_PROPERTY_NAME: timestamp})
+            self._add_edge(and_node, property_graph.get_root_node(),
+                           {TIMESTAMP_PROPERTY_NAME: timestamp})
         else:
             self.root_node = property_graph.get_root_node()
 
-    def logical_not(self):
+    def logical_not(self, timestamp=None):
+        if timestamp and isinstance(timestamp, RelativeTimestamp):
+            timestamp.set_time_source(self.time_source)
         # TODO: Implement recursive naming.
         not_node = NotOperator(self.get_root_node())
-        self.graph.add_edge(not_node, self.get_root_node())
-        self.root_node = not_node
+        self._add_edge(not_node, self.get_root_node(), {TIMESTAMP_PROPERTY_NAME: timestamp})
 
-    def logical_implication(self, property_graph):
+    def logical_implication(self, property_graph, timestamp=None):
         if not self.get_root_node():
             raise Exception("Implication cannot be performed with an empty assumption.")
 
         # TODO: Implement recursive naming.
         impl_node = ImplicationOperator(self.get_root_node(), property_graph.get_root_node())
 
-        self.graph.add_edges_from(property_graph.graph.edges())
+        if not timestamp:
+            assumption_timestamp = self.get_most_recent_timestamp()
+            conclusion_timestamp = property_graph.get_most_recent_timestamp()
+        else:
+            timestamp.set_time_source(self.time_source)
+            assumption_timestamp = timestamp
+            conclusion_timestamp = timestamp
+
+        self.graph.add_edges_from(property_graph.graph.edges(data=True))
         self._add_edge(impl_node, self.get_root_node(),
-                       IMPLICATION_PROPERTY_NAME=ASSUMPTION_GRAPH)
+                       {TIMESTAMP_PROPERTY_NAME: assumption_timestamp,
+                       IMPLICATION_PROPERTY_NAME: ASSUMPTION_GRAPH})
         self._add_edge(impl_node, property_graph.get_root_node(),
-                       IMPLICATION_PROPERTY_NAME=CONCLUSION_GRAPH)
+                       {TIMESTAMP_PROPERTY_NAME: conclusion_timestamp,
+                       IMPLICATION_PROPERTY_NAME: CONCLUSION_GRAPH})
 
     def set_timestamp(self, timestamp):
         """Sets given timestamp, as the timestamp of all edges of the graph.
@@ -56,11 +72,18 @@ class TimedPropertyGraph:
         Set timestamp should not be used on a property graph after it has been used
         as an operand on a logical operation with another graph.
         """
+        if not isinstance(timestamp, Timestamp):
+            raise Exception("Only instances of Timestamp and its subclasses are allowed.")
+
+        # Current implementation provides a single time source for all relative timestamps.
+        if isinstance(timestamp, RelativeTimestamp):
+            timestamp.set_time_source(self.time_source)
+
         for u, v in self.graph.edges():
-            self.graph[u][v].update({'timestamp': timestamp})
+            self.graph[u][v].update({TIMESTAMP_PROPERTY_NAME: timestamp})
 
     def is_uniform_timestamped(self):
-        edges = self.graph.edges(data=TIMESTAMP_PROPERTY_NAME)
+        edges = list(self.graph.edges(data=TIMESTAMP_PROPERTY_NAME))
         timestamp = edges[0][2]
         for edge in edges:
             if edge[2].get_absolute_value() != timestamp.get_absolute_value():
@@ -72,6 +95,13 @@ class TimedPropertyGraph:
 
     def set_time_source(self, time_source):
         self.time_source = time_source
+        for edge in self.graph.edges(data=TIMESTAMP_PROPERTY_NAME):
+            if isinstance(edge[2], RelativeTimestamp):
+                edge[2].set_time_source(time_source)
+
+    def get_most_recent_timestamp(self):
+        timestamps = [e[2] for e in self.get_graph().edges(data=TIMESTAMP_PROPERTY_NAME)]
+        return max(timestamps) if timestamps else None
 
     def get_top_level_implication_subgraphs(self):
         assumption = None
@@ -234,8 +264,9 @@ class TimedPropertyGraph:
         if self.root_node is None:
             self.root_node = node
 
-    def _add_edge(self, start_node, end_node, **kwargs):
-        self.graph.add_edge(start_node, end_node, **kwargs)
+    def _add_edge(self, start_node, end_node, data_dict=dict()):
+        data_dict = {k: v for k, v in data_dict.items() if v}  # Remove None arguments.
+        self.graph.add_edge(start_node, end_node, **data_dict)
         if self.get_root_node() is None or end_node == self.get_root_node():
             self.root_node = start_node
 
