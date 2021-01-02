@@ -140,7 +140,7 @@ class LogipyPrimitive:
             # If given value is not a LogipyPrimitive, instantiate a new set of properties.
             self.__logipy_value = value
             self.execution_graph = TimedPropertyGraph()
-            self.timestamp = 0
+            self.timestamp = global_stamp_and_increment()
 
         if previous_execution_graph is not None:
             previous_copy = previous_execution_graph.get_copy()
