@@ -27,7 +27,9 @@ class TimedPropertyGraph:
 
         was_empty = self.graph.number_of_nodes() == 0
 
-        if timestamp and isinstance(timestamp, RelativeTimestamp):
+        if not timestamp:
+            timestamp = self.get_most_recent_timestamp()
+        if isinstance(timestamp, RelativeTimestamp):
             timestamp.set_time_source(self.time_source)
 
         self.graph.add_edges_from(property_graph.graph.edges(data=True))
