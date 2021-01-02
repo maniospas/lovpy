@@ -21,6 +21,10 @@ class TimedPropertyGraph:
         self.time_source = time_source
 
     def logical_and(self, property_graph, timestamp=None):
+        if property_graph.graph.number_of_nodes() == 0:
+            # Nothing to do if given graph is empty.
+            return
+
         was_empty = self.graph.number_of_nodes() == 0
 
         if timestamp and isinstance(timestamp, RelativeTimestamp):
@@ -46,6 +50,8 @@ class TimedPropertyGraph:
     def logical_implication(self, property_graph, timestamp=None):
         if not self.get_root_node():
             raise Exception("Implication cannot be performed with an empty assumption.")
+        if not property_graph.get_root_node():
+            raise Exception("Implication cannot be performed with an empty conclusion.")
 
         # TODO: Implement recursive naming.
         impl_node = ImplicationOperator(self.get_root_node(), property_graph.get_root_node())
