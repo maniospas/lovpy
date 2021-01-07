@@ -8,8 +8,8 @@ class TimeSource:
 
     def stamp_and_increment(self):
         self._lock.acquire()
-        stamp = self._current_time
         self._current_time += 1
+        stamp = self._current_time
         self._lock.release()
         return stamp
 

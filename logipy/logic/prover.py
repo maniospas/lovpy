@@ -1,29 +1,41 @@
 import os
 
 
+class PropertyNotHoldsException(Exception):
+    def __init__(self, property_text):
+        message = "A property found not to hold:\n\t"
+        message += property_text
+        super().__init__(message)
+
+
 def prove_set_of_properties(property_graphs, execution_graph):
     """A very simple and somewhat silly prover."""
     always_proved_properties = []
-    for i in range(len(property_graphs)):
-        if property_graphs[i].is_uniform_timestamped():
-            always_proved_properties.append(property_graphs.remove(i))
+    properties_to_prove = []
+    for p in property_graphs:
+        if p.is_uniform_timestamped():
+            always_proved_properties.append(p)
+        else:
+            properties_to_prove.append(p)
 
     execution_graph = execution_graph.get_copy()
 
     # Try to apply all always proved properties.
+    # TODO: Make it work for properties that contain an always proved part and a part that
+    # should be proved.
     for p in always_proved_properties:
         assumption, conclusion = p.get_top_level_implication_subgraphs()
         if execution_graph.contains_property_graph(assumption):
-            execution_graph.replace(assumption, conclusion)
+            execution_graph.replace_subgraph(assumption, conclusion)
 
     # Check that its not possible to prove the negation of all the rest properties.
-    for p in property_graphs:
+    for p in properties_to_prove:
         assumption, conclusion = p.get_top_level_implication_subgraphs()
         conclusion = conclusion.get_copy()
         conclusion.logical_not()
         if execution_graph.contains_property_graph(assumption) and \
                 execution_graph.contains_property_graph(conclusion):
-            raise Exception("Property found to not hold.")
+            raise PropertyNotHoldsException(p.get_property_textual_representation())
 
     # # Visualization implementation.
     # base_path = "./test_runs/{}/".format(prove_set_of_properties.exported_counter)

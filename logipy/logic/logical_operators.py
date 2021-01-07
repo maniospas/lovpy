@@ -28,6 +28,9 @@ class LogicalOperator:
     def get_operator_symbol(self):
         raise Exception("Subclass and implement.")
 
+    def logically_matches(self, other):
+        return type(self) is type(other)
+
 
 class AndOperator(LogicalOperator):
     def get_operator_symbol(self):

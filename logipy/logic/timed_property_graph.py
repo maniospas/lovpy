@@ -19,6 +19,7 @@ class TimedPropertyGraph:
         self.graph = networkx.DiGraph()
         self.root_node = None
         self.time_source = time_source
+        self.property_textual_representation = None
 
     def logical_and(self, property_graph, timestamp=None):
         if property_graph.graph.number_of_nodes() == 0:
@@ -27,22 +28,30 @@ class TimedPropertyGraph:
 
         was_empty = self.graph.number_of_nodes() == 0
 
+        timestamp1 = timestamp
+        timestamp2 = timestamp
+
         if not timestamp:
-            timestamp = self.get_most_recent_timestamp()
-        if isinstance(timestamp, RelativeTimestamp):
-            timestamp.set_time_source(self.time_source)
+            timestamp1 = self.get_most_recent_timestamp()
+            timestamp2 = property_graph.get_most_recent_timestamp()
+        if isinstance(timestamp1, RelativeTimestamp):
+            timestamp1.set_time_source(self.time_source)
+        if isinstance(timestamp2, RelativeTimestamp):
+            timestamp2.set_time_source(self.time_source)
 
         self.graph.add_edges_from(property_graph.graph.edges(data=True))
         if not was_empty:
             # TODO: Implement recursive naming.
             and_node = AndOperator(self.get_root_node(), property_graph.get_root_node())
-            self._add_edge(and_node, self.get_root_node(), {TIMESTAMP_PROPERTY_NAME: timestamp})
+            self._add_edge(and_node, self.get_root_node(), {TIMESTAMP_PROPERTY_NAME: timestamp1})
             self._add_edge(and_node, property_graph.get_root_node(),
-                           {TIMESTAMP_PROPERTY_NAME: timestamp})
+                           {TIMESTAMP_PROPERTY_NAME: timestamp2})
         else:
             self.root_node = property_graph.get_root_node()
 
     def logical_not(self, timestamp=None):
+        if not timestamp:
+            timestamp = self.get_most_recent_timestamp()
         if timestamp and isinstance(timestamp, RelativeTimestamp):
             timestamp.set_time_source(self.time_source)
         # TODO: Implement recursive naming.
@@ -134,17 +143,19 @@ class TimedPropertyGraph:
         all_matching_paths = []
 
         for old_leaf in old_leaves:
-            matched_paths, matching_paths = self.find_time_matching_paths_from_node_to_root(
+            matched_paths, matching_groups = self.find_time_matching_paths_from_node_to_root(
                 old_leaf, old_subgraph, old_leaf)
             if not matched_paths:
                 return False
-            all_matching_paths.extend(matching_paths)
+            all_matching_paths.extend(*matching_groups)
+
+        # TODO: Check if it is necessary to implement it for different sets of matching paths.
 
         # Find the upper node where all those paths connect.
         if len(all_matching_paths) > 1:
             for edge in all_matching_paths[0][::-1]:
                 for path in all_matching_paths:
-                    if path[-1] != edge:
+                    if not _edges_match(path[-1], edge):
                         break
                 else:
                     for path in all_matching_paths:
@@ -152,9 +163,22 @@ class TimedPropertyGraph:
                         continue
                 break
 
-        self.graph.add_edges_from(new_subgraph)
-        for path in all_matching_paths:
-            self.graph.add_edge(path[-1][0], new_subgraph.get_root_node())
+        # Add the new subgraph as an unconnected component.
+        self.graph.add_edges_from(new_subgraph.get_graph().edges())
+
+        # Intervene an AND node between the upper non and node of matching subgraph
+        # and its predecessors.
+        upper_common_node = all_matching_paths[0][-1][0]
+        and_node = AndOperator(upper_common_node, new_subgraph.get_root_node())
+        and_timestamp = max(
+            *(e[2] for e in self.graph.out_edges(upper_common_node, data=TIMESTAMP_PROPERTY_NAME)))
+        predecessors = list(self.graph.predecessors(upper_common_node))
+        for predecessor in predecessors:
+            self.graph.remove_edge(predecessor, upper_common_node)
+            self._add_edge(predecessor, and_node, {TIMESTAMP_PROPERTY_NAME: and_timestamp})
+        self._add_edge(and_node, upper_common_node, {TIMESTAMP_PROPERTY_NAME: and_timestamp})
+        self._add_edge(and_node, new_subgraph.get_root_node(),
+                       {TIMESTAMP_PROPERTY_NAME: and_timestamp})
 
         # TODO: Remove old edges and nodes that doesn't participate in any other path.
 
@@ -191,6 +215,7 @@ class TimedPropertyGraph:
             matching_paths = matching_groups[i]
             matched_path_timestamp = _find_path_timestamp(matched_path)
 
+            # TODO: Implement time matching for timesources different than current one.
             for matching_path in matching_paths:
                 if not _find_path_timestamp(matching_path).matches(matched_path_timestamp):
                     matching_paths.remove(matching_path)
@@ -223,7 +248,7 @@ class TimedPropertyGraph:
         elif not paths_to_upper_non_and_other_nodes and not paths_to_upper_non_and_current_nodes:
             matched_paths = _find_clean_paths_to_root(other_graph, other_start_node)
             matching_paths = _find_clean_paths_to_root(self, start_node)
-            return matched_paths, [matching_paths for p in matched_paths], bool(matched_paths)
+            return matched_paths, [matching_paths for p in matched_paths], True
 
         matched_other_paths = []
         matching_current_path_groups = []
@@ -247,16 +272,21 @@ class TimedPropertyGraph:
                             other_upper_path_non_and_node
                         )
 
+                    # The matched and matching paths should be prepended with the subpaths up
+                    # to the node where search started.
                     if found:
-                        # The matched and matching paths should be prepended with the subpaths up
-                        # to the node where search started.
-                        for p in matched_paths:
-                            matched_other_paths.append([*other_upper_path, *p])
-                        matching_current_paths = []
-                        for matching_group in matching_groups:
-                            for p in matching_group:
-                                matching_current_paths.append([*current_upper_path.extend(p), *p])
-                        matching_current_path_groups.append(matching_current_paths)
+                        if not matched_paths:
+                            # Path returned empty, because successfully terminated to rood node.
+                            matched_other_paths.append(other_upper_path)
+                            matching_current_path_groups.append([current_upper_path])
+                        else:
+                            for p in matched_paths:
+                                matched_other_paths.append([*other_upper_path, *p])
+                            matching_current_paths = []
+                            for matching_group in matching_groups:
+                                for p in matching_group:
+                                    matching_current_paths.append([*current_upper_path, *p])
+                            matching_current_path_groups.append(matching_current_paths)
 
         return matched_other_paths, matching_current_path_groups, bool(matched_other_paths)
 
@@ -271,7 +301,14 @@ class TimedPropertyGraph:
         copy_obj.graph = self.graph.copy()
         copy_obj.root_node = self.root_node  # Node references remain the same.
         copy_obj.time_source = self.time_source
+        copy_obj.property_textual_representation = self.property_textual_representation
         return copy_obj
+
+    def get_property_textual_representation(self):
+        return self.property_textual_representation if self.property_textual_representation else ""
+
+    def set_property_textual_representation(self, textual_representation):
+        self.property_textual_representation = textual_representation
 
     def _add_node(self, node):
         self.graph.add_node(node)
@@ -288,6 +325,7 @@ class TimedPropertyGraph:
         property_graph = TimedPropertyGraph()
         property_graph.graph = subgraph
         property_graph.time_source = self.time_source
+        property_graph.property_textual_representation = self.property_textual_representation
         for node_in_degree in subgraph.in_degree():
             if node_in_degree[1] == 0:
                 property_graph.root_node = node_in_degree[0]
@@ -366,7 +404,7 @@ class MonitoredVariable:
 
 def _get_leaf_nodes(property_graph):
     leaf_nodes = list()
-    for node, deg in property_graph.get_graph().in_degree():
+    for node, deg in property_graph.get_graph().out_degree():
         if deg == 0:
             leaf_nodes.append(node)
     return leaf_nodes
@@ -402,3 +440,17 @@ def _find_path_timestamp(path):
     for edge in path:
         path_timestamp = min(path_timestamp, edge[2])
     return path_timestamp
+
+
+def _edges_match(e1, e2):
+    if e1[0] != e2[0]:
+        return False
+    if e1[1] != e2[1]:
+        return False
+    if len(e1) > 2 and len(e2) > 2:
+        if isinstance(e1[2], Timestamp) and isinstance(e2[2], Timestamp):
+            if not e1[2].matches(e2[2]):
+                return False
+        else:
+            raise Exception("Edge comparison without solely timestamp data, not implemented yet.")
+    return True

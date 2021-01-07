@@ -40,6 +40,7 @@ def import_gherkin_lines(lines):
         if rule:
             # print("\""+rule+"\"\n")
             graph = convert_specification_to_graph(rule)
+            graph.set_property_textual_representation(rule)
             logipy.logic.properties.add_global_property(graph)
             # TODO: Remove debug code.
             # print("Nodes:\n")
@@ -55,16 +56,12 @@ def convert_specification_to_graph(formula):
     given_clause, when_clause, then_clause = get_fundamental_clauses(formula)
 
     when_property = convert_clause_to_graph(when_clause)
-    when_property.set_timestamp(LesserThanRelativeTimestamp(-1))
-
     then_property = convert_clause_to_graph(then_clause)
-    then_property.set_timestamp(RelativeTimestamp(0))
 
     final_property = when_property
     if given_clause:
         given_property = convert_clause_to_graph(given_clause)
-        given_property.set_timestamp(LesserThanRelativeTimestamp(-1))
-        final_property.logical_and(given_property, LesserThanRelativeTimestamp(-1))
+        final_property.logical_and(given_property)
 
     final_property.logical_implication(then_property)
 
@@ -99,8 +96,6 @@ def convert_clause_to_graph(clause):
     clause_graph = TimedPropertyGraph()
 
     for subclause in subclauses:
-        subclause_graph = None
-
         print("\tConverting: \'"+subclause+"\'\n")  # TODO: Remove debug comment.
 
         # Initially, remove any preceding negation and parse the positive predicate.
@@ -115,6 +110,7 @@ def convert_clause_to_graph(clause):
             subclause_graph = convert_predicate_to_graph(subclause)
         else:
             subclause_graph = monitored_predicate.convert_to_graph()
+            subclause_graph.set_timestamp(RelativeTimestamp(0))
 
         # If original subclause was negated, negate the total graph of the subclause.
         if is_negated:
@@ -140,5 +136,6 @@ def convert_predicate_to_graph(predicate):
         timestamp = RelativeTimestamp(0)
 
     predicate_graph = PredicateGraph(predicate, MonitoredVariable("VAR"))
+    predicate_graph.set_timestamp(timestamp)
 
     return predicate_graph
