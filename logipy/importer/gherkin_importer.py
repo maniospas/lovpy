@@ -38,17 +38,10 @@ def import_gherkin_lines(lines):
     for rule in (" ".join(lines)).split("SCENARIO:"):
         rule = rule.strip()
         if rule:
-            # print("\""+rule+"\"\n")
             graph = convert_specification_to_graph(rule)
             graph.set_property_textual_representation(rule)
             logipy.logic.properties.add_global_property(graph)
-            # TODO: Remove debug code.
-            # print("Nodes:\n")
-            # for n in graph._get_graph().nodes():
-            #     print(n)
-            # print("Edges:\n")
-            # for e in graph._get_graph().edges():
-            #     print(e)
+
 
 
 def convert_specification_to_graph(formula):
@@ -92,30 +85,32 @@ def convert_clause_to_graph(clause):
 
     A fundamental step clause, is the text tha follows GIVEN, WHEN, THEN steps.
     """
-    subclauses = clause.split(' AND ')
+    subclauses = clause.split(" AND ")
     clause_graph = TimedPropertyGraph()
 
     for subclause in subclauses:
-        print("\tConverting: \'"+subclause+"\'\n")  # TODO: Remove debug comment.
+        # Remove any SHOULD modifier and parse the predicate part.
+        starts_with_should = subclause.startswith("SHOULD ")
+        if starts_with_should:
+            subclause = subclause.lstrip("SHOULD ")
 
-        # Initially, remove any preceding negation and parse the positive predicate.
-        is_negated = subclause.startswith('NOT ')
+        # Remove any preceding negation and parse the positive predicate.
+        is_negated = subclause.startswith("NOT ")
         if is_negated:
-            subclause = subclause.lstrip('NOT ')
+            subclause = subclause.lstrip("NOT ")
 
-        # Check if subclause is a defined function.
-        monitored_predicate = MonitoredPredicate.find_text_matching_monitored_predicate(subclause)
-        print("\t\tfound monitored predicate:"+str(monitored_predicate)+"\n")  # TODO: Remove debug comment.
-        if monitored_predicate is None:
-            subclause_graph = convert_predicate_to_graph(subclause)
+        subclause_graph = convert_predicate_to_graph(subclause)
+
+        if starts_with_should:
+            # SHOULD modifier means that a predicate should already have been TRUE.
+            subclause_graph.set_timestamp(LesserThanRelativeTimestamp(-1))
         else:
-            subclause_graph = monitored_predicate.convert_to_graph()
+            # Without SHOULD modifier, a predicate becomes TRUE at current time step.
             subclause_graph.set_timestamp(RelativeTimestamp(0))
 
         # If original subclause was negated, negate the total graph of the subclause.
         if is_negated:
             subclause_graph.logical_not()
-            print("\t\tapplied NOT")  # TODO: Remove debug comment.
 
         clause_graph.logical_and(subclause_graph)
 
@@ -127,15 +122,12 @@ def convert_predicate_to_graph(predicate):
 
     Predicates are allowed to contain SHOULD modifier.
     """
-    if predicate.startswith("SHOULD "):
-        # SHOULD modifier means that a predicate should already have been TRUE.
-        predicate = predicate.lstrip("SHOULD ")
-        timestamp = LesserThanRelativeTimestamp(-1)
-    else:
-        # Without SHOULD modifier, a predicate becomes TRUE at current time step.
-        timestamp = RelativeTimestamp(0)
+    # Check if predicate is a defined function.
+    monitored_predicate = MonitoredPredicate.find_text_matching_monitored_predicate(predicate)
 
-    predicate_graph = PredicateGraph(predicate, MonitoredVariable("VAR"))
-    predicate_graph.set_timestamp(timestamp)
+    if monitored_predicate is None:
+        predicate_graph = PredicateGraph(predicate, MonitoredVariable("VAR"))
+    else:
+        predicate_graph = monitored_predicate.convert_to_graph()
 
     return predicate_graph
