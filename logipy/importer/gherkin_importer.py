@@ -84,11 +84,17 @@ def convert_clause_to_graph(clause):
     """Converts a fundamental step clause, to property graph.
 
     A fundamental step clause, is the text tha follows GIVEN, WHEN, THEN steps.
+
+    Steps are allowed to contain SHOULD modifier.
     """
     subclauses = clause.split(" AND ")
     clause_graph = TimedPropertyGraph()
 
     for subclause in subclauses:
+        # TODO: Support PRINT statement
+        if subclause.startswith("PRINT "):
+            continue
+
         # Remove any SHOULD modifier and parse the predicate part.
         starts_with_should = subclause.startswith("SHOULD ")
         if starts_with_should:
@@ -118,10 +124,7 @@ def convert_clause_to_graph(clause):
 
 
 def convert_predicate_to_graph(predicate):
-    """Converts a predicate to a graph representation
-
-    Predicates are allowed to contain SHOULD modifier.
-    """
+    """Converts a predicate to a graph representation"""
     # Check if predicate is a defined function.
     monitored_predicate = MonitoredPredicate.find_text_matching_monitored_predicate(predicate)
 
