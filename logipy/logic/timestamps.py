@@ -33,14 +33,26 @@ class Timestamp:
         b = other.get_validity_interval()
 
         # WARNING: [..,-inf] and [inf,..] cases are not supported yet.
-        if a[0] == MINUS_INFINITE:
-            a[0] = min(a[0], b[0]) - 1
-        if b[0] == MINUS_INFINITE:
-            b[0] = min(a[0], b[0]) - 1
-        if a[1] == PLUS_INFINITE:
-            a[1] = max(a[1], b[1]) + 1
-        if b[1] == PLUS_INFINITE:
-            b[1] = max(a[1], b[1]) + 1
+        if a[0] == MINUS_INFINITE and b[0] != MINUS_INFINITE:
+            a[0] = b[0] - 1
+        if b[0] == MINUS_INFINITE and a[0] != MINUS_INFINITE:
+            b[0] = a[0] - 1
+        if a[1] == PLUS_INFINITE and b[1] != PLUS_INFINITE:
+            a[1] = b[1] + 1
+        if b[1] == PLUS_INFINITE and a[1] != PLUS_INFINITE:
+            b[1] = a[1] + 1
+
+        # Cover the cases where both lower or upper limits are -inf or inf respectively.
+        if a[0] == MINUS_INFINITE and b[0] == MINUS_INFINITE:
+            if a[1] != MINUS_INFINITE and b[1] != MINUS_INFINITE:
+                return True
+            else:
+                return False
+        if a[1] == PLUS_INFINITE and b[1] == PLUS_INFINITE:
+            if a[0] != PLUS_INFINITE and b[0] != PLUS_INFINITE:
+                return True
+            else:
+                return False
 
         return max(a[0], b[0]) <= min(a[1], b[1])
 
@@ -69,7 +81,7 @@ class RelativeTimestamp(Timestamp):
 
 class LesserThanRelativeTimestamp(RelativeTimestamp):
     def __repr__(self):
-        return "<= " + repr(super())
+        return "<= " + RelativeTimestamp.__repr__(self)
 
     def get_validity_interval(self):
         return [MINUS_INFINITE, self.get_absolute_value()]
@@ -77,7 +89,7 @@ class LesserThanRelativeTimestamp(RelativeTimestamp):
 
 class GreaterThanRelativeTimestamp(RelativeTimestamp):
     def __repr__(self):
-        return ">= " + repr(super())
+        return ">= " + RelativeTimestamp.__repr__(self)
 
     def get_validity_interval(self):
         return [self.get_absolute_value(), PLUS_INFINITE]
