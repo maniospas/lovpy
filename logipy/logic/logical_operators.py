@@ -1,6 +1,6 @@
 class LogicalOperator:
     def __init__(self, *args):
-        args_list = [str(arg) for arg in args]
+        args_list = [arg.__repr__() for arg in args]
         if not self.operands_order_matters():
             # Sort the arguments, so their order doesn't matter in string representation.
             args_list.sort()
@@ -9,12 +9,12 @@ class LogicalOperator:
         # in the same way. Later, may consider to use another structure or another
         # hashing function.
         if len(args_list) == 1:
-            self.str_representation = self.get_operator_symbol() + args_list[0]
+            self.str_representation = self.get_operator_symbol() + "(" + args_list[0] + ")"
         else:
-            self.str_representation = self.get_operator_symbol().join(args_list)
+            self.str_representation = self.get_operator_symbol() + "(" + ",".join(args_list) + ")"
 
     def __str__(self):
-        return self.str_representation
+        return str(hash(self.str_representation))
 
     def __hash__(self):
         return hash(self.str_representation)

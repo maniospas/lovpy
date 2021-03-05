@@ -3,6 +3,8 @@ import copy
 import networkx
 from networkx.readwrite.graphml import write_graphml
 from networkx.algorithms.simple_paths import all_simple_edge_paths
+from networkx.drawing.nx_pylab import draw_networkx, draw_networkx_edge_labels, draw_networkx_edges
+from matplotlib import pyplot as plt
 
 from logipy.graphs.colorizable_digraph import ColorizableDiGraph
 from logipy.logic.logical_operators import *
@@ -353,6 +355,33 @@ class TimedPropertyGraph:
     def is_implication_graph(self):
         return isinstance(self.root_node, ImplicationOperator) and \
                self.graph.out_degree(self.root_node) > 1
+
+    def visualize(self, title="", show_colorization=False):
+        plt.figure(num=None, figsize=(18, 18), dpi=80, facecolor='w', edgecolor='w')
+        plt.title(title, fontsize=22, fontweight='bold')
+        plt.axis('off')
+        plt.tight_layout()
+        pos = networkx.nx_agraph.graphviz_layout(self.graph, prog='dot')
+        edge_labels = {
+            e: str(self.graph.edges[e[0], e[1]][TIMESTAMP_PROPERTY_NAME])
+            for e in self.graph.edges
+        }
+        edge_colors = {
+            e: 'red' if self.graph.is_edge_colorized(e[0], e[1]) else 'black'
+            for e in self.graph.edges
+        }
+        node_labels = {
+            n: n.get_operator_symbol() if isinstance(n, LogicalOperator) else str(n)
+            for n in self.graph.nodes
+        }
+        draw_networkx(self.graph, pos=pos, font_size=18, node_size=5000,
+                      labels=node_labels, font_weight='bold')
+        if show_colorization:
+            draw_networkx_edges(self.graph, pos=pos, edgelist=list(edge_colors.keys()),
+                                edge_color=list(edge_colors.values()))
+        draw_networkx_edge_labels(self.graph, pos=pos, edge_labels=edge_labels,
+                                  font_size=18, font_color='red')
+        plt.show()
 
     def _add_node(self, node):
         self.graph.add_node(node)

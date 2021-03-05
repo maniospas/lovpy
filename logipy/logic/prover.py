@@ -12,6 +12,8 @@ def prove_set_of_properties(property_graphs, execution_graph):
     """A very simple and somewhat silly prover."""
     property_graphs = [p.get_copy() for p in property_graphs]  # Don't modify the original graphs.
 
+    execution_graph.visualize("Execution Graph")
+
     always_proved_properties = []
     properties_to_prove = []
     for p in property_graphs:
@@ -42,6 +44,8 @@ def prove_set_of_properties(property_graphs, execution_graph):
                 execution_graph.replace_subgraph(assumption, conclusion)
                 more_to_be_applied = True
                 properties_applied += 1
+                # p.visualize("Property Applied")
+                # execution_graph.visualize("New Execution Graph")
 
     # Check that its not possible to prove the negation of all the rest properties.
     for p in properties_to_prove:
