@@ -10,6 +10,8 @@ class PropertyNotHoldsException(Exception):
 
 def prove_set_of_properties(property_graphs, execution_graph):
     """A very simple and somewhat silly prover."""
+    property_graphs = [p.get_copy() for p in property_graphs]  # Don't modify the original graphs.
+
     always_proved_properties = []
     properties_to_prove = []
     for p in property_graphs:
@@ -17,16 +19,29 @@ def prove_set_of_properties(property_graphs, execution_graph):
             always_proved_properties.append(p)
         else:
             properties_to_prove.append(p)
+    # In always proved properties, also add the proved parts of complex properties.
+    for p in properties_to_prove:
+        proved_part = p.get_present_time_subgraph()
+        if proved_part and proved_part.is_implication_graph():
+            _, proved_part_conclusion = proved_part.get_top_level_implication_subgraphs()
+            always_proved_properties.append(proved_part)
+            p.remove_subgraph(proved_part_conclusion)
 
     execution_graph = execution_graph.get_copy()
 
-    # Try to apply all always proved properties.
-    # TODO: Make it work for properties that contain an always proved part and a part that
-    # should be proved.
-    for p in always_proved_properties:
-        assumption, conclusion = p.get_top_level_implication_subgraphs()
-        if execution_graph.contains_property_graph(assumption):
-            execution_graph.replace_subgraph(assumption, conclusion)
+    # Try to apply all always proved properties, until no more property can be applied.
+    more_to_be_applied = True
+    properties_applied = 0
+    while more_to_be_applied and properties_applied < 2:
+        # TODO: Do it only one time
+        # TODO: Sort always proved properties based on the complexity of p.
+        more_to_be_applied = False
+        for p in always_proved_properties:
+            assumption, conclusion = p.get_top_level_implication_subgraphs()
+            if execution_graph.contains_property_graph(assumption):
+                execution_graph.replace_subgraph(assumption, conclusion)
+                more_to_be_applied = True
+                properties_applied += 1
 
     # Check that its not possible to prove the negation of all the rest properties.
     for p in properties_to_prove:
