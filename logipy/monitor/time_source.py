@@ -1,4 +1,5 @@
 import threading
+import types
 
 
 class TimeSource:
@@ -24,6 +25,7 @@ class TimeSource:
 
 
 global_time_source = TimeSource()
+zero_locked_time_source = None
 
 
 def get_global_time_source():
@@ -32,3 +34,18 @@ def get_global_time_source():
 
 def global_stamp_and_increment():
     return global_time_source.stamp_and_increment()
+
+
+def get_zero_locked_timesource():
+    global zero_locked_time_source
+
+    if not zero_locked_time_source:
+        zero_locked_time_source = TimeSource()
+
+        def get_zero(self):
+            return 0
+
+        zero_locked_time_source.get_current_time = types.MethodType(
+            get_zero, zero_locked_time_source)
+
+    return zero_locked_time_source

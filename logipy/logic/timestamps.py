@@ -1,3 +1,7 @@
+from copy import copy
+import logipy.monitor.time_source as time_source
+
+
 PLUS_INFINITE = "inf"
 MINUS_INFINITE = "-inf"
 
@@ -21,11 +25,20 @@ class Timestamp:
     def __ge__(self, other):
         return self.get_validity_interval()[1] >= other.get_validity_interval()[1]
 
+    def __copy__(self):
+        return type(self)(self._value)
+
+    def is_absolute(self):
+        return type(self) is Timestamp
+
     def get_absolute_value(self):
         return self._value
 
     def get_validity_interval(self):
         return [self._value, self._value]
+
+    def get_shifted_timestamp(self, shift):
+        return Timestamp(self.get_absolute_value()+shift)
 
     def matches(self, other):
         # Check if intervals overlap.
@@ -65,6 +78,9 @@ class RelativeTimestamp(Timestamp):
     def __repr__(self):
         return "::" + str(self.get_relative_value())
 
+    def __copy__(self):
+        return type(self)(super().get_absolute_value(), time_source=self.time_source)
+
     def get_absolute_value(self):
         return self.time_source.get_current_time() + self.get_relative_value()
 
@@ -77,6 +93,9 @@ class RelativeTimestamp(Timestamp):
 
     def set_time_source(self, time_source):
         self.time_source = time_source
+
+    def get_time_source(self):
+        return self.time_source
 
 
 class LesserThanRelativeTimestamp(RelativeTimestamp):
@@ -93,3 +112,46 @@ class GreaterThanRelativeTimestamp(RelativeTimestamp):
 
     def get_validity_interval(self):
         return [self.get_absolute_value(), PLUS_INFINITE]
+
+
+def timestamp_sequences_matches(seq1, seq2):
+    """Check if two timestamp sequences matches."""
+    if len(seq1) != len(seq2):
+        raise RuntimeError("Timestamp sequences lengths should match.")
+
+    # Align sequences based on the first pair of absolute and relative occurence.
+    shift = 0
+
+    for i in reversed(range(len(seq1))):
+        t1 = seq1[i]
+        t2 = seq2[i]
+
+        if t1.is_absolute() and not t2.is_absolute():
+            shift = t2.get_relative_value() - t1.get_absolute_value()
+            break
+        elif t2.is_absolute() and not t1.is_absolute():
+            shift = t1.get_relative_value() - t2.get_absolute_value()
+            break
+
+    matches = True
+    for i in range(len(seq1)):
+        t1 = seq1[i]
+        t2 = seq2[i]
+
+        if t1.is_absolute():
+            t1 = t1.get_shifted_timestamp(shift)
+        else:
+            t1 = copy(t1)
+            t1.set_time_source(time_source.get_zero_locked_timesource())
+
+        if t2.is_absolute():
+            t2 = t2.get_shifted_timestamp(shift)
+        else:
+            t2 = copy(t2)
+            t2.set_time_source(time_source.get_zero_locked_timesource())
+
+        if not t1.matches(t2):
+            matches = False
+            break
+
+    return matches

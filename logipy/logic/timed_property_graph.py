@@ -1,3 +1,4 @@
+import itertools
 import copy
 
 import networkx
@@ -209,8 +210,8 @@ class TimedPropertyGraph:
         self._logically_remove_path_set([g[0] for g in matching_groups])
 
     def contains_property_graph(self, property_graph):
-        _, _, found = self._find_equivalent_path_structure(property_graph)
-        return found
+        matching_cases = self.find_equivalent_subgraphs(property_graph)
+        return bool(matching_cases)
 
         # property_leaves = _get_leaf_nodes(property_graph)
         #
@@ -383,6 +384,33 @@ class TimedPropertyGraph:
                                   font_size=18, font_color='red')
         plt.show()
 
+    def find_equivalent_subgraphs(self, other):
+        matched_paths, matching_groups, found = self._find_equivalent_path_structure(other)
+        if not found:
+            return []
+
+        original_timestamps = [_find_path_timestamp(p) for p in matched_paths]
+        groups_timestamps = [[_find_path_timestamp(p) for p in group] for group in matching_groups]
+        cases = list(itertools.product(*matching_groups))  # all subgraphs that match other graph
+        cases_timestamps = list(itertools.product(*groups_timestamps))
+        sorted_by_original_timestamps = list(zip(
+            *sorted(zip(original_timestamps, *cases_timestamps, *cases), key=lambda row: row[0])))
+        original_timestamps = sorted_by_original_timestamps[0]
+        cases_timestamps = sorted_by_original_timestamps[1:len(cases)+1]
+        cases = sorted_by_original_timestamps[len(cases)+1:]
+
+        cases_to_remove = set()
+
+        for i in range(len(cases)):
+            case = cases[i]
+            case_timestamps = cases_timestamps[i]
+
+            if not timestamp_sequences_matches(original_timestamps, case_timestamps):
+                cases_to_remove.add(i)
+                break
+
+        return [cases[i] for i in range(len(cases)) if i not in cases_to_remove]
+
     def _add_node(self, node):
         self.graph.add_node(node)
         if self.root_node is None:
@@ -529,6 +557,12 @@ class MonitoredVariable:
 
     def __repr__(self):
         return self.monitored_variable
+
+
+class TimestampedPath:
+    def __init__(self, path, timestamp):
+        self.path = path
+        self.timestamp = timestamp
 
 
 def _get_leaf_nodes(property_graph):
