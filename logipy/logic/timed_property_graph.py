@@ -144,25 +144,13 @@ class TimedPropertyGraph:
             self._inflate_property_graph_from_subgraph(conclusion)
 
     def replace_subgraph(self, old_subgraph, new_subgraph):
-        # old_leaves = _get_leaf_nodes(old_subgraph)
-        #
-        # all_matching_paths = []
-        #
-        # for old_leaf in old_leaves:
-        #     matched_paths, matching_groups, _ = self.find_time_matching_paths_from_node_to_root(
-        #         old_leaf, old_subgraph, old_leaf)
-        #     if not matched_paths:
-        #         return False
-        #     all_matching_paths.extend(*matching_groups)
-
-        _, matching_groups, found = self._find_equivalent_path_structure(old_subgraph)
-        if not found:
+        matching_cases, _, original_timestamps, cases_timestamps = \
+            self.find_equivalent_subgraphs(old_subgraph)
+        if not matching_cases:
             return False
-        all_matching_paths = []
-        for group in matching_groups:
-            all_matching_paths.extend(reversed(group))
 
-        # TODO: Check if it is necessary to implement it for different sets of matching paths.
+        all_matching_paths = matching_cases[0]  # TODO: pass selection to prover
+        matching_timestamps = cases_timestamps[0]
 
         # Find the upper node where all those paths connect.
         if len(all_matching_paths) > 1:
@@ -176,14 +164,18 @@ class TimedPropertyGraph:
                         continue
                 break
 
-        # # Convert relative timestamps to absolute. TODO: A better implementation.
-        # timestamp = max([_find_path_timestamp(p) for p in all_matching_paths])
-        # new_subgraph = new_subgraph.get_copy()
-        # new_subgraph.set_timestamp(Timestamp(get_global_time_source().get_current_time()-1))
-
         # Add the new subgraph as an unconnected component.
         if new_subgraph:
-            self.graph.add_edges_from(new_subgraph.get_graph().edges(data=True))
+            old_subgraph_timestamp = max(matching_timestamps)  # first moment the structure holds
+
+            for edge in new_subgraph.get_graph().edges(data=TIMESTAMP_PROPERTY_NAME):
+                # TODO: Consider if it is required to assign timestamps according to relative ones.
+                # Replace relative timestamps with the absolute timestamp when old subgraph
+                # firstly holds.
+                timestamp = edge[2]
+                if not timestamp.is_absolute():
+                    timestamp = old_subgraph_timestamp
+                self._add_edge(edge[0], edge[1], {TIMESTAMP_PROPERTY_NAME: timestamp})
 
             # Intervene an AND node between the upper non and node of matching subgraph
             # and its predecessors.
@@ -210,7 +202,7 @@ class TimedPropertyGraph:
         self._logically_remove_path_set([g[0] for g in matching_groups])
 
     def contains_property_graph(self, property_graph):
-        matching_cases = self.find_equivalent_subgraphs(property_graph)
+        matching_cases, _, _, _ = self.find_equivalent_subgraphs(property_graph)
         return bool(matching_cases)
 
         # property_leaves = _get_leaf_nodes(property_graph)
@@ -387,17 +379,19 @@ class TimedPropertyGraph:
     def find_equivalent_subgraphs(self, other):
         matched_paths, matching_groups, found = self._find_equivalent_path_structure(other)
         if not found:
-            return []
+            return [], [], [], []
 
         original_timestamps = [_find_path_timestamp(p) for p in matched_paths]
         groups_timestamps = [[_find_path_timestamp(p) for p in group] for group in matching_groups]
         cases = list(itertools.product(*matching_groups))  # all subgraphs that match other graph
         cases_timestamps = list(itertools.product(*groups_timestamps))
-        sorted_by_original_timestamps = list(zip(
-            *sorted(zip(original_timestamps, *cases_timestamps, *cases), key=lambda row: row[0])))
+        sorted_by_original_timestamps = list(zip(*sorted(zip(
+            original_timestamps, matched_paths, *cases_timestamps, *cases), key=lambda row: row[0]
+        )))
         original_timestamps = sorted_by_original_timestamps[0]
-        cases_timestamps = sorted_by_original_timestamps[1:len(cases)+1]
-        cases = sorted_by_original_timestamps[len(cases)+1:]
+        matched_paths = sorted_by_original_timestamps[1]
+        cases_timestamps = sorted_by_original_timestamps[2:len(cases)+2]
+        cases = sorted_by_original_timestamps[len(cases)+2:]
 
         cases_to_remove = set()
 
@@ -407,9 +401,9 @@ class TimedPropertyGraph:
 
             if not timestamp_sequences_matches(original_timestamps, case_timestamps):
                 cases_to_remove.add(i)
-                break
 
-        return [cases[i] for i in range(len(cases)) if i not in cases_to_remove]
+        return [cases[i] for i in range(len(cases)) if i not in cases_to_remove], matched_paths, \
+            original_timestamps, cases_timestamps
 
     def _add_node(self, node):
         self.graph.add_node(node)

@@ -12,7 +12,7 @@ def prove_set_of_properties(property_graphs, execution_graph):
     """A very simple and somewhat silly prover."""
     property_graphs = [p.get_copy() for p in property_graphs]  # Don't modify the original graphs.
 
-    execution_graph.visualize("Execution Graph")
+    #execution_graph.visualize("Execution Graph")
 
     always_proved_properties = []
     properties_to_prove = []
@@ -50,10 +50,13 @@ def prove_set_of_properties(property_graphs, execution_graph):
     # Check that its not possible to prove the negation of all the rest properties.
     for p in properties_to_prove:
         assumption, conclusion = p.get_top_level_implication_subgraphs()
+        assumption = assumption.get_copy()
         conclusion = conclusion.get_copy()
         conclusion.logical_not()
-        if execution_graph.contains_property_graph(assumption) and \
-                execution_graph.contains_property_graph(conclusion):
+        assumption.logical_and(conclusion)
+        if execution_graph.contains_property_graph(assumption):
+            execution_graph.visualize("Execution Graph where property not holds")
+            assumption.visualize("Property that not holds.")
             raise PropertyNotHoldsException(p.get_property_textual_representation())
 
     # # Visualization implementation.
