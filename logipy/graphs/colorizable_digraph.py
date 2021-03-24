@@ -99,6 +99,11 @@ class ColorizableDiGraph(networkx.DiGraph):
             if should_clean_nodes:
                 self._remove_zero_degree_nodes()
 
+    def clear_colorization(self):
+        for e in self.edges:
+            if self.edges[e[0], e[1]].get(EDGE_COLORIZATION_LABEL, False):
+                self.edges[e[0], e[1]][EDGE_COLORIZATION_LABEL] = False
+
     def _remove_zero_degree_nodes(self):
         nodes_to_remove = []
         for n, d in self.degree():
