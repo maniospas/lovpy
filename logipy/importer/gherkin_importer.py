@@ -43,7 +43,6 @@ def import_gherkin_lines(lines):
             logipy.logic.properties.add_global_property(graph)
 
 
-
 def convert_specification_to_graph(formula):
     """Converts a specification formula to a specification graph."""
     given_clause, when_clause, then_clause = get_fundamental_clauses(formula)
@@ -54,6 +53,7 @@ def convert_specification_to_graph(formula):
     final_property = when_property
     if given_clause:
         given_property = convert_clause_to_graph(given_clause)
+        given_property.set_timestamp(LesserThanRelativeTimestamp(-1))
         final_property.logical_and(given_property)
 
     final_property.logical_implication(then_property)
