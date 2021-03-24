@@ -105,11 +105,21 @@ class TimedPropertyGraph:
         for u, v in self.graph.edges():
             self.graph[u][v].update({TIMESTAMP_PROPERTY_NAME: timestamp})
 
-    def is_uniform_timestamped(self):
+    def is_uniform_timestamped(self, timestamp=None):
         edges = list(self.graph.edges(data=TIMESTAMP_PROPERTY_NAME))
-        timestamp = edges[0][2]
+        if not timestamp:
+            timestamp = edges[0][2]
         for edge in edges:
-            if edge[2].get_absolute_value() != timestamp.get_absolute_value():
+            if timestamp.is_absolute() != edge[2].is_absolute():
+                # All timestamps should either be absolute or relative.
+                return False
+
+            if timestamp.is_absolute() and (
+                    timestamp.get_absolute_value() != edge[2].get_absolute_value()):
+                # Absolute timestamps should have exact the same value.
+                return False
+            elif not timestamp.is_absolute() and not timestamp.matches(edge[2]):
+                # Relative timestamps should have a common interval.
                 return False
         return True
 
