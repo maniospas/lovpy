@@ -19,7 +19,7 @@ class ColorizableDiGraph(networkx.DiGraph):
 
     def colorize_path(self, path):
         for e in path:
-            self.add_edge(e[0], e[1], colorized_edge=True)  # TODO: Fix hardcoded label.
+            self.edges[e[0], e[1]][EDGE_COLORIZATION_LABEL] = True
 
     def out_colorize_nodes(self):
         node_out_colorized = {}
