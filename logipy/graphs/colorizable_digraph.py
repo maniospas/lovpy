@@ -103,6 +103,8 @@ class ColorizableDiGraph(networkx.DiGraph):
         for e in self.edges:
             if self.edges[e[0], e[1]].get(EDGE_COLORIZATION_LABEL, False):
                 self.edges[e[0], e[1]][EDGE_COLORIZATION_LABEL] = False
+        networkx.set_node_attributes(self, {}, NODE_IN_COLORIZATION_LABEL)
+        networkx.set_node_attributes(self, {}, NODE_OUT_COLORIZATION_LABEL)
 
     def _remove_zero_degree_nodes(self):
         nodes_to_remove = []
