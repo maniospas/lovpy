@@ -13,11 +13,16 @@ class LogicalOperator:
         else:
             self.str_representation = self.get_operator_symbol() + "(" + ",".join(args_list) + ")"
 
-    def __str__(self):
-        return str(hash(self.str_representation))
+        self.hashing_by_name_is_disabled = False
 
-    def __hash__(self):
-        return hash(self.str_representation)
+    # def __str__(self):
+    #     return str(hash(self.str_representation))
+
+    # def __hash__(self):
+    #     if self.hashing_by_name_is_disabled:
+    #         return
+    #     else:
+    #         return hash(self.str_representation)
 
     def __repr__(self):
         return self.str_representation
@@ -30,6 +35,9 @@ class LogicalOperator:
 
     def logically_matches(self, other):
         return type(self) is type(other)
+
+    def disable_hashing_by_structure(self, disable=True):
+        self.hashing_by_name_is_disabled = disable
 
 
 class AndOperator(LogicalOperator):
