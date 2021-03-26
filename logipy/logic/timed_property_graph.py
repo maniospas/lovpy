@@ -191,6 +191,14 @@ class TimedPropertyGraph:
             self.graph[u][v].update({TIMESTAMP_PROPERTY_NAME: timestamp})
 
     def is_uniform_timestamped(self, timestamp=None):
+        """Checks whether current graph contains only timestamps that match.
+
+        :param timestamp: If this argument is provided, then in order to consider the
+                graph as uniform timestamped, all timestamps should additionally match
+                given timestamp.
+
+        :returns: True if graph is uniform timestamped, otherwise False.
+        """
         edges = list(self.graph.edges(data=TIMESTAMP_PROPERTY_NAME))
         if not timestamp:
             timestamp = edges[0][2]
@@ -203,7 +211,7 @@ class TimedPropertyGraph:
                     timestamp.get_absolute_value() != edge[2].get_absolute_value()):
                 # Absolute timestamps should have exact the same value.
                 return False
-            elif not timestamp.is_absolute() and not timestamp.matches(edge[2]):
+            elif not timestamp.is_absolute() and timestamp != edge[2]:
                 # Relative timestamps should have a common interval.
                 return False
         return True
@@ -530,6 +538,8 @@ class TimedPropertyGraph:
             self.root_node = start_node
 
     def _inflate_property_graph_from_subgraph(self, subgraph):
+        if len(subgraph) == 0:
+            return None
         property_graph = TimedPropertyGraph()
         property_graph.graph = subgraph
         property_graph.time_source = self.time_source

@@ -97,6 +97,13 @@ class RelativeTimestamp(Timestamp):
     def get_time_source(self):
         return self.time_source
 
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        if self.get_relative_value() != other.get_relative_value():
+            return False
+        return True
+
 
 class LesserThanRelativeTimestamp(RelativeTimestamp):
     def __repr__(self):

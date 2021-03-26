@@ -4,7 +4,7 @@ from logipy.logic.monitored_predicate import *
 from logipy.logic.timed_property_graph import TimedPropertyGraph
 from logipy.logic.timed_property_graph import PredicateNode
 from logipy.logic.timed_property_graph import PredicateGraph
-from logipy.monitor.time_source import get_zero_locked_timesource
+from logipy.monitor.time_source import get_zero_locked_timesource, TimeSource
 
 
 class TestTimedPropertyGraph(unittest.TestCase):
@@ -43,24 +43,56 @@ class TestTimedPropertyGraph(unittest.TestCase):
         locked_pred.set_timestamp(LesserThanRelativeTimestamp(-1))
         locked_pred.set_time_source(get_zero_locked_timesource())
 
-        # call_release_graph = Call("release").convert_to_graph()
-        # call_release_graph.set_timestamp(RelativeTimestamp(0))
-        # call_release_graph.set_time_source(get_zero_locked_timesource())
-
         not_locked_pred = locked_pred.get_copy()
         not_locked_pred.set_timestamp(RelativeTimestamp(0))
         not_locked_pred.logical_not()
         not_locked_pred.set_time_source(get_zero_locked_timesource())
 
-        # final_custom_graph = call_release_graph
-        # final_custom_graph.logical_and(locked_pred)
-        # final_custom_graph.logical_implication(not_locked_pred)
         timestamp2 = RelativeTimestamp(0)
         timestamp2.set_time_source(get_zero_locked_timesource())
         self.assertTrue(not_locked_pred.is_uniform_timestamped(timestamp2))
 
         timestamp3 = LesserThanRelativeTimestamp(-1)
         timestamp3.set_time_source(get_zero_locked_timesource())
+        self.assertFalse(not_locked_pred.is_uniform_timestamped(timestamp3))
+
+    def test_is_uniform_timestamped_with_relative_timestamps_different_time_sources(self):
+        var = MonitoredVariable("VAR")
+
+        locked_pred = PredicateGraph("locked", var)
+        locked_pred.set_timestamp(LesserThanRelativeTimestamp(-1))
+        locked_pred.set_time_source(get_zero_locked_timesource())
+
+        not_locked_pred = locked_pred.get_copy()
+        not_locked_pred.set_timestamp(RelativeTimestamp(0))
+        not_locked_pred.logical_not()
+        not_locked_pred.set_time_source(get_zero_locked_timesource())
+
+        timestamp2 = RelativeTimestamp(0)
+        new_timesource = TimeSource()
+        new_timesource.stamp_and_increment()
+        new_timesource.stamp_and_increment()
+        timestamp2.set_time_source(new_timesource)
+        self.assertTrue(not_locked_pred.is_uniform_timestamped(timestamp2))
+
+        timestamp3 = LesserThanRelativeTimestamp(-1)
+        timestamp3.set_time_source(get_zero_locked_timesource())
+        self.assertFalse(not_locked_pred.is_uniform_timestamped(timestamp3))
+
+    def test_is_uniform_timestamped_with_specific_relative_timestamps_without_time_sources(self):
+        var = MonitoredVariable("VAR")
+
+        locked_pred = PredicateGraph("locked", var)
+        locked_pred.set_timestamp(LesserThanRelativeTimestamp(-1))
+
+        not_locked_pred = locked_pred.get_copy()
+        not_locked_pred.set_timestamp(RelativeTimestamp(0))
+        not_locked_pred.logical_not()
+
+        timestamp2 = RelativeTimestamp(0)
+        self.assertTrue(not_locked_pred.is_uniform_timestamped(timestamp2))
+
+        timestamp3 = LesserThanRelativeTimestamp(-1)
         self.assertFalse(not_locked_pred.is_uniform_timestamped(timestamp3))
 
     # def test_and_logical_operation(self):
