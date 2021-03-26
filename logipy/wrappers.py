@@ -9,6 +9,9 @@ from logipy.logic import prover
 from logipy.monitor.time_source import global_stamp_and_increment
 
 
+DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED = True
+property_exception_raised = False
+
 _SPECIAL_NAMES = [
     '__abs__', '__add__', '__and__', '__call__', '__cmp__', '__coerce__',
     '__contains__', '__delitem__', '__delslice__', '__div__', '__divmod__',
@@ -53,6 +56,8 @@ class LogipyMethod:
 
     def __call__(self, *args, **kwargs):
         """Wrapper method for monitoring the calls on a callable object."""
+        global property_exception_raised
+
         # A graph to include the state of caller, the state of args and the new steps.
         total_execution_graph = TimedPropertyGraph()
 
@@ -67,8 +72,10 @@ class LogipyMethod:
             call_graph.set_timestamp(current_timestamp)
 
             self.__parent_object.get_execution_graph().logical_and(call_graph, current_timestamp)
-            prover.prove_set_of_properties(logipy_properties.get_global_properties(),
-                                           self.__parent_object.get_execution_graph())
+            if not property_exception_raised or \
+                    not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED:
+                prover.prove_set_of_properties(logipy_properties.get_global_properties(),
+                                               self.__parent_object.get_execution_graph())
 
             total_execution_graph.logical_and(
                 self.__parent_object.get_execution_graph(), current_timestamp)
@@ -88,8 +95,10 @@ class LogipyMethod:
                 called_by_graph.set_timestamp(current_timestamp)
 
                 arg.get_execution_graph().logical_and(called_by_graph, current_timestamp)
-                prover.prove_set_of_properties(logipy_properties.get_global_properties(),
-                                               arg.get_execution_graph())
+                if not property_exception_raised or \
+                        not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED:
+                    prover.prove_set_of_properties(logipy_properties.get_global_properties(),
+                                                   arg.get_execution_graph())
 
                 total_execution_graph.logical_and(arg.get_execution_graph(), current_timestamp)
 
@@ -98,7 +107,7 @@ class LogipyMethod:
         try:
             ret = self.__method(*args, **kwargs)
         except Exception as err:
-            if not isinstance(err, LogipyPropertyException):
+            if not isinstance(err, prover.PropertyNotHoldsException):
                 args = [arg.get_logipy_value() if isinstance(arg, LogipyPrimitive) else arg for arg
                         in args]
                 kwargs = {key: arg.get_logipy_value() if isinstance(arg, LogipyPrimitive) else arg
@@ -109,6 +118,7 @@ class LogipyMethod:
                     " was called a second time at least once by casting away LogipyPrimitive " +
                     "due to invoking the error: " + str(err))
             else:
+                property_exception_raised = True
                 raise err
         # apply_method_rules(self.__method.__name__, ret, "returned by", args, kwargs)
         ret = LogipyPrimitive(ret, total_execution_graph)
@@ -117,8 +127,10 @@ class LogipyMethod:
         returned_by_graph = ReturnedBy(self.__method.__name__).convert_to_graph()
         returned_by_graph.set_timestamp(current_timestamp)
         ret.get_execution_graph().logical_and(returned_by_graph, current_timestamp)
-        prover.prove_set_of_properties(logipy_properties.get_global_properties(),
-                                       ret.get_execution_graph())
+        if not property_exception_raised or \
+                not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED:
+            prover.prove_set_of_properties(logipy_properties.get_global_properties(),
+                                           ret.get_execution_graph())
 
         return ret
 
