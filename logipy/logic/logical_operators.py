@@ -25,7 +25,8 @@ class LogicalOperator:
     #         return hash(self.str_representation)
 
     def __repr__(self):
-        return self.str_representation
+        # TODO: Implement matching of nodes that should be added to graph once in a better way.
+        return str(hash(self.str_representation))
 
     def operands_order_matters(self):
         return False
