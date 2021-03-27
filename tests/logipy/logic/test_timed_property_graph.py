@@ -5,6 +5,8 @@ from logipy.logic.timed_property_graph import TimedPropertyGraph
 from logipy.logic.timed_property_graph import PredicateNode
 from logipy.logic.timed_property_graph import PredicateGraph
 from logipy.monitor.time_source import get_zero_locked_timesource, TimeSource
+from tests.logipy.importer.sample_properties import get_counter_sample_properties
+import logipy.logic.prover as prover
 
 
 class TestTimedPropertyGraph(unittest.TestCase):
@@ -94,6 +96,27 @@ class TestTimedPropertyGraph(unittest.TestCase):
 
         timestamp3 = LesserThanRelativeTimestamp(-1)
         self.assertFalse(not_locked_pred.is_uniform_timestamped(timestamp3))
+
+    def test_apply_modus_ponens_when_assumption_equals_subject_graph(self):
+        returned_by_range = ReturnedBy("range").convert_to_graph()
+        returned_by_range.set_timestamp(Timestamp(12))
+
+        counter_properties = get_counter_sample_properties()
+        counter_theorems, _ = prover.split_into_theorems_and_properties_to_prove(counter_properties)
+
+        modus_ponens_applications = \
+            prover.find_possible_theorem_applications(returned_by_range, counter_theorems)
+
+        exception_raised = False
+
+        try:
+            returned_by_range.apply_modus_ponens(modus_ponens_applications[0])
+        except Exception:
+            exception_raised = True
+        if exception_raised:
+            self.fail("Modus Ponen application failed.")
+
+        # TODO: Improve this test.
 
     # def test_and_logical_operation(self):
     #     P = PredicateGraph("call")

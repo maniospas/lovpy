@@ -131,20 +131,23 @@ class TimedPropertyGraph:
 
         # Intervene an AND node to connect the unconnected component of conclusion.
         deeper_common_node = self._find_deeper_common_node_in_graph(matching_paths)
-        and_node = AndOperator(deeper_common_node, conclusion.get_root_node())
-        and_node.disable_hashing_by_structure()
-        # Move all incoming edges from deeper common node to the new AND node.
-        predecessors = list(self.graph.predecessors(deeper_common_node))
-        for predecessor in predecessors:
-            t = self.graph.edges[predecessor, deeper_common_node][TIMESTAMP_PROPERTY_NAME]
-            self.graph.remove_edge(predecessor, deeper_common_node)
-            self._add_edge(predecessor, and_node, {TIMESTAMP_PROPERTY_NAME: t})
-        # Connect the new AND node with deeper common node and the unconnected conclusion component.
-        old_part_timestamp = self._find_subgraph_most_recent_timestamp(deeper_common_node)
-        new_part_timestamp = self._find_subgraph_most_recent_timestamp(conclusion.get_root_node())
-        self._add_edge(and_node, deeper_common_node, {TIMESTAMP_PROPERTY_NAME: old_part_timestamp})
-        self._add_edge(and_node, conclusion.get_root_node(),
-                       {TIMESTAMP_PROPERTY_NAME: new_part_timestamp})
+        if deeper_common_node:
+            and_node = AndOperator(deeper_common_node, conclusion.get_root_node())
+            and_node.disable_hashing_by_structure()
+            # Move all incoming edges from deeper common node to the new AND node.
+            predecessors = list(self.graph.predecessors(deeper_common_node))
+            for predecessor in predecessors:
+                t = self.graph.edges[predecessor, deeper_common_node][TIMESTAMP_PROPERTY_NAME]
+                self.graph.remove_edge(predecessor, deeper_common_node)
+                self._add_edge(predecessor, and_node, {TIMESTAMP_PROPERTY_NAME: t})
+            # Connect the new AND node with deeper common node and
+            # the unconnected conclusion component.
+            old_part_timestamp = self._find_subgraph_most_recent_timestamp(deeper_common_node)
+            new_part_timestamp = self._find_subgraph_most_recent_timestamp(conclusion.get_root_node())
+            self._add_edge(and_node, deeper_common_node,
+                           {TIMESTAMP_PROPERTY_NAME: old_part_timestamp})
+            self._add_edge(and_node, conclusion.get_root_node(),
+                           {TIMESTAMP_PROPERTY_NAME: new_part_timestamp})
 
         # # Fix matching paths to include newly added and node (if really added).
         # for p in matching_paths:
