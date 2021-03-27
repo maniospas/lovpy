@@ -20,31 +20,32 @@ def prove_set_of_properties(property_graphs, execution_graph):
     # Don't modify the original properties.
     property_graphs = [p.get_copy() for p in property_graphs]
 
-    execution_graph.visualize("Execution Graph")
+    # execution_graph.visualize("Execution Graph")
 
     theorems, properties_to_prove = split_into_theorems_and_properties_to_prove(property_graphs)
 
     for p in negate_conclusion_part_of_properties(properties_to_prove):
-        execution_graph = execution_graph.get_copy()  # Modify a separate graph for each property.
+        temp_graph = execution_graph.get_copy()  # Modify a separate graph for each property.
 
         theorems_applied = []
+        intermediate_graphs = [temp_graph.get_copy()]
         while len(theorems_applied) < MAX_PROOF_PATH:
-            possible_theorems = find_possible_theorem_applications(execution_graph, theorems)
+            possible_theorems = find_possible_theorem_applications(temp_graph, theorems)
             if not possible_theorems:
                 break
 
-            next_theorem = select_next_theorem_application(execution_graph, possible_theorems,
+            next_theorem = select_next_theorem_application(temp_graph, possible_theorems,
                                                            p, theorems_applied)
             if not next_theorem:
                 break
-            next_theorem.implication_graph.visualize("Next theorem to apply.")
-            apply_theorem(execution_graph, next_theorem)
-            execution_graph.visualize("New execution graph.")
+            # next_theorem.implication_graph.visualize("Next theorem to apply.")
+            apply_theorem(temp_graph, next_theorem)
+            # temp_graph.visualize("New execution graph.")
             theorems_applied.append(next_theorem)
+            intermediate_graphs.append(temp_graph.get_copy())
 
-        if execution_graph.contains_property_graph(p):
-            execution_graph.visualize("Execution Graph where property not holds")
-            p.visualize("Property that not holds")
+        if temp_graph.contains_property_graph(p):
+            visualize_proving_process(intermediate_graphs, theorems_applied, p)
             raise PropertyNotHoldsException(p.get_property_textual_representation())
 
     # # Try to apply all theorems, until no more theorem can be applied.
@@ -126,7 +127,7 @@ def select_next_theorem_application(graph, theorem_applications, goal, previous_
     unused_base_applications = [t for t in theorem_applications
                                 if t.implication_graph not in used_base_theorems]
     if unused_base_applications:
-        return theorem_applications[0]
+        return unused_base_applications[0]
     else:
         return None
 
@@ -162,6 +163,26 @@ def split_into_theorems_and_properties_to_prove(properties):
             p.remove_subgraph(conclusion_present_part)
 
     return theorems, properties_to_prove
+
+
+def visualize_proving_process(execution_graphs, theorems_applied, proved_property):
+    execution_graphs[0].visualize("Initial graph for proving process.")
+
+    # Visualize proving process.
+    for i in range(len(theorems_applied)):
+        theorems_applied[i].implication_graph.visualize(f"Theorem Applied #{i}")
+        execution_graphs[i+1].visualize(f"Graph after applying theorem #{i}")
+
+    # Visualize how the property was found not to hold.
+    matching_cases, _, _, _ = execution_graphs[-1].find_equivalent_subgraphs(proved_property)
+    for path in matching_cases[0]:
+        execution_graphs[-1].graph.colorize_path(path)
+    proved_property.visualize("Property that not holds.")
+    execution_graphs[-1].visualize("Graph where property does not hold.", show_colorization=True)
+
+
+# def _sort_modus_ponens_applications_chronologically(applications):
+#     for application in applications:
 
 
 # prove_set_of_properties.exported_counter = 0
