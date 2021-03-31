@@ -26,6 +26,8 @@ def generate_next_theorem_dataset(properties, max_depth):
 
 def _recursively_generate_next_theorem_dataset(properties, theorems, depth):
 
+    # TODO: Convert timestamps of generated graph to absolute ones.
+
     if depth == 0:
         # The simplest case is the current graph to match the goal graph (self-proving).
         for goal in properties:
@@ -58,7 +60,7 @@ def _recursively_generate_next_theorem_dataset(properties, theorems, depth):
 
 def reverse_apply_theorem(graph, theorem):
     reversed_theorem = theorem.get_copy()
-    reversed_theorem.switch_implication_assumption_parts()
+    reversed_theorem.switch_implication_parts()
 
     possible_modus_ponens = prover.get_all_possible_modus_ponens(graph, [reversed_theorem])
 
