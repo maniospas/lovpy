@@ -72,6 +72,7 @@ class TimedPropertyGraph:
         # TODO: Implement recursive naming.
         not_node = NotOperator(self.get_root_node())
         self._add_edge(not_node, self.get_root_node(), {TIMESTAMP_PROPERTY_NAME: timestamp})
+        self._fix_orphan_logical_operators()
 
     def logical_implication(self, property_graph, timestamp=None):
         if not self.get_root_node():
@@ -147,6 +148,8 @@ class TimedPropertyGraph:
                            {TIMESTAMP_PROPERTY_NAME: old_part_timestamp})
             self._add_edge(and_node, conclusion.get_root_node(),
                            {TIMESTAMP_PROPERTY_NAME: new_part_timestamp})
+
+            self._fix_orphan_logical_operators()
 
         # # Fix matching paths to include newly added and node (if really added).
         # for p in matching_paths:
@@ -305,6 +308,7 @@ class TimedPropertyGraph:
     def remove_subgraph(self, subgraph):
         _, matching_groups, found = self._find_equivalent_path_structure(subgraph)
         self._logically_remove_path_set([g[0] for g in matching_groups])
+        self._fix_orphan_logical_operators()
 
     def contains_property_graph(self, property_graph):
         matching_cases, _, _, _ = self.find_equivalent_subgraphs(property_graph)
@@ -449,7 +453,10 @@ class TimedPropertyGraph:
                               if e[2].matches(Timestamp(self.time_source.get_current_time()))]
         subgraph = self.graph.edge_subgraph(present_time_edges).copy()
         # TODO: Fix subgraph by removing AND nodes with single out edge and adjacent NOT nodes.
-        return self._inflate_property_graph_from_subgraph(subgraph)
+        present_time_graph = self._inflate_property_graph_from_subgraph(subgraph)
+        if present_time_graph:
+            present_time_graph._fix_orphan_logical_operators()
+        return present_time_graph
 
     def is_implication_graph(self):
         return isinstance(self.root_node, ImplicationOperator) and \
@@ -674,6 +681,88 @@ class TimedPropertyGraph:
                     conclusion_timestamp = timestamp
 
         return assumption_timestamp, conclusion_timestamp
+
+    def _fix_orphan_logical_operators(self):
+        """Cleans the graph from orphan AND and NOT operators."""
+        self._remove_orphan_and_operators()
+        self._collapse_sequential_not_operators()
+
+    def _remove_orphan_and_operators(self):
+        and_nodes_to_remove = []
+        for n in self.graph.nodes:
+            if isinstance(n, AndOperator) and self.graph.out_degree(n) < 2:
+                and_nodes_to_remove.append(n)
+        for n in and_nodes_to_remove:
+            self._remove_orphan_and_operator(n)
+
+    def _remove_orphan_and_operator(self, and_node):
+        predecessors = list(self.graph.predecessors(and_node))
+        successor = list(self.graph.successors(and_node))[0]
+        successor_data = self.graph.edges[and_node, successor]
+
+        if predecessors:  # AND node is not the root node.
+            for predecessor in predecessors:
+                predecessor_data = self.graph.edges[predecessor, and_node]
+                # Retain data from the edge with the older timestamp.
+                if (predecessor_data[TIMESTAMP_PROPERTY_NAME] <
+                        successor_data[TIMESTAMP_PROPERTY_NAME]):
+                    data_to_retain = successor_data | predecessor_data
+                else:
+                    data_to_retain = predecessor_data | successor_data
+                self._add_edge(predecessor, successor, data_to_retain)
+        else:  # AND node is the root node.
+            self.root_node = successor
+            # Since no new edge is added, propagate data with older timestamp to deeper nodes.
+            self._propagate_edge_data_to_deeper_edges(successor, successor_data)
+
+        self.graph.remove_node(and_node)
+
+    def _collapse_sequential_not_operators(self):
+        more_not_pairs_to_remove = True
+        while more_not_pairs_to_remove:
+            more_not_pairs_to_remove = False
+            for e in self.graph.edges:
+                if isinstance(e[0], NotOperator) and isinstance(e[1], NotOperator):
+                    self._collapse_not_operators_pair(e[0], e[1])
+                    more_not_pairs_to_remove = True
+                    break
+
+    def _collapse_not_operators_pair(self, not1, not2):
+        not1_predecessors = list(self.graph.predecessors(not1))
+        not2_successor = list(self.graph.successors(not2))[0]
+
+        # Between the data of out edge of second NOT and the data of the edge between the
+        # two NOT nodes, keep the ones whose timestamp is older.
+        between_data = self.graph.edges[not1, not2]
+        not2_out_data = self.graph.edges[not2, not2_successor]
+        if between_data[TIMESTAMP_PROPERTY_NAME] < not2_out_data[TIMESTAMP_PROPERTY_NAME]:
+            data_to_retain = not2_out_data | between_data
+        else:
+            data_to_retain = between_data | not2_out_data
+
+        if not1_predecessors:  # First NOT is not the root node.
+            for predecessor in not1_predecessors:
+                predecessor_data = self.graph.edges[predecessor, not1]
+                if (predecessor_data[TIMESTAMP_PROPERTY_NAME] <
+                        data_to_retain[TIMESTAMP_PROPERTY_NAME]):
+                    new_data = data_to_retain | predecessor_data
+                else:
+                    new_data = predecessor_data | data_to_retain
+                self._add_edge(predecessor, not2_successor, new_data)
+        else:  # First NOT is the root node.
+            self.root_node = not2_successor
+            self._propagate_edge_data_to_deeper_edges(not2_successor, data_to_retain)
+
+        self.graph.remove_nodes_from([not1, not2])
+
+    def _propagate_edge_data_to_deeper_edges(self, source_node, data):
+        for deeper_node in self.graph.successors(source_node):
+            deeper_node_data = self.graph.edges[source_node, deeper_node]
+            if (data[TIMESTAMP_PROPERTY_NAME] < deeper_node_data[TIMESTAMP_PROPERTY_NAME]):
+                data_to_retain = deeper_node_data | data
+            else:
+                data_to_retain = data | deeper_node_data
+            self._add_edge(source_node, deeper_node, data_to_retain)  # just for updating data
 
 class PredicateGraph(TimedPropertyGraph):
     # TODO: Name predicate nodes using their children too, to not be treated equal.

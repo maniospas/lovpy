@@ -118,6 +118,54 @@ class TestTimedPropertyGraph(unittest.TestCase):
 
         # TODO: Improve this test.
 
+    def test_remove_subgraph_with_orphan_and(self):
+        graph = self._generate_sample_execution_graph_1()
+        before_and_counts = 0
+        for n in graph.graph.nodes:
+            if isinstance(n, AndOperator):
+                before_and_counts += 1
+        # graph.visualize()
+
+        subgraph = self._generate_sample_execution_graph_1_subgraph()
+        # subgraph.visualize()
+
+        graph.remove_subgraph(subgraph)
+        # graph.visualize()
+        after_and_counts = 0
+        for n in graph.graph.nodes:
+            if isinstance(n, AndOperator):
+                after_and_counts += 1
+
+        self.assertLess(after_and_counts, before_and_counts)
+
+    def test_remove_subgraph_with_orphan_logical_operators(self):
+        pass  # TODO: implement
+
+    @staticmethod
+    def _generate_sample_execution_graph_1():
+        pred1 = Call("acquire").convert_to_graph()
+        pred1.set_timestamp(Timestamp(1))
+        pred2 = Call("lock").convert_to_graph()
+        pred2.set_timestamp(Timestamp(3))
+        pred3 = Call("release").convert_to_graph()
+        pred3.set_timestamp(Timestamp(5))
+        pred4 = Call("lock").convert_to_graph()
+        pred4.set_timestamp(Timestamp(11))
+        pred5 = Call("release").convert_to_graph()
+        pred5.set_timestamp(Timestamp(29))
+
+        graph = pred1
+        for p in [pred2, pred3, pred4, pred5]:
+            graph.logical_and(p)
+
+        return graph
+
+    @staticmethod
+    def _generate_sample_execution_graph_1_subgraph():
+        pred2 = Call("lock").convert_to_graph()
+        pred2.set_timestamp(Timestamp(3))
+        return pred2
+
     # def test_and_logical_operation(self):
     #     P = PredicateGraph("call")
     #     Q = PredicateGraph("returned_by")
