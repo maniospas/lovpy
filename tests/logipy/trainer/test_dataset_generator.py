@@ -4,10 +4,11 @@ from tests.logipy.importer.sample_properties import get_threading_sample_propert
 from logipy.trainer.dataset_generator import *
 
 
-class TestGenerateNextTheoremDataset(unittest.TestCase):
+class TestDatasetGenerator(unittest.TestCase):
 
     def test_simple_threading_dataset(self):
-        sample_properties = get_threading_sample_properties()
-
-        dataset = list(generate_next_theorem_dataset(sample_properties, 3))
-        self.assertTrue(True)
+        generator = DatasetGenerator(get_threading_sample_properties(), 5, 10)
+        samples = list(generator)
+        self.assertEqual(len(samples), 10)
+        for s in samples:
+            s.current_graph.visualize()

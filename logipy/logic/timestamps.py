@@ -162,3 +162,18 @@ def timestamp_sequences_matches(seq1, seq2):
             break
 
     return matches
+
+
+def is_interval_subset(interval1, interval2):
+    """Checks whether interval1 is subset of interval2."""
+    # Check the upper bound.
+    if (interval1[1] == "inf" and interval2[1] != "inf") or \
+            (interval1[1] != "inf" and interval2[1] != "inf" and interval1[1] > interval2[1]):
+        return False
+
+    # Check the lower bound.
+    if (interval1[0] == "-inf" and interval2[0] != "-inf") or \
+            (interval1[0] != "-inf" and interval2[0] != "-inf" and interval1[0] < interval2[0]):
+        return False
+
+    return True

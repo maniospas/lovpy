@@ -118,6 +118,19 @@ class TestTimedPropertyGraph(unittest.TestCase):
 
         # TODO: Improve this test.
 
+    def test_get_all_paths(self):
+        graph = self._generate_sample_execution_graph_1()
+        all_paths = graph.get_all_paths()
+
+        self.assertEqual(len(all_paths), 10)
+        for p in all_paths:
+            self.assertIsInstance(p, TimestampedPath)
+
+    def test_find_path_timestamp(self):
+        graph = self._generate_sample_execution_graph_1()
+        all_paths = graph.get_all_paths()
+        # TODO: Implement
+
     def test_remove_subgraph_with_orphan_and(self):
         graph = self._generate_sample_execution_graph_1()
         before_and_counts = 0
@@ -141,8 +154,34 @@ class TestTimedPropertyGraph(unittest.TestCase):
     def test_remove_subgraph_with_orphan_logical_operators(self):
         pass  # TODO: implement
 
+    def test_get_basic_predicates(self):
+        graph = self._generate_sample_execution_graph_1()
+        basic_predicates = graph.get_basic_predicates()
+        self.assertEqual(len(basic_predicates), 5)
+        # for p in basic_predicates:
+        #     p.visualize()
+
+        predicates = self._generate_sample_execution_graph_1_predicates()
+
+        for basic_predicate in basic_predicates:
+            for predicate in predicates:
+                matches, _, _, _ = predicate.find_equivalent_subgraphs(basic_predicate)
+                if matches:
+                    break
+            else:
+                self.fail("Original predicate did not matched by any basic predicate.")
+
     @staticmethod
     def _generate_sample_execution_graph_1():
+        predicates = TestTimedPropertyGraph._generate_sample_execution_graph_1_predicates()
+        graph = predicates.pop(0)
+        for p in predicates:
+            graph.logical_and(p)
+
+        return graph
+
+    @staticmethod
+    def _generate_sample_execution_graph_1_predicates():
         pred1 = Call("acquire").convert_to_graph()
         pred1.set_timestamp(Timestamp(1))
         pred2 = Call("lock").convert_to_graph()
@@ -153,12 +192,7 @@ class TestTimedPropertyGraph(unittest.TestCase):
         pred4.set_timestamp(Timestamp(11))
         pred5 = Call("release").convert_to_graph()
         pred5.set_timestamp(Timestamp(29))
-
-        graph = pred1
-        for p in [pred2, pred3, pred4, pred5]:
-            graph.logical_and(p)
-
-        return graph
+        return [pred1, pred2, pred3, pred4, pred5]
 
     @staticmethod
     def _generate_sample_execution_graph_1_subgraph():
@@ -172,3 +206,38 @@ class TestTimedPropertyGraph(unittest.TestCase):
     #     R = PredicateGraph("called_by")
     #     P.logical_and(Q, Timestamp(1))
     #     P.logical_and(R, Timestamp(2))
+
+
+def retrieve_path_by_text(paths, nodes_labels):
+    paths = paths.copy()
+
+    # Remove paths whose size doesn't match give one.
+    paths = [p for p in paths if len(p) == len(nodes_labels)]
+
+    for i in range(nodes_labels):
+        new_paths = []
+        for p in paths:
+            label = nodes_labels[i]
+            n = p[i]
+            if label == "AND" and isinstance(n, AndOperator):
+                new_paths.append(p)
+            elif label == "NOT" and isinstance(n, NotOperator):
+                new_paths.append(p)
+            elif label == "call" and isinstance(n, PredicateNode) \
+                    and str(n).startswith("call"):
+                new_paths.append(p)
+            elif label == "called_by" and isinstance(n, PredicateNode) \
+                    and str(n).startswith("called_by"):
+                new_paths.append(p)
+            elif label == "returned_by" and isinstance(n, PredicateNode) \
+                    and str(n).startswith("returned_by"):
+                new_paths.append(p)
+            elif label == n:
+                new_paths.append(p)
+        paths = new_paths
+
+    return paths
+
+
+def convert_edges_path_to_nodes_path(edges_path):
+    pass  # TODO: Implement

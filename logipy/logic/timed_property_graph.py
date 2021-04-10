@@ -1,4 +1,5 @@
 import itertools
+import logging
 import copy
 
 import networkx
@@ -19,6 +20,20 @@ IMPLICATION_PROPERTY_NAME = "implication"
 TASK_PROPERTY_NAME = "task_property"
 ASSUMPTION_GRAPH = "assumption"
 CONCLUSION_GRAPH = "conclusion"
+
+LOGGER_NAME = "logipy.logic.timed_property_graph"
+
+
+class TimedPath:
+    def __init__(self, path):
+        self.timestamp = find_path_timestamp(path)
+        self.edges = [(e[0], e[1]) for e in path]
+
+    def get_timestamp(self):
+        return self.timestamp
+
+    def get_edges(self):
+        return self.edges
 
 
 class TimedPropertyGraph:
@@ -251,61 +266,8 @@ class TimedPropertyGraph:
         return self._inflate_property_graph_from_subgraph(assumption), \
             self._inflate_property_graph_from_subgraph(conclusion)
 
-    def replace_subgraph(self, old_subgraph, new_subgraph):
-        matching_cases, _, original_timestamps, cases_timestamps = \
-            self.find_equivalent_subgraphs(old_subgraph)
-        if not matching_cases:
-            return False
-
-        all_matching_paths = matching_cases[0]  # TODO: pass selection to prover
-        matching_timestamps = cases_timestamps[0]
-
-        # Find the upper node where all those paths connect.
-        if len(all_matching_paths) > 1:
-            for edge in all_matching_paths[0][::-1]:
-                for path in all_matching_paths:
-                    if not _edges_match(path[-1], edge):
-                        break
-                else:
-                    for path in all_matching_paths:
-                        path.remove(edge)
-                        continue
-                break
-
-        # Add the new subgraph as an unconnected component.
-        if new_subgraph:
-            old_subgraph_timestamp = max(matching_timestamps)  # first moment the structure holds
-
-            for edge in new_subgraph.get_graph().edges(data=TIMESTAMP_PROPERTY_NAME):
-                # TODO: Consider if it is required to assign timestamps according to relative ones.
-                # Replace relative timestamps with the absolute timestamp when old subgraph
-                # firstly holds.
-                timestamp = edge[2]
-                if not timestamp.is_absolute():
-                    timestamp = old_subgraph_timestamp
-                self._add_edge(edge[0], edge[1], {TIMESTAMP_PROPERTY_NAME: timestamp})
-
-            # Intervene an AND node between the upper non and node of matching subgraph
-            # and its predecessors.
-            upper_common_node = all_matching_paths[0][-1][0]
-            and_node = AndOperator(upper_common_node, new_subgraph.get_root_node())
-            and_timestamp = max(
-                *(e[2] for e in self.graph.out_edges(upper_common_node, data=TIMESTAMP_PROPERTY_NAME)))
-            predecessors = list(self.graph.predecessors(upper_common_node))
-            for predecessor in predecessors:
-                t = self.graph.edges[predecessor, upper_common_node][TIMESTAMP_PROPERTY_NAME]
-                self.graph.remove_edge(predecessor, upper_common_node)
-                self._add_edge(predecessor, and_node, {TIMESTAMP_PROPERTY_NAME: t})
-            self._add_edge(and_node, upper_common_node, {TIMESTAMP_PROPERTY_NAME: and_timestamp})
-            self._add_edge(and_node, new_subgraph.get_root_node(),
-                           {TIMESTAMP_PROPERTY_NAME: and_timestamp})
-
-        # Remove old edges and nodes that doesn't participate in any other path.
-        #self._logically_remove_path_set(all_matching_paths)
-
-        return True
-
     def remove_subgraph(self, subgraph):
+        # TODO: Implement using find_equivalent_subgraphs()
         _, matching_groups, found = self._find_equivalent_path_structure(subgraph)
         self._logically_remove_path_set([g[0] for g in matching_groups])
         self._fix_orphan_logical_operators()
@@ -333,96 +295,6 @@ class TimedPropertyGraph:
         #         return False
         #
         # return True
-
-    # def find_time_matching_paths_from_node_to_root(self, start_node, other_graph, other_start_node):
-    #     matched_paths, matching_groups, found = self.find_equivalent_paths_from_node_to_root(
-    #         start_node, other_graph, other_start_node)
-    #
-    #     # Check that for every matched path, there is at least one with matching timestamps.
-    #     for i in range(len(matched_paths)):
-    #         matched_path = matched_paths[i]
-    #         matching_paths = matching_groups[i]
-    #         matched_path_timestamp = _find_path_timestamp(matched_path)
-    #
-    #         # TODO: Implement time matching for timesources different than current one.
-    #         # for matching_path in matching_paths:
-    #         #     if not _find_path_timestamp(matching_path).matches(matched_path_timestamp):
-    #         #         matching_paths.remove(matching_path)
-    #
-    #         if not matching_paths:
-    #             matched_paths.remove(matched_path)
-    #
-    #     return matched_paths, matching_groups, bool(matched_paths)
-    #
-    # def find_equivalent_paths_from_node_to_root(self, start_node, other_graph, other_start_node):
-    #     # TODO: Reimplement this method in a more elegant way.
-    #     paths_to_upper_non_and_other_nodes = _find_path_to_upper_non_and_nodes(
-    #         other_graph, other_start_node)
-    #     paths_to_upper_non_and_current_nodes = _find_path_to_upper_non_and_nodes(self, start_node)
-    #
-    #     # If there are still nodes in other graph to be validated, while current graph has
-    #     # reached to root, then no matching paths has been found.
-    #     if paths_to_upper_non_and_other_nodes and not paths_to_upper_non_and_current_nodes:
-    #         return [], [], False
-    #     # Also, if other graph has reached to root, while current graph still contains non and
-    #     # node to be validated, then no matching paths has been found.
-    #     elif not paths_to_upper_non_and_other_nodes and paths_to_upper_non_and_current_nodes:
-    #         matching_paths = _find_clean_paths_to_root(self, start_node)
-    #         matched_paths = []
-    #         if matching_paths:
-    #             matched_paths = _find_clean_paths_to_root(other_graph, other_start_node)
-    #         return matched_paths, [matching_paths for p in matched_paths], bool(matched_paths)
-    #     # If non-and upper paths are empty in both other and current graphs, then the requested
-    #     # one has been validated.
-    #     elif not paths_to_upper_non_and_other_nodes and not paths_to_upper_non_and_current_nodes:
-    #         matched_paths = _find_clean_paths_to_root(other_graph, other_start_node)
-    #         matching_paths = _find_clean_paths_to_root(self, start_node)
-    #         return matched_paths, [matching_paths for p in matched_paths], True
-    #
-    #     matched_other_paths = []
-    #     matching_current_path_groups = []
-    #
-    #     for other_upper_path in paths_to_upper_non_and_other_nodes:  # paths to be validated
-    #         other_upper_path_matched = False
-    #
-    #         for current_upper_path in paths_to_upper_non_and_current_nodes:
-    #
-    #             other_upper_path_non_and_node = other_upper_path[-1][0]
-    #             current_upper_path_non_and_node = current_upper_path[-1][0]
-    #
-    #             if (isinstance(other_upper_path_non_and_node, LogicalOperator) and
-    #                 isinstance(current_upper_path_non_and_node, LogicalOperator) and
-    #                 current_upper_path_non_and_node.logically_matches(
-    #                         other_upper_path_non_and_node)) or (
-    #                     other_upper_path_non_and_node == current_upper_path_non_and_node):
-    #
-    #                 matched_paths, matching_groups, found = \
-    #                     self.find_equivalent_paths_from_node_to_root(
-    #                         current_upper_path_non_and_node,
-    #                         other_graph,
-    #                         other_upper_path_non_and_node
-    #                     )
-    #
-    #                 # The matched and matching paths should be prepended with the subpaths up
-    #                 # to the node where search started.
-    #                 if found:
-    #                     other_upper_path_matched = True
-    #                     if not matched_paths:
-    #                         # Path returned empty, because successfully terminated to root node.
-    #                         matched_other_paths.append(other_upper_path)
-    #                         matching_current_path_groups.append([current_upper_path])
-    #                     else:
-    #                         for p in matched_paths:
-    #                             matched_other_paths.append([*other_upper_path, *p])
-    #                         for matching_group in matching_groups:
-    #                             matching_current_paths = []
-    #                             for p in matching_group:
-    #                                 matching_current_paths.append([*current_upper_path, *p])
-    #                             matching_current_path_groups.append(matching_current_paths)
-    #         if not other_upper_path_matched:  # Not matching a single path, is enough to fail.
-    #             return [], [], False
-    #
-    #     return matched_other_paths, matching_current_path_groups, bool(matched_other_paths)
 
     def export_to_graphml_file(self, path):
         write_graphml(self.get_graph(), path)
@@ -508,8 +380,8 @@ class TimedPropertyGraph:
         if not found:
             return [], [], [], []
 
-        original_timestamps = [_find_path_timestamp(p) for p in matched_paths]
-        groups_timestamps = [[_find_path_timestamp(p) for p in group] for group in matching_groups]
+        original_timestamps = [find_path_timestamp(p) for p in matched_paths]
+        groups_timestamps = [[find_path_timestamp(p) for p in group] for group in matching_groups]
         cases = list(itertools.product(*matching_groups))  # all subgraphs that match other graph
         cases_timestamps = list(itertools.product(*groups_timestamps))
         sorted_by_original_timestamps = list(zip(*sorted(zip(
@@ -545,6 +417,79 @@ class TimedPropertyGraph:
             assumption_edge[0], assumption_edge[1]][IMPLICATION_PROPERTY_NAME] = CONCLUSION_GRAPH
         self.graph.edges[
             conclusion_edge[0], conclusion_edge[1]][IMPLICATION_PROPERTY_NAME] = ASSUMPTION_GRAPH
+
+    def get_basic_predicates(self):
+        """Returns the basic predicates that form the graph.
+
+        :return: A sequence of all basic predicates as PredicateGraph objects.
+        """
+        basic_predicates = []
+        predicate_nodes = [n for n in self.graph.nodes if isinstance(n, PredicateNode)]
+
+        for n in predicate_nodes:
+            paths_to_predicate = all_simple_edge_paths(self.graph, self.get_root_node(), n)
+
+            # Each path to a predicate defines a basic predicate graph.
+            for p in paths_to_predicate:
+                predicate_graph = self.get_copy()
+                predicate_graph._retain_only_edges_that_starts_with(p)
+                predicate_graph._fix_orphan_logical_operators()
+                basic_predicates.append(predicate_graph)
+
+        return basic_predicates
+
+    def get_all_paths(self):
+        """Returns all paths from root node to leaf nodes.
+
+        :return: A list of paths in the form of TimestampedPath objects.
+        """
+        leaf_nodes = _get_leaf_nodes(self)
+        paths = all_simple_edge_paths(self.graph, self.get_root_node(), leaf_nodes)
+        return [TimestampedPath(p, self.find_path_timestamp(p)) for p in paths]
+
+    def update_subgraph_timestamp(self, subgraph, new_timestamp):
+        """Sets timestamps of given subgraph to the given timestamp.
+
+        Update happens only on the first occurrence of subgraph. The rest remain intact.
+
+        If no occurrence of given subgraph can be found, a RuntimeError is raised.
+
+        :param subgraph: A TimedPropertyGraph to be matched into current graph.
+        :param new_timestamp: A Timestamp to be set on the occurrence of subgraph.
+        """
+        matching_cases, _, _, _ = self.find_equivalent_subgraphs(subgraph)
+        if len(matching_cases) > 1:
+            logger = logging.getLogger(LOGGER_NAME)
+            logger.warning("More than a single case found while updating subgraph timestamp.")
+        elif not matching_cases:
+            raise RuntimeError("Failed to update timestamps of given subgraph: subgraph not found.")
+
+        case_to_update = matching_cases[0]
+        for path in case_to_update:
+            self.update_path_timestamp(path, new_timestamp)
+
+    def update_path_timestamp(self, path, new_timestamp):
+        """Sets timestamps of given path to given timestamp
+
+        :param path: A path represented as a sequence of edges represented as two-tuples.
+        :param new_timestamp: The new timestamp to be set on given path.
+        """
+        for e in path:
+            # TODO: Consider if timestamp copying is needed.
+            self.graph.edges[e[0], e[1]][TIMESTAMP_PROPERTY_NAME] = new_timestamp
+
+    def find_path_timestamp(self, path):
+        """Returns the timestamp of a path.
+
+        The timestamp of a path is considered to be the oldest timestamp of its edges.
+
+        :param path: A path represented as an iterable of the edges belonging to the path.
+                Each edge is represented as a two-tuple, containing the source node as first
+                item and the target node as second item.
+
+        :return: The timestamp of the path in the form of a Timestamp object.
+        """
+        return min([self.graph.edges[e[0], e[1]].get(TIMESTAMP_PROPERTY_NAME) for e in path])
 
     def _get_top_level_implication_edges(self):
         assumption_edge = None
@@ -682,6 +627,30 @@ class TimedPropertyGraph:
 
         return assumption_timestamp, conclusion_timestamp
 
+    def _retain_only_edges_that_starts_with(self, path_prefix):
+        """Retains only the edges belonging to a path that starts with given prefix.
+
+        All edges that do not belong to such a prefixed path are removed from the graph,
+        along with orphan nodes.
+
+        :param path_prefix: A path prefix represented as a sequence of edges in the form
+                of two-tuples.
+        """
+        final_prefix_node = path_prefix[-1][1]
+        leaf_nodes = _get_leaf_nodes(self)
+        suffix_paths = all_simple_edge_paths(self.graph, final_prefix_node, leaf_nodes)
+        all_edges_to_retain = list(path_prefix)
+        for p in suffix_paths:
+            all_edges_to_retain.extend(p)
+
+        edges_to_remove = [e for e in self.graph.edges if not _edge_in_set(all_edges_to_retain, e)]
+        self.graph.remove_edges_from(edges_to_remove)
+
+        nodes_to_remove = [n for n in self.graph.nodes if self.graph.degree(n) == 0]
+        self.graph.remove_nodes_from(nodes_to_remove)
+
+        self._fix_orphan_logical_operators()
+
     def _fix_orphan_logical_operators(self):
         """Cleans the graph from orphan AND and NOT operators."""
         self._remove_orphan_and_operators()
@@ -763,6 +732,154 @@ class TimedPropertyGraph:
             else:
                 data_to_retain = data | deeper_node_data
             self._add_edge(source_node, deeper_node, data_to_retain)  # just for updating data
+
+    def _clean_inverse_parallel_paths(self):
+        pass  # TODO: Implement
+
+    # def find_time_matching_paths_from_node_to_root(self, start_node, other_graph, other_start_node):
+    #     matched_paths, matching_groups, found = self.find_equivalent_paths_from_node_to_root(
+    #         start_node, other_graph, other_start_node)
+    #
+    #     # Check that for every matched path, there is at least one with matching timestamps.
+    #     for i in range(len(matched_paths)):
+    #         matched_path = matched_paths[i]
+    #         matching_paths = matching_groups[i]
+    #         matched_path_timestamp = _find_path_timestamp(matched_path)
+    #
+    #         # TODO: Implement time matching for timesources different than current one.
+    #         # for matching_path in matching_paths:
+    #         #     if not _find_path_timestamp(matching_path).matches(matched_path_timestamp):
+    #         #         matching_paths.remove(matching_path)
+    #
+    #         if not matching_paths:
+    #             matched_paths.remove(matched_path)
+    #
+    #     return matched_paths, matching_groups, bool(matched_paths)
+    #
+    # def find_equivalent_paths_from_node_to_root(self, start_node, other_graph, other_start_node):
+    #     # TODO: Reimplement this method in a more elegant way.
+    #     paths_to_upper_non_and_other_nodes = _find_path_to_upper_non_and_nodes(
+    #         other_graph, other_start_node)
+    #     paths_to_upper_non_and_current_nodes = _find_path_to_upper_non_and_nodes(self, start_node)
+    #
+    #     # If there are still nodes in other graph to be validated, while current graph has
+    #     # reached to root, then no matching paths has been found.
+    #     if paths_to_upper_non_and_other_nodes and not paths_to_upper_non_and_current_nodes:
+    #         return [], [], False
+    #     # Also, if other graph has reached to root, while current graph still contains non and
+    #     # node to be validated, then no matching paths has been found.
+    #     elif not paths_to_upper_non_and_other_nodes and paths_to_upper_non_and_current_nodes:
+    #         matching_paths = _find_clean_paths_to_root(self, start_node)
+    #         matched_paths = []
+    #         if matching_paths:
+    #             matched_paths = _find_clean_paths_to_root(other_graph, other_start_node)
+    #         return matched_paths, [matching_paths for p in matched_paths], bool(matched_paths)
+    #     # If non-and upper paths are empty in both other and current graphs, then the requested
+    #     # one has been validated.
+    #     elif not paths_to_upper_non_and_other_nodes and not paths_to_upper_non_and_current_nodes:
+    #         matched_paths = _find_clean_paths_to_root(other_graph, other_start_node)
+    #         matching_paths = _find_clean_paths_to_root(self, start_node)
+    #         return matched_paths, [matching_paths for p in matched_paths], True
+    #
+    #     matched_other_paths = []
+    #     matching_current_path_groups = []
+    #
+    #     for other_upper_path in paths_to_upper_non_and_other_nodes:  # paths to be validated
+    #         other_upper_path_matched = False
+    #
+    #         for current_upper_path in paths_to_upper_non_and_current_nodes:
+    #
+    #             other_upper_path_non_and_node = other_upper_path[-1][0]
+    #             current_upper_path_non_and_node = current_upper_path[-1][0]
+    #
+    #             if (isinstance(other_upper_path_non_and_node, LogicalOperator) and
+    #                 isinstance(current_upper_path_non_and_node, LogicalOperator) and
+    #                 current_upper_path_non_and_node.logically_matches(
+    #                         other_upper_path_non_and_node)) or (
+    #                     other_upper_path_non_and_node == current_upper_path_non_and_node):
+    #
+    #                 matched_paths, matching_groups, found = \
+    #                     self.find_equivalent_paths_from_node_to_root(
+    #                         current_upper_path_non_and_node,
+    #                         other_graph,
+    #                         other_upper_path_non_and_node
+    #                     )
+    #
+    #                 # The matched and matching paths should be prepended with the subpaths up
+    #                 # to the node where search started.
+    #                 if found:
+    #                     other_upper_path_matched = True
+    #                     if not matched_paths:
+    #                         # Path returned empty, because successfully terminated to root node.
+    #                         matched_other_paths.append(other_upper_path)
+    #                         matching_current_path_groups.append([current_upper_path])
+    #                     else:
+    #                         for p in matched_paths:
+    #                             matched_other_paths.append([*other_upper_path, *p])
+    #                         for matching_group in matching_groups:
+    #                             matching_current_paths = []
+    #                             for p in matching_group:
+    #                                 matching_current_paths.append([*current_upper_path, *p])
+    #                             matching_current_path_groups.append(matching_current_paths)
+    #         if not other_upper_path_matched:  # Not matching a single path, is enough to fail.
+    #             return [], [], False
+    #
+    #     return matched_other_paths, matching_current_path_groups, bool(matched_other_paths)
+
+    # def replace_subgraph(self, old_subgraph, new_subgraph):
+    #     matching_cases, _, original_timestamps, cases_timestamps = \
+    #         self.find_equivalent_subgraphs(old_subgraph)
+    #     if not matching_cases:
+    #         return False
+    #
+    #     all_matching_paths = matching_cases[0]  # TODO: pass selection to prover
+    #     matching_timestamps = cases_timestamps[0]
+    #
+    #     # Find the upper node where all those paths connect.
+    #     if len(all_matching_paths) > 1:
+    #         for edge in all_matching_paths[0][::-1]:
+    #             for path in all_matching_paths:
+    #                 if not _edges_match(path[-1], edge):
+    #                     break
+    #             else:
+    #                 for path in all_matching_paths:
+    #                     path.remove(edge)
+    #                     continue
+    #             break
+    #
+    #     # Add the new subgraph as an unconnected component.
+    #     if new_subgraph:
+    #         old_subgraph_timestamp = max(matching_timestamps)  # first moment the structure holds
+    #
+    #         for edge in new_subgraph.get_graph().edges(data=TIMESTAMP_PROPERTY_NAME):
+    #             # TODO: Consider if it is required to assign timestamps according to relative ones.
+    #             # Replace relative timestamps with the absolute timestamp when old subgraph
+    #             # firstly holds.
+    #             timestamp = edge[2]
+    #             if not timestamp.is_absolute():
+    #                 timestamp = old_subgraph_timestamp
+    #             self._add_edge(edge[0], edge[1], {TIMESTAMP_PROPERTY_NAME: timestamp})
+    #
+    #         # Intervene an AND node between the upper non and node of matching subgraph
+    #         # and its predecessors.
+    #         upper_common_node = all_matching_paths[0][-1][0]
+    #         and_node = AndOperator(upper_common_node, new_subgraph.get_root_node())
+    #         and_timestamp = max(
+    #             *(e[2] for e in self.graph.out_edges(upper_common_node, data=TIMESTAMP_PROPERTY_NAME)))
+    #         predecessors = list(self.graph.predecessors(upper_common_node))
+    #         for predecessor in predecessors:
+    #             t = self.graph.edges[predecessor, upper_common_node][TIMESTAMP_PROPERTY_NAME]
+    #             self.graph.remove_edge(predecessor, upper_common_node)
+    #             self._add_edge(predecessor, and_node, {TIMESTAMP_PROPERTY_NAME: t})
+    #         self._add_edge(and_node, upper_common_node, {TIMESTAMP_PROPERTY_NAME: and_timestamp})
+    #         self._add_edge(and_node, new_subgraph.get_root_node(),
+    #                        {TIMESTAMP_PROPERTY_NAME: and_timestamp})
+    #
+    #     # Remove old edges and nodes that doesn't participate in any other path.
+    #     #self._logically_remove_path_set(all_matching_paths)
+    #
+    #     return True
+
 
 class PredicateGraph(TimedPropertyGraph):
     # TODO: Name predicate nodes using their children too, to not be treated equal.
@@ -880,7 +997,7 @@ def _find_clean_paths_to_root(property_graph, start_node):
     return paths
 
 
-def _find_path_timestamp(path):
+def find_path_timestamp(path):
     path_timestamp = path[0][2]
     for edge in path:
         path_timestamp = min(path_timestamp, edge[2])
@@ -899,6 +1016,13 @@ def _edges_match(e1, e2):
         else:
             raise Exception("Edge comparison without solely timestamp data, not implemented yet.")
     return True
+
+
+def _edge_in_set(iterable, edge):
+    for e in iterable:
+        if _edges_match(e, edge):
+            return True
+    return False
 
 
 def _fill_paths_with_timestamps(graph, paths):
