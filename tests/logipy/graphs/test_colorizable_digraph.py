@@ -1,17 +1,17 @@
 import unittest
 
-from logipy.graphs.colorizable_digraph import ColorizableDiGraph
+from logipy.graphs.colorizable_multidigraph import ColorizableMultiDiGraph
 
 
 class TestColorizableDiGraph(unittest.TestCase):
 
     def test_disconnect_fully_colorized_sub_dag_with_simple_5_node_tree_removing_1_branch(self):
-        graph = ColorizableDiGraph()
+        graph = ColorizableMultiDiGraph()
         graph.add_edges_from([
             (0, 1), (0, 2),
             (1, 3), (1, 4), (2, 5), (2, 6)
         ])
-        graph.colorize_path([(0, 1), (1, 3)])
+        graph.colorize_path([(0, 1, 0), (1, 3, 0)])
         graph.build_colorization_scheme()
 
         graph.disconnect_fully_colorized_sub_dag()
@@ -25,7 +25,7 @@ class TestColorizableDiGraph(unittest.TestCase):
         self.assertFalse(graph.has_edge(1, 3))
 
     def test_disconnect_fully_colorized_sub_dag_with_12_node_dag(self):
-        graph = ColorizableDiGraph()
+        graph = ColorizableMultiDiGraph()
         edges = [
             (0, 1), (0, 8),
             (1, 2), (1, 7),
@@ -38,10 +38,10 @@ class TestColorizableDiGraph(unittest.TestCase):
             (8, 10), (8, 12)
         ]
         graph.add_edges_from(edges)
-        graph.colorize_path([(0, 1), (1, 2), (2, 3), (3, 4), (4, 6), (6, 9)])
-        graph.colorize_path([(0, 1), (1, 2), (2, 3), (3, 4), (4, 6), (6, 10)])
-        graph.colorize_path([(0, 8), (8, 10)])
-        graph.colorize_path([(0, 8), (8, 12)])
+        graph.colorize_path([(0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0), (4, 6, 0), (6, 9, 0)])
+        graph.colorize_path([(0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0), (4, 6, 0), (6, 10, 0)])
+        graph.colorize_path([(0, 8, 0), (8, 10, 0)])
+        graph.colorize_path([(0, 8, 0), (8, 12, 0)])
         graph.build_colorization_scheme()
 
         graph.disconnect_fully_colorized_sub_dag()
@@ -55,7 +55,7 @@ class TestColorizableDiGraph(unittest.TestCase):
         self.assertFalse(graph.has_edge(0, 8))
 
     def test_disconnect_fully_colorized_sub_dag_with_8_node_dag(self):
-        graph = ColorizableDiGraph()
+        graph = ColorizableMultiDiGraph()
         edges = [
             (0, 1), (0, 2),
             (1, 3), (1, 4),
@@ -66,8 +66,8 @@ class TestColorizableDiGraph(unittest.TestCase):
             (8, 4)
         ]
         graph.add_edges_from(edges)
-        graph.colorize_path([(0, 2), (2, 5), (5, 8), (8, 4)])
-        graph.colorize_path([(0, 2), (2, 6), (6, 4)])
+        graph.colorize_path([(0, 2, 0), (2, 5, 0), (5, 8, 0), (8, 4, 0)])
+        graph.colorize_path([(0, 2, 0), (2, 6, 0), (6, 4, 0)])
         graph.build_colorization_scheme()
 
         graph.disconnect_fully_colorized_sub_dag()
@@ -83,23 +83,23 @@ class TestColorizableDiGraph(unittest.TestCase):
         self.assertFalse(graph.has_edge(5, 8))
 
     def test_colorize_path(self):
-        graph = ColorizableDiGraph()
+        graph = ColorizableMultiDiGraph()
         graph.add_edges_from([
             (0, 1), (0, 2),
             (1, 3), (1, 4), (2, 5), (2, 6)
         ])
-        graph.colorize_path([(0, 1), (1, 3)])
+        graph.colorize_path([(0, 1, 0), (1, 3, 0)])
 
-        self.assertTrue(graph.is_edge_colorized(0, 1))
-        self.assertTrue(graph.is_edge_colorized(1, 3))
+        self.assertTrue(graph.is_edge_colorized(0, 1, 0))
+        self.assertTrue(graph.is_edge_colorized(1, 3, 0))
 
     def test_out_colorize_nodes_with_simple_5_node_tree(self):
-        graph = ColorizableDiGraph()
+        graph = ColorizableMultiDiGraph()
         graph.add_edges_from([
             (0, 1), (0, 2),
             (1, 3), (1, 4), (2, 5), (2, 6)
         ])
-        graph.colorize_path([(0, 1), (1, 3)])
+        graph.colorize_path([(0, 1, 0), (1, 3, 0)])
         graph.out_colorize_nodes()
 
         self.assertTrue(graph.is_node_out_colorized(3))
@@ -108,7 +108,7 @@ class TestColorizableDiGraph(unittest.TestCase):
         self.assertTrue(graph.is_node_out_colorized(6))
 
     def test_out_colorize_nodes_with_8_nodes_dag(self):
-        graph = ColorizableDiGraph()
+        graph = ColorizableMultiDiGraph()
         edges = [
             (0, 1), (0, 2),
             (1, 3), (1, 4),
@@ -119,8 +119,8 @@ class TestColorizableDiGraph(unittest.TestCase):
             (8, 4)
         ]
         graph.add_edges_from(edges)
-        graph.colorize_path([(0, 2), (2, 5), (5, 8), (8, 4)])
-        graph.colorize_path([(0, 2), (2, 6), (6, 4)])
+        graph.colorize_path([(0, 2, 0), (2, 5, 0), (5, 8, 0), (8, 4, 0)])
+        graph.colorize_path([(0, 2, 0), (2, 6, 0), (6, 4, 0)])
         graph.out_colorize_nodes()
 
         self.assertTrue(graph.is_node_out_colorized(3))
@@ -129,12 +129,12 @@ class TestColorizableDiGraph(unittest.TestCase):
         self.assertTrue(graph.is_node_out_colorized(6))
 
     def test_in_colorize_nodes_with_simple_5_node_tree(self):
-        graph = ColorizableDiGraph()
+        graph = ColorizableMultiDiGraph()
         graph.add_edges_from([
             (0, 1), (0, 2),
             (1, 3), (1, 4), (2, 5), (2, 6)
         ])
-        graph.colorize_path([(0, 1), (1, 3)])
+        graph.colorize_path([(0, 1, 0), (1, 3, 0)])
         graph.in_colorize_nodes()
 
         self.assertTrue(graph.is_node_in_colorized(0))
@@ -142,7 +142,7 @@ class TestColorizableDiGraph(unittest.TestCase):
         self.assertTrue(graph.is_node_in_colorized(3))
 
     def test_in_colorize_nodes_with_8_nodes_dag(self):
-        graph = ColorizableDiGraph()
+        graph = ColorizableMultiDiGraph()
         edges = [
             (0, 1), (0, 2),
             (1, 3), (1, 4),
@@ -153,8 +153,8 @@ class TestColorizableDiGraph(unittest.TestCase):
             (8, 4)
         ]
         graph.add_edges_from(edges)
-        graph.colorize_path([(0, 2), (2, 5), (5, 8), (8, 4)])
-        graph.colorize_path([(0, 2), (2, 6), (6, 4)])
+        graph.colorize_path([(0, 2, 0), (2, 5, 0), (5, 8, 0), (8, 4, 0)])
+        graph.colorize_path([(0, 2, 0), (2, 6, 0), (6, 4, 0)])
         graph.in_colorize_nodes()
 
         self.assertTrue(graph.is_node_in_colorized(0))

@@ -7,9 +7,12 @@ from networkx.readwrite.graphml import write_graphml
 from networkx.algorithms.simple_paths import all_simple_edge_paths
 from networkx.algorithms.traversal.breadth_first_search import bfs_edges
 from networkx.drawing.nx_pylab import draw_networkx, draw_networkx_edge_labels, draw_networkx_edges
+from networkx.drawing.nx_agraph import to_agraph
 from matplotlib import pyplot as plt
+from matplotlib import image as mpimage
 
-from logipy.graphs.colorizable_digraph import ColorizableDiGraph
+import logipy.config
+from logipy.graphs.colorizable_multidigraph import ColorizableMultiDiGraph
 from logipy.logic.logical_operators import *
 from logipy.logic.timestamps import *
 from logipy.monitor.time_source import get_global_time_source
@@ -27,7 +30,7 @@ LOGGER_NAME = "logipy.logic.timed_property_graph"
 class TimedPath:
     def __init__(self, path):
         self.timestamp = find_path_timestamp(path)
-        self.edges = [(e[0], e[1]) for e in path]
+        self.edges = [(e[0], e[1], e[2]) for e in path]
 
     def get_timestamp(self):
         return self.timestamp
@@ -46,7 +49,7 @@ class TimedPropertyGraph:
             self.matching_paths_timestamps = matching_paths_timestamps
 
     def __init__(self, time_source=get_global_time_source()):
-        self.graph = ColorizableDiGraph()
+        self.graph = ColorizableMultiDiGraph()
         self.root_node = None
         self.time_source = time_source
         self.property_textual_representation = None
@@ -69,7 +72,7 @@ class TimedPropertyGraph:
         if isinstance(timestamp2, RelativeTimestamp):
             timestamp2.set_time_source(self.time_source)
 
-        self.graph.add_edges_from(property_graph.graph.edges(data=True))
+        self.graph.add_edges_from(property_graph.graph.edges(keys=True, data=True))
         if not was_empty:
             # TODO: Implement recursive naming.
             and_node = AndOperator(self.get_root_node(), property_graph.get_root_node())
@@ -106,7 +109,7 @@ class TimedPropertyGraph:
             assumption_timestamp = timestamp
             conclusion_timestamp = timestamp
 
-        self.graph.add_edges_from(property_graph.graph.edges(data=True))
+        self.graph.add_edges_from(property_graph.graph.edges(data=True, keys=True))
         self._add_edge(impl_node, self.get_root_node(),
                        {TIMESTAMP_PROPERTY_NAME: assumption_timestamp,
                        IMPLICATION_PROPERTY_NAME: ASSUMPTION_GRAPH})
@@ -150,11 +153,11 @@ class TimedPropertyGraph:
             and_node = AndOperator(deeper_common_node, conclusion.get_root_node())
             and_node.disable_hashing_by_structure()
             # Move all incoming edges from deeper common node to the new AND node.
-            predecessors = list(self.graph.predecessors(deeper_common_node))
-            for predecessor in predecessors:
-                t = self.graph.edges[predecessor, deeper_common_node][TIMESTAMP_PROPERTY_NAME]
-                self.graph.remove_edge(predecessor, deeper_common_node)
-                self._add_edge(predecessor, and_node, {TIMESTAMP_PROPERTY_NAME: t})
+            predecessor_edges = list(self.graph.in_edges(deeper_common_node, keys=True))
+            for p_edge in predecessor_edges:
+                t = self.graph.edges[p_edge[0], p_edge[1], p_edge[2]][TIMESTAMP_PROPERTY_NAME]
+                self.graph.remove_edge(p_edge[0], p_edge[1], key=p_edge[2])
+                self._add_edge(p_edge[0], and_node, {TIMESTAMP_PROPERTY_NAME: t})
             # Connect the new AND node with deeper common node and
             # the unconnected conclusion component.
             old_part_timestamp = self._find_subgraph_most_recent_timestamp(deeper_common_node)
@@ -207,8 +210,8 @@ class TimedPropertyGraph:
         if isinstance(timestamp, RelativeTimestamp):
             timestamp.set_time_source(self.time_source)
 
-        for u, v in self.graph.edges():
-            self.graph[u][v].update({TIMESTAMP_PROPERTY_NAME: timestamp})
+        for u, v, k in self.graph.edges(keys=True):
+            self.graph.edges[u, v, k][TIMESTAMP_PROPERTY_NAME] = timestamp
 
     def is_uniform_timestamped(self, timestamp=None):
         """Checks whether current graph contains only timestamps that match.
@@ -219,19 +222,19 @@ class TimedPropertyGraph:
 
         :returns: True if graph is uniform timestamped, otherwise False.
         """
-        edges = list(self.graph.edges(data=TIMESTAMP_PROPERTY_NAME))
+        edges = list(self.graph.edges(keys=True, data=TIMESTAMP_PROPERTY_NAME))
         if not timestamp:
-            timestamp = edges[0][2]
+            timestamp = edges[0][3]
         for edge in edges:
-            if timestamp.is_absolute() != edge[2].is_absolute():
+            if timestamp.is_absolute() != edge[3].is_absolute():
                 # All timestamps should either be absolute or relative.
                 return False
 
             if timestamp.is_absolute() and (
-                    timestamp.get_absolute_value() != edge[2].get_absolute_value()):
+                    timestamp.get_absolute_value() != edge[3].get_absolute_value()):
                 # Absolute timestamps should have exact the same value.
                 return False
-            elif not timestamp.is_absolute() and timestamp != edge[2]:
+            elif not timestamp.is_absolute() and timestamp != edge[3]:
                 # Relative timestamps should have a common interval.
                 return False
         return True
@@ -241,12 +244,12 @@ class TimedPropertyGraph:
 
     def set_time_source(self, time_source):
         self.time_source = time_source
-        for edge in self.graph.edges(data=TIMESTAMP_PROPERTY_NAME):
-            if isinstance(edge[2], RelativeTimestamp):
-                edge[2].set_time_source(time_source)
+        for edge in self.graph.edges(keys=True, data=TIMESTAMP_PROPERTY_NAME):
+            if isinstance(edge[3], RelativeTimestamp):
+                edge[3].set_time_source(time_source)
 
     def get_most_recent_timestamp(self):
-        timestamps = [e[2] for e in self.get_graph().edges(data=TIMESTAMP_PROPERTY_NAME)]
+        timestamps = [e[3] for e in self.get_graph().edges(keys=True, data=TIMESTAMP_PROPERTY_NAME)]
         return max(timestamps) if timestamps else None
 
     def get_top_level_implication_subgraphs(self):
@@ -254,12 +257,13 @@ class TimedPropertyGraph:
         conclusion = None
 
         if isinstance(self.root_node, ImplicationOperator):
-            root_edges = list(self.graph.edges(self.root_node, data=IMPLICATION_PROPERTY_NAME))
+            root_edges = list(self.graph.edges(self.root_node, keys=True,
+                                               data=IMPLICATION_PROPERTY_NAME))
             for edge in root_edges:
-                if edge[2] == ASSUMPTION_GRAPH:
+                if edge[3] == ASSUMPTION_GRAPH:
                     assumption = self.graph.subgraph(networkx.dfs_postorder_nodes(
                         self.graph, edge[1]))
-                elif edge[2] == CONCLUSION_GRAPH:
+                elif edge[3] == CONCLUSION_GRAPH:
                     conclusion = self.graph.subgraph(networkx.dfs_postorder_nodes(
                         self.graph, edge[1]))
 
@@ -321,8 +325,10 @@ class TimedPropertyGraph:
         return [n for n, d in self.graph.out_degree() if d == 0]
 
     def get_present_time_subgraph(self):
-        present_time_edges = [(e[0], e[1]) for e in self.graph.edges(data=TIMESTAMP_PROPERTY_NAME)
-                              if e[2].matches(Timestamp(self.time_source.get_current_time()))]
+        present_time_edges = [
+            (e[0], e[1], e[2]) for e in self.graph.edges(data=TIMESTAMP_PROPERTY_NAME, keys=True)
+            if e[3].matches(Timestamp(self.time_source.get_current_time()))
+        ]
         subgraph = self.graph.edge_subgraph(present_time_edges).copy()
         # TODO: Fix subgraph by removing AND nodes with single out edge and adjacent NOT nodes.
         present_time_graph = self._inflate_property_graph_from_subgraph(subgraph)
@@ -335,45 +341,85 @@ class TimedPropertyGraph:
                self.graph.out_degree(self.root_node) > 1
 
     def visualize(self, title="", show_colorization=False):
+        # plt.figure(num=None, figsize=(18, 18), dpi=80, facecolor='w', edgecolor='w')
+        # plt.title(title, fontsize=22, fontweight='bold')
+        # plt.axis('off')
+        # plt.tight_layout()
+        # pos = networkx.nx_agraph.graphviz_layout(self.graph, prog='dot')
+        # edge_labels = {
+        #     (e[0], e[1]): str(self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME])
+        #     for e in self.graph.edges
+        # }
+        # edge_colors = {
+        #     (e[0], e[1]): 'red' if self.graph.is_edge_colorized(e[0], e[1], e[2]) else 'black'
+        #     for e in self.graph.edges
+        # }
+        # node_labels = {
+        #     n: n.get_operator_symbol() if isinstance(n, LogicalOperator) else str(n)
+        #     for n in self.graph.nodes
+        # }
+        # node_colors = []
+        # for n in self.graph.nodes:
+        #     if show_colorization:
+        #         if self.graph.is_node_in_colorized(n) and self.graph.is_node_out_colorized(n):
+        #             node_colors.append('red')
+        #         elif self.graph.is_node_in_colorized(n):
+        #             node_colors.append('orange')
+        #         elif self.graph.is_node_out_colorized(n):
+        #             node_colors.append('purple')
+        #         else:
+        #             node_colors.append('teal')
+        #     else:
+        #         node_colors.append('teal')
+        #
+        # draw_networkx(self.graph, pos=pos, font_size=18, node_size=5000, node_color=node_colors,
+        #               labels=node_labels, font_weight='bold')
+        # if show_colorization:
+        #     draw_networkx_edges(self.graph, pos=pos, edgelist=list(edge_colors.keys()),
+        #                         edge_color=list(edge_colors.values()))
+        # draw_networkx_edge_labels(self.graph, pos=pos, edge_labels=edge_labels,
+        #                           font_size=18, font_color='red')
+        # plt.show()
+        #
         plt.figure(num=None, figsize=(18, 18), dpi=80, facecolor='w', edgecolor='w')
-        plt.title(title, fontsize=22, fontweight='bold')
         plt.axis('off')
         plt.tight_layout()
-        pos = networkx.nx_agraph.graphviz_layout(self.graph, prog='dot')
-        edge_labels = {
-            e: str(self.graph.edges[e[0], e[1]][TIMESTAMP_PROPERTY_NAME])
-            for e in self.graph.edges
-        }
-        edge_colors = {
-            e: 'red' if self.graph.is_edge_colorized(e[0], e[1]) else 'black'
-            for e in self.graph.edges
-        }
-        node_labels = {
-            n: n.get_operator_symbol() if isinstance(n, LogicalOperator) else str(n)
-            for n in self.graph.nodes
-        }
-        node_colors = []
+
+        self.graph.graph['label'] = title
+        self.graph.graph['labelloc'] = 't'
+
+        for e in self.graph.edges:
+            # Set label text of each edge.
+            self.graph.edges[e[0], e[1], e[2]]['label'] = \
+                str(self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME])
+            # Set color of each edge.
+            self.graph.edges[e[0], e[1], e[2]]['color'] = \
+                'red' if self.graph.is_edge_colorized(e[0], e[1], e[2]) else 'black'
+            self.graph.edges[e[0], e[1], e[2]]['fontcolor'] = 'red'
         for n in self.graph.nodes:
+            # Set label of each node.
+            self.graph.nodes[n]['label'] = \
+                n.get_operator_symbol() if isinstance(n, LogicalOperator) else str(n)
+            # Set color of each node.
+            node_color = 'teal'
             if show_colorization:
                 if self.graph.is_node_in_colorized(n) and self.graph.is_node_out_colorized(n):
-                    node_colors.append('red')
+                    node_color = 'red'
                 elif self.graph.is_node_in_colorized(n):
-                    node_colors.append('orange')
+                    node_color = 'orange'
                 elif self.graph.is_node_out_colorized(n):
-                    node_colors.append('purple')
-                else:
-                    node_colors.append('teal')
-            else:
-                node_colors.append('teal')
+                    node_color = 'purple'
+            self.graph.nodes[n]['color'] = node_color
+            self.graph.nodes[n]['fillcolor'] = node_color
+            self.graph.nodes[n]['style'] = 'filled'
 
-        draw_networkx(self.graph, pos=pos, font_size=18, node_size=5000, node_color=node_colors,
-                      labels=node_labels, font_weight='bold')
-        if show_colorization:
-            draw_networkx_edges(self.graph, pos=pos, edgelist=list(edge_colors.keys()),
-                                edge_color=list(edge_colors.values()))
-        draw_networkx_edge_labels(self.graph, pos=pos, edge_labels=edge_labels,
-                                  font_size=18, font_color='red')
+        a_graph = to_agraph(self.graph)
+        a_graph.layout('dot')
+        path = logipy.config.get_scratchfile_path('temp_graphviz_out.png')
+        a_graph.draw(path)
+        plt.imshow(mpimage.imread(path))
         plt.show()
+        logipy.config.remove_scratchfile(path)
 
     def find_equivalent_subgraphs(self, other):
         matched_paths, matching_groups, found = self._find_equivalent_path_structure(other)
@@ -414,9 +460,11 @@ class TimedPropertyGraph:
 
         assumption_edge, conclusion_edge = self._get_top_level_implication_edges()
         self.graph.edges[
-            assumption_edge[0], assumption_edge[1]][IMPLICATION_PROPERTY_NAME] = CONCLUSION_GRAPH
+            assumption_edge[0], assumption_edge[1], assumption_edge[2]][
+            IMPLICATION_PROPERTY_NAME] = CONCLUSION_GRAPH
         self.graph.edges[
-            conclusion_edge[0], conclusion_edge[1]][IMPLICATION_PROPERTY_NAME] = ASSUMPTION_GRAPH
+            conclusion_edge[0], conclusion_edge[1], conclusion_edge[2]][
+            IMPLICATION_PROPERTY_NAME] = ASSUMPTION_GRAPH
 
     def get_basic_predicates(self):
         """Returns the basic predicates that form the graph.
@@ -471,12 +519,12 @@ class TimedPropertyGraph:
     def update_path_timestamp(self, path, new_timestamp):
         """Sets timestamps of given path to given timestamp
 
-        :param path: A path represented as a sequence of edges represented as two-tuples.
+        :param path: A path represented as a sequence of edges represented as three-tuples.
         :param new_timestamp: The new timestamp to be set on given path.
         """
         for e in path:
             # TODO: Consider if timestamp copying is needed.
-            self.graph.edges[e[0], e[1]][TIMESTAMP_PROPERTY_NAME] = new_timestamp
+            self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME] = new_timestamp
 
     def find_path_timestamp(self, path):
         """Returns the timestamp of a path.
@@ -489,15 +537,15 @@ class TimedPropertyGraph:
 
         :return: The timestamp of the path in the form of a Timestamp object.
         """
-        return min([self.graph.edges[e[0], e[1]].get(TIMESTAMP_PROPERTY_NAME) for e in path])
+        return min([self.graph.edges[e[0], e[1], e[2]].get(TIMESTAMP_PROPERTY_NAME) for e in path])
 
     def _get_top_level_implication_edges(self):
         assumption_edge = None
         conclusion_edge = None
-        root_edges = list(self.graph.edges(self.get_root_node(), data=True))
+        root_edges = list(self.graph.edges(self.get_root_node(), data=True, keys=True))
 
         for e in root_edges:
-            edge_data = e[2]
+            edge_data = e[3]
             if edge_data.get(IMPLICATION_PROPERTY_NAME, None) == ASSUMPTION_GRAPH:
                 assumption_edge = e
             elif edge_data.get(IMPLICATION_PROPERTY_NAME, None) == CONCLUSION_GRAPH:
@@ -607,8 +655,8 @@ class TimedPropertyGraph:
         return last_common_node
 
     def _find_subgraph_most_recent_timestamp(self, source):
-        return max([self.graph.edges[e[0], e[1]][TIMESTAMP_PROPERTY_NAME]
-                    for e in bfs_edges(self.graph, source)])
+        return max([self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME]
+                    for e in self.graph.edges])
 
     def _get_assumption_conclusion_edges_timestamps(self):
         """Returns the timestamps of top-level edges to assumption, conclusion subgraphs."""
@@ -665,24 +713,25 @@ class TimedPropertyGraph:
             self._remove_orphan_and_operator(n)
 
     def _remove_orphan_and_operator(self, and_node):
-        predecessors = list(self.graph.predecessors(and_node))
-        successor = list(self.graph.successors(and_node))[0]
-        successor_data = self.graph.edges[and_node, successor]
+        predecessor_edges = list(self.graph.in_edges(and_node, keys=True))
+        successor_edge = list(self.graph.edges(and_node, keys=True))[0]
+        successor_data = self.graph.edges[successor_edge[0], successor_edge[1], successor_edge[2]]
 
-        if predecessors:  # AND node is not the root node.
-            for predecessor in predecessors:
-                predecessor_data = self.graph.edges[predecessor, and_node]
+        if predecessor_edges:  # AND node is not the root node.
+            for predecessor_edge in predecessor_edges:
+                predecessor_data = \
+                    self.graph.edges[predecessor_edge[0], predecessor_edge[1], predecessor_edge[2]]
                 # Retain data from the edge with the older timestamp.
                 if (predecessor_data[TIMESTAMP_PROPERTY_NAME] <
                         successor_data[TIMESTAMP_PROPERTY_NAME]):
                     data_to_retain = successor_data | predecessor_data
                 else:
                     data_to_retain = predecessor_data | successor_data
-                self._add_edge(predecessor, successor, data_to_retain)
+                self._add_edge(predecessor_edge[0], successor_edge[1], data_to_retain)
         else:  # AND node is the root node.
-            self.root_node = successor
+            self.root_node = successor_edge[1]
             # Since no new edge is added, propagate data with older timestamp to deeper nodes.
-            self._propagate_edge_data_to_deeper_edges(successor, successor_data)
+            self._propagate_edge_data_to_deeper_edges(successor_edge[1], successor_data)
 
         self.graph.remove_node(and_node)
 
@@ -697,41 +746,43 @@ class TimedPropertyGraph:
                     break
 
     def _collapse_not_operators_pair(self, not1, not2):
-        not1_predecessors = list(self.graph.predecessors(not1))
-        not2_successor = list(self.graph.successors(not2))[0]
+        not1_predecessor_edges = list(self.graph.in_edges(not1, keys=True))
+        not2_successor_edge = list(self.graph.edges(not2, keys=True))[0]
 
         # Between the data of out edge of second NOT and the data of the edge between the
         # two NOT nodes, keep the ones whose timestamp is older.
-        between_data = self.graph.edges[not1, not2]
-        not2_out_data = self.graph.edges[not2, not2_successor]
+        between_data = self.graph.edges[not1, not2, 0]
+        not2_out_data = \
+            self.graph.edges[not2_successor_edge[0], not2_successor_edge[1], not2_successor_edge[2]]
         if between_data[TIMESTAMP_PROPERTY_NAME] < not2_out_data[TIMESTAMP_PROPERTY_NAME]:
             data_to_retain = not2_out_data | between_data
         else:
             data_to_retain = between_data | not2_out_data
 
-        if not1_predecessors:  # First NOT is not the root node.
-            for predecessor in not1_predecessors:
-                predecessor_data = self.graph.edges[predecessor, not1]
+        if not1_predecessor_edges:  # First NOT is not the root node.
+            for predecessor_edge in not1_predecessor_edges:
+                predecessor_data = \
+                    self.graph.edges[predecessor_edge[0], predecessor_edge[1], predecessor_edge[2]]
                 if (predecessor_data[TIMESTAMP_PROPERTY_NAME] <
                         data_to_retain[TIMESTAMP_PROPERTY_NAME]):
                     new_data = data_to_retain | predecessor_data
                 else:
                     new_data = predecessor_data | data_to_retain
-                self._add_edge(predecessor, not2_successor, new_data)
+                self._add_edge(predecessor_edge[0], not2_successor_edge[1], new_data)
         else:  # First NOT is the root node.
-            self.root_node = not2_successor
-            self._propagate_edge_data_to_deeper_edges(not2_successor, data_to_retain)
+            self.root_node = not2_successor_edge[1]
+            self._propagate_edge_data_to_deeper_edges(not2_successor_edge[1], data_to_retain)
 
         self.graph.remove_nodes_from([not1, not2])
 
     def _propagate_edge_data_to_deeper_edges(self, source_node, data):
-        for deeper_node in self.graph.successors(source_node):
-            deeper_node_data = self.graph.edges[source_node, deeper_node]
-            if (data[TIMESTAMP_PROPERTY_NAME] < deeper_node_data[TIMESTAMP_PROPERTY_NAME]):
-                data_to_retain = deeper_node_data | data
+        for deeper_edge in self.graph.edges(source_node, keys=True):
+            deeper_edge_data = self.graph.edges[deeper_edge[0], deeper_edge[1], deeper_edge[2]]
+            if (data[TIMESTAMP_PROPERTY_NAME] < deeper_edge_data[TIMESTAMP_PROPERTY_NAME]):
+                data_to_retain = deeper_edge_data | data
             else:
-                data_to_retain = data | deeper_node_data
-            self._add_edge(source_node, deeper_node, data_to_retain)  # just for updating data
+                data_to_retain = data | deeper_edge_data
+            self.graph.edges[deeper_edge[0], deeper_edge[1], deeper_edge[2]].update(data_to_retain)
 
     def _clean_inverse_parallel_paths(self):
         pass  # TODO: Implement
@@ -998,10 +1049,14 @@ def _find_clean_paths_to_root(property_graph, start_node):
 
 
 def find_path_timestamp(path):
-    path_timestamp = path[0][2]
-    for edge in path:
-        path_timestamp = min(path_timestamp, edge[2])
-    return path_timestamp
+    """Returns the timestamp of a path.
+
+    Timestamp of a path is considered to be the minimum timestamp contained in path.
+
+    :param path: A path represented as a sequence of edges in the form of four-tuples.
+            (source, target, key, timestamp)
+    """
+    return min([e[3] for e in path])
 
 
 def _edges_match(e1, e2):
@@ -1009,9 +1064,11 @@ def _edges_match(e1, e2):
         return False
     if e1[1] != e2[1]:
         return False
-    if len(e1) > 2 and len(e2) > 2:
-        if isinstance(e1[2], Timestamp) and isinstance(e2[2], Timestamp):
-            if not e1[2].matches(e2[2]):
+    if e1[2] != e2[2]:
+        return False
+    if len(e1) > 3 and len(e2) > 3:
+        if isinstance(e1[3], Timestamp) and isinstance(e2[3], Timestamp):
+            if not e1[3].matches(e2[3]):
                 return False
         else:
             raise Exception("Edge comparison without solely timestamp data, not implemented yet.")
@@ -1027,7 +1084,8 @@ def _edge_in_set(iterable, edge):
 
 def _fill_paths_with_timestamps(graph, paths):
     for p in paths:
-        yield [(u, v, graph.get_edge_data(u, v)[TIMESTAMP_PROPERTY_NAME]) for u, v in p]
+        yield [(u, v, k, graph.get_edge_data(u, v, key=k)[TIMESTAMP_PROPERTY_NAME])
+               for u, v, k in p]
 
 
 def _paths_logically_match(path1, path2):

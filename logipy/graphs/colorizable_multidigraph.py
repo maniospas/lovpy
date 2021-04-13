@@ -6,7 +6,7 @@ NODE_IN_COLORIZATION_LABEL = "node_in_colorized"
 NODE_OUT_COLORIZATION_LABEL = "node_out_colorized"
 
 
-class ColorizableDiGraph(networkx.DiGraph):
+class ColorizableMultiDiGraph(networkx.MultiDiGraph):
 
     def build_colorization_scheme(self):
         """Updates the colorization scheme of the graph.
@@ -18,8 +18,13 @@ class ColorizableDiGraph(networkx.DiGraph):
         self.out_colorize_nodes()
 
     def colorize_path(self, path):
+        """Colorizes given path.
+
+        :param path: A path represented as a sequence of edges in three-tuple form
+                (source, target, key).
+        """
         for e in path:
-            self.edges[e[0], e[1]][EDGE_COLORIZATION_LABEL] = True
+            self.edges[e[0], e[1], e[2]][EDGE_COLORIZATION_LABEL] = True
 
     def out_colorize_nodes(self):
         node_out_colorized = {}
@@ -29,8 +34,8 @@ class ColorizableDiGraph(networkx.DiGraph):
                 node_out_colorized[n] = True
             else:
                 is_node_out_colorized = True
-                for s in self.successors(n):
-                    if not self.is_edge_colorized(n, s) or not node_out_colorized[s]:
+                for e in self.edges(n, keys=True):
+                    if not self.is_edge_colorized(e[0], e[1], e[2]) or not node_out_colorized[e[1]]:
                         is_node_out_colorized = False
                         break
                 node_out_colorized[n] = is_node_out_colorized
@@ -49,8 +54,8 @@ class ColorizableDiGraph(networkx.DiGraph):
         node_attrs = networkx.get_node_attributes(self, NODE_IN_COLORIZATION_LABEL)
         for n in self.neighbors(root):
             is_neighbor_in_colorized = True
-            for p in self.predecessors(n):
-                if not self.is_edge_colorized(p, n):
+            for e in self.in_edges(n, keys=True):
+                if not self.is_edge_colorized(e[0], e[1], e[2]):
                     is_neighbor_in_colorized = False
                     break
             node_attrs[n] = is_neighbor_in_colorized
@@ -68,8 +73,8 @@ class ColorizableDiGraph(networkx.DiGraph):
     def is_node_out_colorized(self, node):
         return networkx.get_node_attributes(self, NODE_OUT_COLORIZATION_LABEL).get(node, False)
 
-    def is_edge_colorized(self, u, v):
-        return self.get_edge_data(u, v).get(EDGE_COLORIZATION_LABEL, False)
+    def is_edge_colorized(self, u, v, k):
+        return self.get_edge_data(u, v, k).get(EDGE_COLORIZATION_LABEL, False)
 
     def get_root_node(self):
         return [n for n, d in self.in_degree() if d == 0].pop()
@@ -85,15 +90,15 @@ class ColorizableDiGraph(networkx.DiGraph):
             return
 
         # Traverse only colorized edges.
-        successors = {s for s in self.successors(root)
-                      if self.is_edge_colorized(root, s)}
+        successors_edges = {e for e in self.edges(root, keys=True)
+                            if self.is_edge_colorized(e[0], e[1], e[2])}
 
-        if successors:
+        if successors_edges:
             # Remove any colorized edge leading towards a fully colorized subDAG.
-            for s in successors:
-                if self.is_node_out_colorized(s):
-                    self.remove_edge(root, s)
-                self.disconnect_fully_colorized_sub_dag(root=s)
+            for e in successors_edges:
+                if self.is_node_out_colorized(e[1]):
+                    self.remove_edge(root, e[1])
+                self.disconnect_fully_colorized_sub_dag(root=e[1])
 
             # Finally, cleanup orphan nodes.
             if should_clean_nodes:
@@ -101,8 +106,8 @@ class ColorizableDiGraph(networkx.DiGraph):
 
     def clear_colorization(self):
         for e in self.edges:
-            if self.edges[e[0], e[1]].get(EDGE_COLORIZATION_LABEL, False):
-                self.edges[e[0], e[1]][EDGE_COLORIZATION_LABEL] = False
+            if self.edges[e[0], e[1], e[2]].get(EDGE_COLORIZATION_LABEL, False):
+                self.edges[e[0], e[1], e[2]][EDGE_COLORIZATION_LABEL] = False
         networkx.set_node_attributes(self, {n: False for n in self.nodes},
                                      NODE_IN_COLORIZATION_LABEL)
         networkx.set_node_attributes(self, {n: False for n in self.nodes},
