@@ -138,14 +138,18 @@ class TimedPropertyGraph:
         self._logically_remove_path_set(matching_paths)
 
         # Add conclusion as an unconnected component.
-        for edge in conclusion.get_graph().edges(data=TIMESTAMP_PROPERTY_NAME):
+        new_conclusion_timestamps = []
+        for edge in conclusion.get_graph().edges(data=TIMESTAMP_PROPERTY_NAME, keys=True):
             # TODO: Consider if it is required to assign timestamps according to relative ones.
             # Replace relative timestamps with the absolute timestamp when assumption
             # firstly holds.
-            timestamp = edge[2]
+            timestamp = edge[3]
             if not timestamp.is_absolute():
                 timestamp = assumption_timestamp
-            self._add_edge(edge[0], edge[1], {TIMESTAMP_PROPERTY_NAME: timestamp})
+            new_conclusion_timestamps.append(timestamp)
+            self._add_edge(edge[0], edge[1], {TIMESTAMP_PROPERTY_NAME: timestamp},
+                           update_if_exists=True)
+        conclusion_timestamp = max(new_conclusion_timestamps)
 
         # Intervene an AND node to connect the unconnected component of conclusion.
         deeper_common_node = self._find_deeper_common_node_in_graph(matching_paths)
@@ -161,11 +165,11 @@ class TimedPropertyGraph:
             # Connect the new AND node with deeper common node and
             # the unconnected conclusion component.
             old_part_timestamp = self._find_subgraph_most_recent_timestamp(deeper_common_node)
-            new_part_timestamp = self._find_subgraph_most_recent_timestamp(conclusion.get_root_node())
+            # new_part_timestamp = self._find_subgraph_most_recent_timestamp(conclusion.get_root_node())
             self._add_edge(and_node, deeper_common_node,
                            {TIMESTAMP_PROPERTY_NAME: old_part_timestamp})
             self._add_edge(and_node, conclusion.get_root_node(),
-                           {TIMESTAMP_PROPERTY_NAME: new_part_timestamp})
+                           {TIMESTAMP_PROPERTY_NAME: conclusion_timestamp})
 
             self._fix_orphan_logical_operators()
 
@@ -558,9 +562,15 @@ class TimedPropertyGraph:
         if self.root_node is None:
             self.root_node = node
 
-    def _add_edge(self, start_node, end_node, data_dict=dict()):
+    def _add_edge(self, start_node, end_node, data_dict=dict(), update_if_exists=False):
         data_dict = {k: v for k, v in data_dict.items() if v}  # Remove None arguments.
-        self.graph.add_edge(start_node, end_node, **data_dict)
+        if update_if_exists and self.graph.has_edge(start_node, end_node):
+            key = list(self.graph[start_node][end_node].keys())[0]  # Now, only uses the first key.
+            new_data = _merge_timestamped_data(self.graph[start_node][end_node][key],
+                                               data_dict, keep_newer=True)
+            self.graph[start_node][end_node][key].update(new_data)
+        else:
+            self.graph.add_edge(start_node, end_node, **data_dict)
         if self.get_root_node() is None or end_node == self.get_root_node():
             self.root_node = start_node
 
@@ -1151,3 +1161,18 @@ def _remove_common_starting_subpath_from_paths(paths):
                     path.remove(edge)
                     continue
             break
+
+
+def _merge_timestamped_data(data_dict1, data_dict2, keep_newer=False):
+    """Merges two dicts by retaining same-keyed values depending on timestamps."""
+    if keep_newer:
+        if data_dict1[TIMESTAMP_PROPERTY_NAME] > data_dict2[TIMESTAMP_PROPERTY_NAME]:
+            merged = data_dict2 | data_dict1
+        else:
+            merged = data_dict1 | data_dict2
+    else:
+        if data_dict1[TIMESTAMP_PROPERTY_NAME] < data_dict2[TIMESTAMP_PROPERTY_NAME]:
+            merged = data_dict2 | data_dict1
+        else:
+            merged = data_dict1 | data_dict2
+    return merged
