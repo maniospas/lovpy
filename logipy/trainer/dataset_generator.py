@@ -69,6 +69,7 @@ class DatasetEntity:
         """
         theorem_instance, basic_predicates, validity_intervals = \
             self._generate_newer_absolute_property_instance(theorem)
+        assumption, _ = theorem_instance.get_top_level_implication_subgraphs()
 
         if self._predicates_invalidate_goal(basic_predicates, validity_intervals):
             # If goal predicates do not hold anymore, goal cannot be proved, so the best
@@ -83,7 +84,7 @@ class DatasetEntity:
                 logger.info("Sample Info: Theorem application sequence broke.")
                 self.next_theorem = theorem
 
-        self.current_graph.logical_and(theorem_instance)
+        self.current_graph.logical_and(assumption)
         self._update_timesource()
 
     def contains_property_to_prove(self):
