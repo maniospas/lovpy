@@ -1,7 +1,7 @@
 import unittest
 
 from tests.logipy.importer.sample_properties import get_threading_sample_properties
-from logipy.logic.monitored_predicate import Call, ReturnedBy
+from logipy.graphs.monitored_predicate import Call, ReturnedBy
 from logipy.logic.timestamps import Timestamp
 from logipy.logic.prover import *
 

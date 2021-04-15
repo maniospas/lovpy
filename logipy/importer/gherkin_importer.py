@@ -3,8 +3,8 @@ import glob
 import re
 
 import logipy.logic.properties
-from logipy.logic.monitored_predicate import MonitoredPredicate
-from logipy.logic.timed_property_graph import *
+from logipy.graphs.monitored_predicate import MonitoredPredicate
+from logipy.graphs.timed_property_graph import *
 from logipy.logic.timestamps import RelativeTimestamp, LesserThanRelativeTimestamp
 
 

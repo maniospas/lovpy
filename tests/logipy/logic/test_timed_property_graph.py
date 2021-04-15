@@ -1,9 +1,8 @@
 import unittest
 
-from logipy.logic.monitored_predicate import *
-from logipy.logic.timed_property_graph import TimedPropertyGraph
-from logipy.logic.timed_property_graph import PredicateNode
-from logipy.logic.timed_property_graph import PredicateGraph
+from logipy.graphs.monitored_predicate import *
+from logipy.graphs.timed_property_graph import PredicateNode
+from logipy.graphs.timed_property_graph import PredicateGraph
 from logipy.monitor.time_source import get_zero_locked_timesource, TimeSource
 from tests.logipy.importer.sample_properties import get_counter_sample_properties
 import logipy.logic.prover as prover

@@ -1,14 +1,14 @@
-import copy
 import logging
 import random
 import string
 
 import logipy.logic.prover as prover
-from logipy.logic.monitored_predicate import Call, ReturnedBy, CalledBy
-from logipy.logic.timed_property_graph import TimedPropertyGraph
+from logipy.graphs.monitored_predicate import Call, ReturnedBy, CalledBy
+from logipy.graphs.timed_property_graph import TimedPropertyGraph
+from logipy.graphs.timed_property_graph import NoPositiveAndNegativePredicatesSimultaneously
 from logipy.logic.timestamps import Timestamp, is_interval_subset
+from logipy.graphs.logical_operators import ImplicationOperator
 from logipy.monitor.time_source import TimeSource
-
 
 LOGGER_NAME = "logipy.trainer.dataset_generator"
 INVALID_THEOREMS_PER_VALID_THEOREM = 10
@@ -18,6 +18,8 @@ class DatasetEntity:
     def __init__(self):
         # Attributes referring to the current state of execution graph.
         self.current_graph = TimedPropertyGraph()  # Current execution graph.
+        self.current_graph.add_constant_property(
+            NoPositiveAndNegativePredicatesSimultaneously(self.current_graph))
         self.current_goal_predicates = []          # Current predicates in execution graph.
         self.current_validity_intervals = []       # Intervals during which current predicates hold.
         self.timesource = TimeSource()             # A local timesource for building exec graph.

@@ -3,8 +3,7 @@ import warnings
 
 from logipy.logic.properties import LogipyPropertyException
 import logipy.logic.properties as logipy_properties
-from logipy.logic.timed_property_graph import *
-from logipy.logic.monitored_predicate import *
+from logipy.graphs.monitored_predicate import *
 from logipy.logic import prover
 from logipy.monitor.time_source import global_stamp_and_increment
 
