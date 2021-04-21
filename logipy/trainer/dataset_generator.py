@@ -4,10 +4,11 @@ import string
 
 import logipy.logic.prover as prover
 from logipy.graphs.monitored_predicate import Call, ReturnedBy, CalledBy
-from logipy.graphs.timed_property_graph import TimedPropertyGraph
+from logipy.graphs.timed_property_graph import TimedPropertyGraph, PredicateNode
+from logipy.graphs.timed_property_graph import TIMESTAMP_PROPERTY_NAME
 from logipy.graphs.timed_property_graph import NoPositiveAndNegativePredicatesSimultaneously
 from logipy.logic.timestamps import Timestamp, is_interval_subset
-from logipy.graphs.logical_operators import ImplicationOperator
+from logipy.graphs.logical_operators import NotOperator
 from logipy.monitor.time_source import TimeSource
 
 LOGGER_NAME = "logipy.trainer.dataset_generator"
@@ -23,9 +24,11 @@ class DatasetEntity:
         self.current_goal_predicates = []          # Current predicates in execution graph.
         self.current_validity_intervals = []       # Intervals during which current predicates hold.
         self.timesource = TimeSource()             # A local timesource for building exec graph.
+        self.suppressed_predicates = set()
 
         # Attributes referring to the property that should be finally proved.
         self.goal = None                   # Property to finally be proved.
+        self.is_provable = True            # Indicates if it is possible to prove goal.
         self.goal_predicates = []          # Predicates that should hold to prove goal.
         self.goal_validity_intervals = []  # Intervals where goal predicates should hold.
 
@@ -38,23 +41,31 @@ class DatasetEntity:
     def __deepcopy__(self, memodict={}):
         pass  # TODO: Implement
 
-    def add_property_to_prove(self, property_to_prove):
+    def add_property_to_prove(self, property_to_prove, goal=None, is_provable=True):
         """Adds a new goal property into the graph of the sample.
 
         Currently, only one property to prove is supported. Trying to add a second one, will
         raise a RuntimeError.
 
         :param property_to_prove: An implication TimedPropertyGraph.
+        :param goal:
+        :param is_provable:
         """
         if self.goal:
             raise RuntimeError("Trying to add a second property to prove into the sample graph.")
 
-        self.goal = property_to_prove
+        self.goal = property_to_prove if not goal else goal
+        self.is_provable = is_provable
         property_instance, self.goal_predicates, self.goal_validity_intervals = \
             self._generate_newer_absolute_property_instance(property_to_prove)
 
         self.current_graph.logical_and(property_instance)
+
         self._update_timesource()
+        self._shift_current_graph_timestamps()
+        non_monitored_predicates, non_monitored_intervals = \
+            get_non_monitored_predicates(self.goal_predicates, self.goal_validity_intervals)
+        self._update_suppressed_predicates(non_monitored_predicates, non_monitored_intervals)
 
     def add_properties_of_theorem(self, theorem):
         """Adds an instance of the assumption of given theorem to current graph.
@@ -71,7 +82,7 @@ class DatasetEntity:
         """
         theorem_instance, basic_predicates, validity_intervals = \
             self._generate_newer_absolute_property_instance(theorem)
-        assumption, _ = theorem_instance.get_top_level_implication_subgraphs()
+        assumption, conclusion = theorem_instance.get_top_level_implication_subgraphs()
 
         if self._predicates_invalidate_goal(basic_predicates, validity_intervals):
             # If goal predicates do not hold anymore, goal cannot be proved, so the best
@@ -86,7 +97,28 @@ class DatasetEntity:
                 logger.info("Sample Info: Theorem application sequence broke.")
                 self.next_theorem = theorem
 
-        self.current_graph.logical_and(assumption)
+        self.current_graph.logical_and(prover.convert_implication_to_and(theorem_instance))
+        self._update_timesource()
+
+    def add_suppressed_predicate(self, suppressed_predicate):
+        """Adds an instance of given suppressed predicate to current graph.
+
+        When adding given suppressed predicate, the internal log of suppressed predicates is
+        updated in order to consider as suppressed the negation of the added one for time
+        moments older than the one of added instance.
+
+        When adding the suppressed predicate, it is not checked if it really has been suppressed,
+        so it is expected to have been built for example using get_suppressed_predicates()
+        method.
+
+        :param suppressed_predicate: A valid SuppressedPredicate object.
+        """
+        instance = suppressed_predicate.generate_instance()
+        self.current_graph.logical_and(instance)
+        self._update_suppressed_predicates(
+            [instance], [[instance.get_most_recent_timestamp().get_absolute_value(), "inf"]]
+        )
+        self._shift_current_graph_timestamps()
         self._update_timesource()
 
     def contains_property_to_prove(self):
@@ -102,6 +134,18 @@ class DatasetEntity:
             reversed_theorems.append(reversed_theorem)
         return prover.find_possible_theorem_applications(self.current_graph, reversed_theorems)
 
+    def get_suppressed_predicates(self):
+        return list(self.suppressed_predicates)
+
+    # def get_negated_theorem_applications(self, theorems):
+    #     negated_theorems = []
+    #     for t in theorems:
+    #         assumption, conclusion = t.get_top_level_implication_subgraphs()
+    #         conclusion.logical_not()
+    #         assumption.logical_implication_conclusion()
+    #         negated_theorems.append(assumption)
+    #     return prover.find_possible_theorem_applications(self.current_graph, negated_theorems)
+
     def generate_negative_sample(self, next_invalid_theorem):
         pass  # TODO: Implement
 
@@ -110,7 +154,16 @@ class DatasetEntity:
         self.application_sequence.append(reverse_theorem_application)
         self.next_theorem = reverse_theorem_application.implication_graph
         self.current_graph.apply_modus_ponens(reverse_theorem_application)
+        self._shift_current_graph_timestamps()
         self._update_timesource()
+
+        basic_predicates = self.current_graph.get_basic_predicates()
+        intervals = [[pred.get_most_recent_timestamp().get_absolute_value(), "inf"]
+                     for pred in basic_predicates]
+        self._update_suppressed_predicates(basic_predicates, intervals)
+
+    # def expand_with_theorem_negation(self, theorem_application):
+    #     """Expands current graph by applying the negation of conclusion of a theorem."""
 
     def expand_with_random_predicates(self):
         """Expands current graph by adding predicates that do not belong to any property."""
@@ -168,6 +221,7 @@ class DatasetEntity:
         """
         validity_intervals = []
 
+        previous_time = self.timesource.get_current_time()
         self._randomly_shift_timesource()
 
         for predicate in predicates:
@@ -175,7 +229,8 @@ class DatasetEntity:
             predicate_timestamp = min([p.timestamp for p in predicate_paths])
             if not predicate_timestamp.is_absolute():
                 predicate_timestamp.set_time_source(self.timesource)
-            validity_intervals.append(predicate_timestamp.get_validity_interval())
+            validity_intervals.append(_constraint_lower_bound_of_interval(
+                    predicate_timestamp.get_validity_interval(), previous_time))
 
         return validity_intervals
 
@@ -231,18 +286,137 @@ class DatasetEntity:
         while self.timesource.get_current_time() < latest_timestamp.get_absolute_value():
             self.timesource.stamp_and_increment()
 
+    def _update_suppressed_predicates(self, new_predicates, validity_intervals):
+        """Updates the record of suppressed predicates, when given predicates added.
+
+        This update is based on the property that when a predicate exists both in positive
+        and negative forms, the one with the newer timestamp is retained.
+
+        :param new_predicates: A sequence of the new predicates added to the graph.
+        :param validity_intervals: A sequence of the intervals of new predicates during
+                which they hold.
+        """
+
+        update_predicates, update_intervals = get_non_monitored_predicates(new_predicates,
+                                                                           validity_intervals)
+        update_predicates, update_intervals = _find_non_suppressed_predicates(update_predicates,
+                                                                              update_intervals)
+
+        for i in range(len(update_predicates)):
+            suppressed = SuppressedPredicateBuilder(
+                update_predicates[i], update_intervals[i][0]).build()
+
+            if suppressed not in self.suppressed_predicates:
+                self.suppressed_predicates.add(suppressed)
+            else:
+                # Suppressed version is always considered to be the older one.
+                grabber = SuppressedPredicateEqualGrabber(suppressed)
+                assert grabber in self.suppressed_predicates
+                old = grabber.actual
+                self.suppressed_predicates.remove(old)
+                self.suppressed_predicates.add(min(old, suppressed, key=lambda p: p.suppressed_at))
+
     def _randomly_shift_timesource(self):
         """Shifts local timesource by a random number of time steps in [1, 10]."""
         shift = random.randint(1, 10)
         for i in range(shift):
             self.timesource.stamp_and_increment()
 
+    def _shift_current_graph_timestamps(self):
+        paths = self.current_graph.get_all_paths()
+        paths.sort(key=lambda path: path.timestamp)
+        min_shift = 0
+        if paths[0].timestamp.get_absolute_value() < 0:
+            min_shift = -paths[0].timestamp.get_absolute_value()
+
+        shift = random.randint(min_shift, min_shift + 10)
+
+        for e in self.current_graph.graph.edges:
+            old_timestamp = self.current_graph.graph.edges[
+                e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME]
+            new_timestamp = Timestamp(old_timestamp.get_absolute_value()+shift)
+            self.current_graph.graph.edges[
+                e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME] = new_timestamp
+        # for p in paths:
+        #     self.current_graph.update_path_timestamp(
+        #         p.path, Timestamp(p.timestamp.get_absolute_value()+shift))
+        for sup in self.suppressed_predicates:
+            sup.suppressed_at += shift
+
+        self._update_timesource()
+
+
+class SuppressedPredicate:
+    def __init__(self, graph, suppressed_at):
+        self.graph = graph
+        self.suppressed_at = suppressed_at
+        self.pred_name = None
+        self.is_negated = None
+
+        if isinstance(graph.get_root_node(), NotOperator):
+            self.pred_name = str(list(graph.graph.successors(graph.get_root_node()))[0])
+            self.is_negated = True
+        else:
+            self.pred_name = str(graph.get_root_node())
+            self.is_negated = False
+
+    def __hash__(self):
+        return hash(self.pred_name)
+
+    def __eq__(self, other):
+        try:
+            return self.pred_name == other.pred_name
+        except AttributeError:
+            return NotImplemented
+
+    def generate_instance(self):
+        """Generates an instance of suppressed predicate with timestamp before suppression.
+
+        :return: Suppressed predicate in the form of a TimedPropertyGraph object, with
+                absolute timestamps.
+        """
+        instance = self.graph.get_copy()
+        timestamp = Timestamp(random.randint(min(0, self.suppressed_at-1), self.suppressed_at-1))
+        instance.set_timestamp(timestamp)
+        return instance
+
+
+class SuppressedPredicateBuilder:
+    def __init__(self, positive_predicate, suppressed_at):
+        self.positive_predicate = positive_predicate
+        self.suppressed_at = suppressed_at
+
+    def build(self):
+        property_graph = self.positive_predicate.get_copy()
+        property_graph.add_constant_property(
+            NoPositiveAndNegativePredicatesSimultaneously(property_graph)
+        )
+        property_graph.logical_not()
+
+        return SuppressedPredicate(property_graph, self.suppressed_at)
+
+
+class SuppressedPredicateEqualGrabber:
+    def __init__(self, suppressed_predicate):
+        self.suppressed_predicate = suppressed_predicate
+        self.actual = None
+
+    def __hash__(self):
+        return hash(self.suppressed_predicate)
+
+    def __eq__(self, other):
+        if self.suppressed_predicate == other:
+            self.actual = other
+            return True
+        return False
+
 
 class DatasetGenerator:
 
     def __init__(self, properties, max_depth, total_samples,
                  random_expansion_probability=0.7,
-                 add_new_property_probability=0.2):
+                 add_new_property_probability=0.2,
+                 verbose=False):
         self.max_depth = max_depth
         self.total_samples = total_samples
         self.samples_generated = 0
@@ -251,9 +425,13 @@ class DatasetGenerator:
 
         self.theorems, properties_to_prove = \
             prover.split_into_theorems_and_properties_to_prove(properties)
-        # The properties I actually want to prove that hold are the negated ones.
-        self.properties_to_prove = \
+        # The properties I want to prove that hold are the negated ones.
+        self.valid_properties_to_prove = \
             prover.negate_conclusion_part_of_properties(properties_to_prove)
+        # Also keep the negation of properties to prove, to create negative samples.
+        self.invalid_properties = [prover.convert_implication_to_and(p)
+                                   for p in properties_to_prove]
+        self.verbose = verbose
 
     def __iter__(self):
         return DatasetIterator(self)
@@ -272,23 +450,72 @@ class DatasetGenerator:
         sample = DatasetEntity()
 
         for i in range(depth):  # Apply 'depth' number of sample expansions.
-            random_expansion = random.random() < self.random_expansion_probability
+            random_expansion = False #random.random() < self.random_expansion_probability
 
             if random_expansion:
                 sample.expand_with_random_predicates()
+                if self.verbose:
+                    sample.current_graph.visualize(f"#{i+1} Random expanded.")
             else:
                 if sample.contains_property_to_prove():
-                    add_new_properties = random.random() < self.add_new_property_probability
-
                     reverse_theorems = sample.get_reverse_theorem_applications(self.theorems)
-                    if reverse_theorems and not add_new_properties:
+                    if reverse_theorems:
                         sample.expand_with_theorem(random.choice(reverse_theorems))
+                        if self.verbose:
+                            sample.current_graph.visualize(f"#{i+1} Reverse theorem expansion.")
                     else:
-                        extra_theorems = [t for t in self.theorems if t not in reverse_theorems]
-                        sample.add_properties_of_theorem(random.choice(extra_theorems))
+                        suppressed_predicates = sample.get_suppressed_predicates()
+                        sample.add_suppressed_predicate(random.choice(suppressed_predicates))
+                        if self.verbose:
+                            sample.current_graph.visualize(
+                                f"#{i+1} Expansions by suppressed predicate")
                 else:
-                    sample.add_property_to_prove(random.choice(self.properties_to_prove))
+                    add_valid_property = bool(random.randint(0, 1))
+
+                    if add_valid_property:
+                        sample.add_property_to_prove(random.choice(self.valid_properties_to_prove))
+                        if self.verbose:
+                            sample.current_graph.visualize(f"#{i+1} Added property to prove.")
+                    else:
+                        invalid_index = random.randint(0, len(self.invalid_properties)-1)
+                        valid_property = self.valid_properties_to_prove[invalid_index]
+                        invalid_property = self.invalid_properties[invalid_index]
+                        sample.add_property_to_prove(invalid_property, valid_property, False)
+                        if self.verbose:
+                            sample.current_graph.visualize(f"#{i + 1} Added negation of property.")
         return sample
+
+    # def generate_sample_old_method(self, depth):
+    #     """Generates a training sample with given depth."""
+    #     sample = DatasetEntity()
+    #     last_new_theorem_added = None
+    #
+    #     for i in range(depth):  # Apply 'depth' number of sample expansions.
+    #         random_expansion = False #random.random() < self.random_expansion_probability
+    #
+    #         if random_expansion:
+    #             sample.expand_with_random_predicates()
+    #             sample.current_graph.visualize(f"#{i+1} Random expanded.")
+    #         else:
+    #             if sample.contains_property_to_prove():
+    #                 add_new_properties = random.random() < self.add_new_property_probability
+    #
+    #                 reverse_theorems = sample.get_reverse_theorem_applications(self.theorems)
+    #                 if reverse_theorems and not add_new_properties:
+    #                     sample.expand_with_theorem(random.choice(reverse_theorems))
+    #                     sample.current_graph.visualize(f"#{i+1} Reverse theorem expansion.")
+    #                 else:
+    #                     reverse_theorems_graphs = [t.implication_graph for t in reverse_theorems]
+    #                     extra_theorems = [
+    #                         t for t in self.theorems
+    #                         if t not in reverse_theorems_graphs and t != last_new_theorem_added
+    #                     ]
+    #                     sample.add_properties_of_theorem(random.choice(extra_theorems))
+    #                     sample.current_graph.visualize(f"#{i+1} New property expansion.")
+    #             else:
+    #                 valid_property = random.choice(self.valid_properties_to_prove)
+    #                 sample.add_property_to_prove()
+    #                 sample.current_graph.visualize(f"#{i+1} Added property to prove.")
 
     # def _recursively_generate_next_theorem_dataset(self, depth):
     #     # TODO: Convert timestamps of generated graph to absolute ones.
@@ -338,10 +565,15 @@ class DatasetIterator:
         self.generator = generator
 
     def __next__(self):
-        next_sample = self.generator.next_sample()
-        if not next_sample:
-            raise StopIteration
-        return next_sample
+        while True:  # TODO: Fix bug in find_equivalent_subgraphs() about getting wrong timestamps and remove while loop.
+            try:
+                next_sample = self.generator.next_sample()
+
+                if not next_sample:
+                    raise StopIteration
+                return next_sample
+            except RuntimeError:
+                pass
 #
 #
 # def reverse_apply_theorem(graph, theorem):
@@ -425,5 +657,69 @@ def predicates_in_predicates_set(subject_predicates, subject_intervals,
     return True
 
 
+def get_non_monitored_predicates(predicates_set, validity_intervals):
+    non_monitored = []
+    non_monitored_intervals = []
+
+    for i in range(len(predicates_set)):
+        predicate = predicates_set[i]
+
+        for n in predicate.graph.nodes:
+            node_name = str(n)
+            if isinstance(n, PredicateNode) and (
+                    node_name.startswith("call") or node_name.startswith("returned_by") or
+                    node_name.startswith("called_by")):
+                break
+        else:
+            non_monitored.append(predicate)
+            non_monitored_intervals.append(validity_intervals[i])
+
+    return non_monitored, non_monitored_intervals
+
+
 def _generate_random_text(length):
     return "".join(random.choices(string.ascii_lowercase, k=length))
+
+
+def _constraint_lower_bound_of_interval(interval, constraint):
+    if constraint != "-inf" and (interval[0] == "-inf" or interval[0] < constraint):
+        return [constraint, interval[1]]
+    else:
+        return interval
+
+
+def _find_non_suppressed_predicates(predicates, validity_intervals):
+    """Returns the predicates that are left after suppression operations.
+
+    :param predicates: A sequence of predicates in the form of TimedPropertyGraph objects.
+    :param validity_intervals: The intervals during which corresponding predicates hold.
+    """
+    preds_by_name = {}
+    for p in predicates:
+        if isinstance(p.get_root_node(), NotOperator):
+            pred_name = str(list(p.graph.successors(p.get_root_node()))[0])
+            is_negated = True
+        else:
+            pred_name = str(p.get_root_node())
+            is_negated = False
+
+        if not pred_name in preds_by_name:
+            preds_by_name[pred_name] = []
+        preds_by_name[pred_name].append({"timestamp": p.get_most_recent_timestamp(),
+                                         "is_negated": is_negated,
+                                         "index": predicates.index(p)})
+
+    non_suppressed_predicates = []
+    non_suppressed_validity_intervals = []
+
+    for base_name, preds in preds_by_name.items():
+        preds.sort(reverse=True, key=lambda d: d["timestamp"])
+
+        for p in preds:
+            if p["is_negated"] == preds[0]["is_negated"]:
+                non_suppressed_predicates.append(predicates[p["index"]])
+                non_suppressed_validity_intervals.append(validity_intervals[p["index"]])
+            else:
+                break
+
+    return non_suppressed_predicates, non_suppressed_validity_intervals
