@@ -1,3 +1,6 @@
+import sys
+import atexit
+
 from logipy.importer.file_converter import cleanup
 from logipy.logic.rules import add_rule
 from logipy.wrappers import LogipyPrimitive as logipy_obj
@@ -5,8 +8,6 @@ from logipy.wrappers import logipy_call as logipy_call
 import logipy.importer.file_converter
 import logipy.importer.gherkin_importer
 import logipy.importer.exception_handler
-import sys
-import atexit
 
 
 logipy.importer.file_converter.convert_path()
