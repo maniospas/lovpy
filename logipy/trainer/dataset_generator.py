@@ -137,15 +137,6 @@ class DatasetEntity:
     def get_suppressed_predicates(self):
         return list(self.suppressed_predicates)
 
-    # def get_negated_theorem_applications(self, theorems):
-    #     negated_theorems = []
-    #     for t in theorems:
-    #         assumption, conclusion = t.get_top_level_implication_subgraphs()
-    #         conclusion.logical_not()
-    #         assumption.logical_implication_conclusion()
-    #         negated_theorems.append(assumption)
-    #     return prover.find_possible_theorem_applications(self.current_graph, negated_theorems)
-
     def generate_negative_sample(self, next_invalid_theorem):
         pass  # TODO: Implement
 
@@ -161,9 +152,6 @@ class DatasetEntity:
         intervals = [[pred.get_most_recent_timestamp().get_absolute_value(), "inf"]
                      for pred in basic_predicates]
         self._update_suppressed_predicates(basic_predicates, intervals)
-
-    # def expand_with_theorem_negation(self, theorem_application):
-    #     """Expands current graph by applying the negation of conclusion of a theorem."""
 
     def expand_with_random_predicates(self):
         """Expands current graph by adding predicates that do not belong to any property."""
@@ -181,6 +169,15 @@ class DatasetEntity:
         predicate.set_timestamp(timestamp)
 
         self.current_graph.logical_and(predicate)
+
+    # def get_negated_theorem_applications(self, theorems):
+    #     negated_theorems = []
+    #     for t in theorems:
+    #         assumption, conclusion = t.get_top_level_implication_subgraphs()
+    #         conclusion.logical_not()
+    #         assumption.logical_implication_conclusion()
+    #         negated_theorems.append(assumption)
+    #     return prover.find_possible_theorem_applications(self.current_graph, negated_theorems)
 
     def _generate_newer_absolute_property_instance(self, property_to_prove):
         """Converts a property with relative timestamps, to one with absolute timestamps.
@@ -565,7 +562,9 @@ class DatasetIterator:
         self.generator = generator
 
     def __next__(self):
-        while True:  # TODO: Fix bug in find_equivalent_subgraphs() about getting wrong timestamps and remove while loop.
+        # TODO: Fix bug in find_equivalent_subgraphs() about getting wrong timestamps
+        #  and remove while loop.
+        while True:
             try:
                 next_sample = self.generator.next_sample()
 
