@@ -12,6 +12,7 @@ import logipy.importer.exception_handler
 
 logipy.importer.file_converter.convert_path()
 logipy.importer.gherkin_importer.import_gherkin_path()
-atexit.register(cleanup)
+# TODO: Uncomment cleanup.
+# atexit.register(cleanup)
 
 sys.excepthook = logipy.importer.exception_handler.logipy_exception_handler
