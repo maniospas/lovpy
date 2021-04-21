@@ -1,6 +1,7 @@
 import os
 
 SCRATCHDIR_RELATIVE_PATH = "./_temp/"
+MODELS_DIR = "./models/"
 
 
 def get_scratchfile_path(filename):
@@ -14,3 +15,10 @@ def remove_scratchfile(filename):
     os.remove(filename)
     if len(os.listdir(SCRATCHDIR_RELATIVE_PATH)) == 0:
         os.rmdir(SCRATCHDIR_RELATIVE_PATH)
+
+
+def get_models_dir():
+    abs_path = os.path.abspath(MODELS_DIR)
+    if not os.path.exists(abs_path):
+        os.mkdir(abs_path)
+    return abs_path
