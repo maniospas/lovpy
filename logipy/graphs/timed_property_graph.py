@@ -507,7 +507,7 @@ class TimedPropertyGraph:
 
         :return: A list of paths in the form of TimestampedPath objects.
         """
-        leaf_nodes = _get_leaf_nodes(self)
+        leaf_nodes = self.get_leaves()
         paths = all_simple_edge_paths(self.graph, self.get_root_node(), leaf_nodes)
         return [TimestampedPath(p, self.find_path_timestamp(p)) for p in paths]
 
@@ -526,6 +526,7 @@ class TimedPropertyGraph:
             logger = logging.getLogger(LOGGER_NAME)
             logger.warning("More than a single case found while updating subgraph timestamp.")
         elif not matching_cases:
+            matching_cases, _, _, _ = self.find_equivalent_subgraphs(subgraph)
             raise RuntimeError("Failed to update timestamps of given subgraph: subgraph not found.")
 
         case_to_update = matching_cases[0]
@@ -711,7 +712,7 @@ class TimedPropertyGraph:
                 of two-tuples.
         """
         final_prefix_node = path_prefix[-1][1]
-        leaf_nodes = _get_leaf_nodes(self)
+        leaf_nodes = self.get_leaves()
         suffix_paths = all_simple_edge_paths(self.graph, final_prefix_node, leaf_nodes)
         all_edges_to_retain = list(path_prefix)
         for p in suffix_paths:
@@ -1083,14 +1084,6 @@ class NoPositiveAndNegativePredicatesSimultaneously(ConstantProperty):
                 self.property_graph._fix_orphan_logical_operators()
 
 
-def _get_leaf_nodes(property_graph):
-    leaf_nodes = list()
-    for node, deg in property_graph.get_graph().out_degree():
-        if deg == 0:
-            leaf_nodes.append(node)
-    return leaf_nodes
-
-
 # def _find_path_to_upper_non_and_nodes(property_graph, start_node):
 #     graph = property_graph.get_graph()
 #     paths = []
@@ -1125,6 +1118,13 @@ def find_path_timestamp(path):
             (source, target, key, timestamp)
     """
     return min([e[3] for e in path])
+
+
+def count_nots_in_path(path):
+    all_nots = [e[0] for e in path if isinstance(e[0], NotOperator)]
+    if isinstance(path[-1][1], NotOperator):
+        all_nots.append(path[-1][1])
+    return len(all_nots)
 
 
 def _edges_match(e1, e2):
@@ -1193,13 +1193,6 @@ def _paths_logically_match(path1, path2):
             return False
 
     return True
-
-
-def count_nots_in_path(path):
-    all_nots = [e[0] for e in path if isinstance(e[0], NotOperator)]
-    if isinstance(path[-1][1], NotOperator):
-        all_nots.append(path[-1][1])
-    return len(all_nots)
 
 
 def _remove_common_starting_subpath_from_paths(paths):
