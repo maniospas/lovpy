@@ -1,6 +1,3 @@
-import random
-# import os
-
 from logipy.logic.timestamps import RelativeTimestamp
 from logipy.monitor.time_source import get_zero_locked_timesource
 # from logipy.trainer.neural_theorem_selector import NeuralNextTheoremSelector
