@@ -750,9 +750,11 @@ class TimedPropertyGraph:
                 # Retain data from the edge with the older timestamp.
                 if (predecessor_data[TIMESTAMP_PROPERTY_NAME] <
                         successor_data[TIMESTAMP_PROPERTY_NAME]):
-                    data_to_retain = successor_data | predecessor_data
+                    data_to_retain = successor_data.copy()
+                    data_to_retain.update(predecessor_data)
                 else:
-                    data_to_retain = predecessor_data | successor_data
+                    data_to_retain = predecessor_data.copy()
+                    data_to_retain.update(successor_data)
                 self._add_edge(predecessor_edge[0], successor_edge[1], data_to_retain)
         else:  # AND node is the root node.
             self.root_node = successor_edge[1]
@@ -781,9 +783,11 @@ class TimedPropertyGraph:
         not2_out_data = \
             self.graph.edges[not2_successor_edge[0], not2_successor_edge[1], not2_successor_edge[2]]
         if between_data[TIMESTAMP_PROPERTY_NAME] < not2_out_data[TIMESTAMP_PROPERTY_NAME]:
-            data_to_retain = not2_out_data | between_data
+            data_to_retain = not2_out_data.copy()
+            data_to_retain.update(between_data)
         else:
-            data_to_retain = between_data | not2_out_data
+            data_to_retain = between_data.copy()
+            data_to_retain.update(not2_out_data)
 
         if not1_predecessor_edges:  # First NOT is not the root node.
             for predecessor_edge in not1_predecessor_edges:
@@ -791,9 +795,11 @@ class TimedPropertyGraph:
                     self.graph.edges[predecessor_edge[0], predecessor_edge[1], predecessor_edge[2]]
                 if (predecessor_data[TIMESTAMP_PROPERTY_NAME] <
                         data_to_retain[TIMESTAMP_PROPERTY_NAME]):
-                    new_data = data_to_retain | predecessor_data
+                    new_data = data_to_retain.copy()
+                    new_data.update(predecessor_data)
                 else:
-                    new_data = predecessor_data | data_to_retain
+                    new_data = predecessor_data.copy()
+                    new_data.update(data_to_retain)
                 self._add_edge(predecessor_edge[0], not2_successor_edge[1], new_data)
         else:  # First NOT is the root node.
             self.root_node = not2_successor_edge[1]
@@ -805,9 +811,11 @@ class TimedPropertyGraph:
         for deeper_edge in self.graph.edges(source_node, keys=True):
             deeper_edge_data = self.graph.edges[deeper_edge[0], deeper_edge[1], deeper_edge[2]]
             if (data[TIMESTAMP_PROPERTY_NAME] < deeper_edge_data[TIMESTAMP_PROPERTY_NAME]):
-                data_to_retain = deeper_edge_data | data
+                data_to_retain = deeper_edge_data.copy()
+                data_to_retain.update(data)
             else:
-                data_to_retain = data | deeper_edge_data
+                data_to_retain = data.copy()
+                data_to_retain.update(deeper_edge_data)
             self.graph.edges[deeper_edge[0], deeper_edge[1], deeper_edge[2]].update(data_to_retain)
 
     # def find_time_matching_paths_from_node_to_root(self, start_node, other_graph, other_start_node):
@@ -1217,14 +1225,18 @@ def _merge_timestamped_data(data_dict1, data_dict2, keep_newer=False):
     """Merges two dicts by retaining same-keyed values depending on timestamps."""
     if keep_newer:
         if data_dict1[TIMESTAMP_PROPERTY_NAME] > data_dict2[TIMESTAMP_PROPERTY_NAME]:
-            merged = data_dict2 | data_dict1
+            merged = data_dict2.copy()
+            merged.update(data_dict1)
         else:
-            merged = data_dict1 | data_dict2
+            merged = data_dict1.copy()
+            merged.update(data_dict2)
     else:
         if data_dict1[TIMESTAMP_PROPERTY_NAME] < data_dict2[TIMESTAMP_PROPERTY_NAME]:
-            merged = data_dict2 | data_dict1
+            merged = data_dict2.copy()
+            merged.update(data_dict1)
         else:
-            merged = data_dict1 | data_dict2
+            merged = data_dict1.copy()
+            merged.update(data_dict2)
     return merged
 
 
