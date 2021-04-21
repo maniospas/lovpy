@@ -3,9 +3,12 @@ import random
 
 from logipy.logic.timestamps import RelativeTimestamp
 from logipy.monitor.time_source import get_zero_locked_timesource
-
+# from logipy.trainer.neural_theorem_selector import NeuralNextTheoremSelector
 
 MAX_PROOF_PATH = 2  # Max number of theorems to be applied in order to prove a property.
+
+USE_NEURAL_SELECTOR = False
+# neural_selector = NeuralNextTheoremSelector()
 
 
 class PropertyNotHoldsException(Exception):
@@ -13,6 +16,40 @@ class PropertyNotHoldsException(Exception):
         message = "A property found not to hold:\n\t"
         message += property_text
         super().__init__(message)
+
+
+class NextTheoremSelector:
+    def select_next_theorem_application(self, graph, theorem_applications,
+                                        goal, previous_applications):
+        pass
+
+
+class SimpleNextTheoremSelector:
+    def select_next_theorem_application(self, graph, theorem_applications,
+                                        goal, previous_applications):
+        used_base_theorems = {t.implication_graph for t in previous_applications}
+        unused_base_applications = [t for t in theorem_applications
+                                    if t.implication_graph not in used_base_theorems]
+        if unused_base_applications:
+            return unused_base_applications[0]
+        else:
+            return None
+
+
+# class BetterNextTheoremSelector:
+#     def select_next_theorem_application(self, graph, theorem_applications,
+#                                         goal, previous_applications):
+#
+#         # Don't use the last applied theorem.
+#         used_base_theorems = theorem_applications[0] if theorem_applications else []
+#         unused_base_applications = [t for t in theorem_applications
+#                                     if t.implication_graph not in used_base_theorems]
+#
+#         if unused_base_applications:
+#             theorem_applications.sort(key=max())
+#
+#         else:
+#             return None
 
 
 def prove_set_of_properties(property_graphs, execution_graph):
@@ -90,14 +127,38 @@ def negate_conclusion_part_of_properties(properties):
     negated_properties = []
 
     for p in properties:
-        assumption, conclusion = p.get_top_level_implication_subgraphs()
-        assumption = assumption.get_copy()
-        conclusion = conclusion.get_copy()
-        conclusion.logical_not()
-        assumption.logical_and(conclusion)
-        negated_properties.append(assumption)
+        negated_properties.append(convert_implication_to_and(negate_implication_property(p)))
 
     return negated_properties
+
+
+def negate_implication_property(property_graph):
+    """Returns a copy of given property with conclusion part negated."""
+    assumption, conclusion = property_graph.get_top_level_implication_subgraphs()
+    assumption = assumption.get_copy()
+    conclusion = conclusion.get_copy()
+    conclusion.logical_not()
+    assumption.logical_implication(conclusion)
+    return assumption
+
+
+def convert_implication_to_and(property_graph):
+    """Converts an implication TimedPropertyGraph to an AND form property.
+
+    :param property_graph: An implication TimedPropertyGraph.
+
+    :return: A new TimedPropertyGraph with top level implication operator converted to
+            an AND operator.
+    """
+    if not property_graph.is_implication_graph():
+        message = "Error in converting non-implication TimedPropertyGraph to AND form."
+        raise RuntimeError(message)
+
+    assumption, conclusion = property_graph.get_top_level_implication_subgraphs()
+    assumption = assumption.get_copy()
+    assumption.logical_and(conclusion)
+
+    return assumption
 
 
 def get_all_possible_modus_ponens(graph, properties):
@@ -121,15 +182,17 @@ def find_possible_theorem_applications(graph, theorems):
 
 
 def select_next_theorem_application(graph, theorem_applications, goal, previous_applications):
-    # TODO: Implement a better selector than the random one.
-    # return random.choice(theorem_applications)
-    used_base_theorems = {t.implication_graph for t in previous_applications}
-    unused_base_applications = [t for t in theorem_applications
-                                if t.implication_graph not in used_base_theorems]
-    if unused_base_applications:
-        return unused_base_applications[0]
-    else:
-        return None
+    if not USE_NEURAL_SELECTOR:
+        used_base_theorems = {t.implication_graph for t in previous_applications}
+        unused_base_applications = [t for t in theorem_applications
+                                    if t.implication_graph not in used_base_theorems]
+        if unused_base_applications:
+            return unused_base_applications[0]
+        else:
+            return None
+    # else:
+    #     neural_selector.select_next_theorem_application(
+    #         graph, theorem_applications, goal, previous_applications)
 
 
 def apply_theorem(graph, theorem_application):
