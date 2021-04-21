@@ -32,6 +32,6 @@ def get_both_parts():
         lock.release()
     return first, second
 
-threading.Thread(target=get_first_part).start()
-threading.Thread(target=get_second_part).start()
+#threading.Thread(target=get_first_part).start()
+#threading.Thread(target=get_second_part).start()
 get_both_parts()
