@@ -1,6 +1,6 @@
 import unittest
 
-from logipy.trainer.dataset_generator import *
+from logipy.models.dataset_generator import *
 from logipy.logic.prover import split_into_theorems_and_properties_to_prove
 
 from tests.logipy.importer.sample_properties import get_threading_sample_properties

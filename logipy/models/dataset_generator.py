@@ -11,7 +11,7 @@ from logipy.logic.timestamps import Timestamp, is_interval_subset
 from logipy.graphs.logical_operators import NotOperator
 from logipy.monitor.time_source import TimeSource
 
-LOGGER_NAME = "logipy.trainer.dataset_generator"
+LOGGER_NAME = "logipy.models.dataset_generator"
 INVALID_THEOREMS_PER_VALID_THEOREM = 10
 
 

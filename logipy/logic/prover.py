@@ -1,6 +1,6 @@
 from logipy.logic.timestamps import RelativeTimestamp
 from logipy.monitor.time_source import get_zero_locked_timesource
-# from logipy.trainer.neural_theorem_selector import NeuralNextTheoremSelector
+# from logipy.models.neural_theorem_selector import NeuralNextTheoremSelector
 
 MAX_PROOF_PATH = 2  # Max number of theorems to be applied in order to prove a property.
 
