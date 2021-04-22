@@ -1,11 +1,8 @@
 from logipy.logic.timestamps import RelativeTimestamp
 from logipy.monitor.time_source import get_zero_locked_timesource
-# from logipy.models.neural_theorem_selector import NeuralNextTheoremSelector
+from .next_theorem_selectors import DEFAULT_THEOREM_SELECTOR
 
 MAX_PROOF_PATH = 2  # Max number of theorems to be applied in order to prove a property.
-
-USE_NEURAL_SELECTOR = False
-# neural_selector = NeuralNextTheoremSelector()
 
 
 class PropertyNotHoldsException(Exception):
@@ -15,41 +12,7 @@ class PropertyNotHoldsException(Exception):
         super().__init__(message)
 
 
-class NextTheoremSelector:
-    def select_next_theorem_application(self, graph, theorem_applications,
-                                        goal, previous_applications):
-        pass
-
-
-class SimpleNextTheoremSelector:
-    def select_next_theorem_application(self, graph, theorem_applications,
-                                        goal, previous_applications):
-        used_base_theorems = {t.implication_graph for t in previous_applications}
-        unused_base_applications = [t for t in theorem_applications
-                                    if t.implication_graph not in used_base_theorems]
-        if unused_base_applications:
-            return unused_base_applications[0]
-        else:
-            return None
-
-
-# class BetterNextTheoremSelector:
-#     def select_next_theorem_application(self, graph, theorem_applications,
-#                                         goal, previous_applications):
-#
-#         # Don't use the last applied theorem.
-#         used_base_theorems = theorem_applications[0] if theorem_applications else []
-#         unused_base_applications = [t for t in theorem_applications
-#                                     if t.implication_graph not in used_base_theorems]
-#
-#         if unused_base_applications:
-#             theorem_applications.sort(key=max())
-#
-#         else:
-#             return None
-
-
-def prove_set_of_properties(property_graphs, execution_graph):
+def prove_set_of_properties(property_graphs, execution_graph, selector=DEFAULT_THEOREM_SELECTOR):
     """A very simple and somewhat silly prover."""
     # Don't modify the original properties.
     property_graphs = [p.get_copy() for p in property_graphs]
@@ -68,8 +31,7 @@ def prove_set_of_properties(property_graphs, execution_graph):
             if not possible_theorems:
                 break
 
-            next_theorem = select_next_theorem_application(temp_graph, possible_theorems,
-                                                           p, theorems_applied)
+            next_theorem = selector.select_next(temp_graph, possible_theorems, p, theorems_applied)
             if not next_theorem:
                 break
             # next_theorem.implication_graph.visualize("Next theorem to apply.")
@@ -176,20 +138,6 @@ def find_possible_theorem_applications(graph, theorems):
     for theorem in theorems:
         possible_theorem_applications.extend(graph.find_all_possible_modus_ponens(theorem))
     return possible_theorem_applications
-
-
-def select_next_theorem_application(graph, theorem_applications, goal, previous_applications):
-    if not USE_NEURAL_SELECTOR:
-        used_base_theorems = {t.implication_graph for t in previous_applications}
-        unused_base_applications = [t for t in theorem_applications
-                                    if t.implication_graph not in used_base_theorems]
-        if unused_base_applications:
-            return unused_base_applications[0]
-        else:
-            return None
-    # else:
-    #     neural_selector.select_next_theorem_application(
-    #         graph, theorem_applications, goal, previous_applications)
 
 
 def apply_theorem(graph, theorem_application):
