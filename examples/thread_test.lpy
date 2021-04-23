@@ -25,11 +25,16 @@ def get_second_part():
 def get_both_parts():
     # THIS WILL HANG
     lock.acquire()
+    lock.release()
+    lock.acquire()
+    lock.release()
+    lock.acquire()
     try:
         first = get_first_part()
         second = get_second_part()
     finally:
-        lock.release()
+        pass
+        # lock.release()
     return first, second
 
 #threading.Thread(target=get_first_part).start()
