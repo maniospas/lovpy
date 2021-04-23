@@ -1,3 +1,4 @@
+from logipy.graphs.timed_property_graph import NoPositiveAndNegativePredicatesSimultaneously
 from logipy.logic.timestamps import RelativeTimestamp
 from logipy.monitor.time_source import get_zero_locked_timesource
 from .next_theorem_selectors import DEFAULT_THEOREM_SELECTOR
@@ -23,6 +24,7 @@ def prove_set_of_properties(property_graphs, execution_graph, selector=DEFAULT_T
 
     for p in negate_conclusion_part_of_properties(properties_to_prove):
         temp_graph = execution_graph.get_copy()  # Modify a separate graph for each property.
+        temp_graph.add_constant_property(NoPositiveAndNegativePredicatesSimultaneously(temp_graph))
 
         theorems_applied = []
         intermediate_graphs = [temp_graph.get_copy()]
