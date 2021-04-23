@@ -7,6 +7,7 @@ class NextTheoremSelector:
 
 
 class SimpleNextTheoremSelector(NextTheoremSelector):
+    """Theorem selector that applies the first available theorem."""
     def select_next(self, graph, theorem_applications, goal, previous_applications):
         used_base_theorems = {t.implication_graph for t in previous_applications}
         unused_base_applications = [t for t in theorem_applications
@@ -17,5 +18,28 @@ class SimpleNextTheoremSelector(NextTheoremSelector):
             return None
 
 
+class BetterNextTheoremSelector(NextTheoremSelector):
+    """Theorem selector that applies theorems chronologically.
+
+    Next theorem is selected to be the one whose assumption depends on the older
+    information in graph.
+
+    Also, the same theorem is never applied twice in a row.
+    """
+
+    def select_next(self, graph, theorem_applications, goal, previous_applications):
+        # Don't use the last applied theorem.
+        used_theorems = \
+            [previous_applications[-1].implication_graph] if previous_applications else []
+        unused_applications = [t for t in theorem_applications
+                               if t.implication_graph not in used_theorems]
+
+        if unused_applications:
+            unused_applications.sort(key=lambda app: max(app.matching_paths_timestamps))
+            return unused_applications[0]
+        else:
+            return None
+
+
 if not DEFAULT_THEOREM_SELECTOR:
-    DEFAULT_THEOREM_SELECTOR = SimpleNextTheoremSelector()
+    DEFAULT_THEOREM_SELECTOR = BetterNextTheoremSelector()
