@@ -3,7 +3,7 @@ from logipy.logic.timestamps import RelativeTimestamp
 from logipy.monitor.time_source import get_zero_locked_timesource
 from .next_theorem_selectors import DEFAULT_THEOREM_SELECTOR
 
-MAX_PROOF_PATH = 2  # Max number of theorems to be applied in order to prove a property.
+MAX_PROOF_PATH = 10  # Max number of theorems to be applied in order to prove a property.
 
 
 class PropertyNotHoldsException(Exception):
