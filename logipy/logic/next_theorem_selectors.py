@@ -1,4 +1,5 @@
-DEFAULT_THEOREM_SELECTOR = None  # Current default next theorem selector.
+if 'DEFAULT_THEOREM_SELECTOR' not in globals():
+    DEFAULT_THEOREM_SELECTOR = None  # Current default next theorem selector.
 
 
 class NextTheoremSelector:
@@ -39,6 +40,19 @@ class BetterNextTheoremSelector(NextTheoremSelector):
             return unused_applications[0]
         else:
             return None
+
+
+def set_default_theorem_selector(theorem_selector):
+    global DEFAULT_THEOREM_SELECTOR
+
+    if not isinstance(theorem_selector, NextTheoremSelector):
+        raise TypeError("Only subclasses of NextTheoremSelector can be used.")
+
+    DEFAULT_THEOREM_SELECTOR = theorem_selector
+
+
+def get_default_theorem_selector():
+    return DEFAULT_THEOREM_SELECTOR
 
 
 if not DEFAULT_THEOREM_SELECTOR:

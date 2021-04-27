@@ -1,7 +1,7 @@
 from logipy.graphs.timed_property_graph import NoPositiveAndNegativePredicatesSimultaneously
 from logipy.logic.timestamps import RelativeTimestamp
 from logipy.monitor.time_source import get_zero_locked_timesource
-from .next_theorem_selectors import DEFAULT_THEOREM_SELECTOR
+from .next_theorem_selectors import get_default_theorem_selector
 
 MAX_PROOF_PATH = 10  # Max number of theorems to be applied in order to prove a property.
 
@@ -13,7 +13,7 @@ class PropertyNotHoldsException(Exception):
         super().__init__(message)
 
 
-def prove_set_of_properties(property_graphs, execution_graph, selector=DEFAULT_THEOREM_SELECTOR):
+def prove_set_of_properties(property_graphs, execution_graph):
     """A very simple and somewhat silly prover."""
     # Don't modify the original properties.
     property_graphs = [p.get_copy() for p in property_graphs]
@@ -33,7 +33,8 @@ def prove_set_of_properties(property_graphs, execution_graph, selector=DEFAULT_T
             if not possible_theorems:
                 break
 
-            next_theorem = selector.select_next(temp_graph, possible_theorems, p, theorems_applied)
+            next_theorem = get_default_theorem_selector().select_next(
+                temp_graph, possible_theorems, p, theorems_applied)
             if not next_theorem:
                 break
             # next_theorem.implication_graph.visualize("Next theorem to apply.")
