@@ -1,7 +1,11 @@
 import os
+from pathlib import Path
+
 
 SCRATCHDIR_RELATIVE_PATH = "./_temp/"
-MODELS_DIR = "./models/"
+
+MODELS_DIR = "models"
+USE_NEURAL_SELECTOR = True
 
 
 def get_scratchfile_path(filename):
@@ -17,8 +21,22 @@ def remove_scratchfile(filename):
         os.rmdir(SCRATCHDIR_RELATIVE_PATH)
 
 
-def get_models_dir():
-    abs_path = os.path.abspath(MODELS_DIR)
-    if not os.path.exists(abs_path):
-        os.mkdir(abs_path)
-    return abs_path
+def get_models_dir_path(filename=None):
+    """Returns absolute path of the models directory.
+
+    :param filename: A filename to be appended to models directory path.
+
+    :return: A pathlib's Path object pointing to the absolute path of models' directory when
+            filename is not provided. If filename is provided, Path points to the absolute path
+            of a file with given filename, inside models' directory.
+    """
+    absolute_path = Path(__file__).absolute().parent.parent / MODELS_DIR
+    if not absolute_path.exists():
+        absolute_path.mkdir()
+    if filename:
+        absolute_path = absolute_path / filename
+    return absolute_path
+
+
+def is_neural_selector_enabled():
+    return USE_NEURAL_SELECTOR
