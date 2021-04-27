@@ -2,6 +2,7 @@ from logipy.graphs.timed_property_graph import NoPositiveAndNegativePredicatesSi
 from logipy.logic.timestamps import RelativeTimestamp
 from logipy.monitor.time_source import get_zero_locked_timesource
 from .next_theorem_selectors import get_default_theorem_selector
+import logipy.config
 
 MAX_PROOF_PATH = 10  # Max number of theorems to be applied in order to prove a property.
 
@@ -44,7 +45,8 @@ def prove_set_of_properties(property_graphs, execution_graph):
             intermediate_graphs.append(temp_graph.get_copy())
 
         if temp_graph.contains_property_graph(p):
-            visualize_proving_process(intermediate_graphs, theorems_applied, p)
+            if logipy.config.is_full_visualization_enabled():
+                visualize_proving_process(intermediate_graphs, theorems_applied, p)
             raise PropertyNotHoldsException(p.get_property_textual_representation())
 
     # # Try to apply all theorems, until no more theorem can be applied.

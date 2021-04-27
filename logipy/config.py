@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 SCRATCHDIR_RELATIVE_PATH = "./_temp/"
+full_visualization_enabled = False
 
 MODELS_DIR = "models"
 USE_NEURAL_SELECTOR = True
@@ -40,3 +41,12 @@ def get_models_dir_path(filename=None):
 
 def is_neural_selector_enabled():
     return USE_NEURAL_SELECTOR
+
+
+def enable_full_visualization():
+    global full_visualization_enabled
+    full_visualization_enabled = True
+
+
+def is_full_visualization_enabled():
+    return full_visualization_enabled
