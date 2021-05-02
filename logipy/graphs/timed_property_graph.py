@@ -355,11 +355,8 @@ class TimedPropertyGraph:
         return isinstance(self.root_node, ImplicationOperator) and \
                self.graph.out_degree(self.root_node) > 1
 
-    def visualize(self, title="", show_colorization=False):
-        plt.figure(num=None, figsize=(18, 18), dpi=80, facecolor='w', edgecolor='w')
-        plt.axis('off')
-        plt.tight_layout()
-
+    def to_agraph(self, title="", show_colorization=False):
+        """Converts TimedPropertyGraph to pygraphviz's AGraph suitable for visualization."""
         self.graph.graph['label'] = title
         self.graph.graph['labelloc'] = 't'
 
@@ -388,7 +385,13 @@ class TimedPropertyGraph:
             self.graph.nodes[n]['fillcolor'] = node_color
             self.graph.nodes[n]['style'] = 'filled'
 
-        a_graph = to_agraph(self.graph)
+        return to_agraph(self.graph)
+
+    def visualize(self, title="", show_colorization=False):
+        plt.figure(num=None, figsize=(18, 18), dpi=80, facecolor='w', edgecolor='w')
+        plt.axis('off')
+        plt.tight_layout()
+        a_graph = self.to_agraph(title, show_colorization)
         a_graph.layout('dot')
         path = logipy.config.get_scratchfile_path('temp_graphviz_out.png')
         a_graph.draw(path)
