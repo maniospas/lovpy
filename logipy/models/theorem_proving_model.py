@@ -97,6 +97,8 @@ def create_dense_model(predicates_map):
 def create_dataset(properties):
     generator = DatasetGenerator(properties, MAX_DEPTH, DATASET_SIZE)
     samples = list(generator)
+    for i, sample in enumerate(samples[:5]):
+        sample.visualize(f"Sample #{i+1}")
 
     predicates_map = PredicatesMap(properties)
 
