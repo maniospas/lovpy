@@ -176,6 +176,10 @@ class DatasetEntity:
 
         self.current_graph.logical_and(predicate)
 
+    def is_positive(self):
+        # TODO: Reconsider this model output. Maybe split into multiple ones.
+        return bool(self.next_theorem) and self.is_correct and self.is_provable
+
     def visualize(self, title="Sample"):
         """Visualizes sample in a single figure.
 
