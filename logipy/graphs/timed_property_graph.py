@@ -5,6 +5,7 @@ import networkx
 from networkx.readwrite.graphml import write_graphml
 from networkx.algorithms.simple_paths import all_simple_edge_paths
 from networkx.drawing.nx_agraph import to_agraph
+from networkx.exception import NodeNotFound
 from matplotlib import pyplot as plt
 from matplotlib import image as mpimage
 
@@ -558,6 +559,23 @@ class TimedPropertyGraph:
         :return: The timestamp of the path in the form of a Timestamp object.
         """
         return min([self.graph.edges[e[0], e[1], e[2]].get(TIMESTAMP_PROPERTY_NAME) for e in path])
+
+    def get_node_label(self, n):
+        """Returns a printable text for each node.
+
+        :param n: Node whose label to be returned.
+
+        :return str: A printable label of n.
+        """
+        if not self.graph.has_node(n):
+            raise NodeNotFound()
+
+        if isinstance(n, LogicalOperator):
+            return n.get_operator_symbol()
+        elif isinstance(n, PredicateNode):
+            return n.predicate
+        else:
+            return str(n)
 
     def _get_top_level_implication_edges(self):
         assumption_edge = None
