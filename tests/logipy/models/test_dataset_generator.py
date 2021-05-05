@@ -17,7 +17,7 @@ class TestDatasetEntity(unittest.TestCase):
             prover.negate_conclusion_part_of_properties(cls.threading_properties_to_prove)
 
     def test_add_property_to_prove_on_empty_graph(self):
-        entity = DatasetEntity()
+        entity = DatasetEntity(self.threading_theorems)
         self.assertFalse(entity.contains_property_to_prove())
 
         entity.add_property_to_prove(self.threading_properties_to_prove[0])

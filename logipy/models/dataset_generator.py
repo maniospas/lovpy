@@ -22,7 +22,7 @@ INVALID_THEOREMS_PER_VALID_THEOREM = 10
 
 
 class DatasetEntity:
-    def __init__(self):
+    def __init__(self, theorems):
         # Attributes referring to the current state of execution graph.
         self.current_graph = TimedPropertyGraph()  # Current execution graph.
         self.current_graph.add_constant_property(
@@ -43,6 +43,7 @@ class DatasetEntity:
         self.application_sequence = []  # Theorems reversely applied so far.
         # Indicates whether next theorem should be applied to reach the final goal.
         self.is_correct = True
+        self.all_theorems = theorems
 
     def __deepcopy__(self, memodict={}):
         pass  # TODO: Implement
@@ -500,7 +501,7 @@ class DatasetGenerator:
 
     def generate_sample(self, depth):
         """Generates a training sample with given depth."""
-        sample = DatasetEntity()
+        sample = DatasetEntity(self.theorems)
 
         for i in range(depth):  # Apply 'depth' number of sample expansions.
             random_expansion = False #random.random() < self.random_expansion_probability
