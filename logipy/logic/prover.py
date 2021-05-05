@@ -14,8 +14,9 @@ class PropertyNotHoldsException(Exception):
         super().__init__(message)
 
 
-def prove_set_of_properties(property_graphs, execution_graph):
-    """A very simple and somewhat silly prover."""
+def prove_set_of_properties(property_graphs, execution_graph, theorem_selector=None):
+    """Tries to prove that given set of properties hold into given execution graph."""
+
     # Don't modify the original properties.
     property_graphs = [p.get_copy() for p in property_graphs]
 
@@ -24,27 +25,10 @@ def prove_set_of_properties(property_graphs, execution_graph):
     theorems, properties_to_prove = split_into_theorems_and_properties_to_prove(property_graphs)
 
     for p in negate_conclusion_part_of_properties(properties_to_prove):
-        temp_graph = execution_graph.get_copy()  # Modify a separate graph for each property.
-        temp_graph.add_constant_property(NoPositiveAndNegativePredicatesSimultaneously(temp_graph))
+        proved, theorems_applied, intermediate_graphs = \
+            prove_property(execution_graph, p, theorems, theorem_selector)
 
-        theorems_applied = []
-        intermediate_graphs = [temp_graph.get_copy()]
-        while len(theorems_applied) < MAX_PROOF_PATH:
-            possible_theorems = find_possible_theorem_applications(temp_graph, theorems)
-            if not possible_theorems:
-                break
-
-            next_theorem = get_default_theorem_selector().select_next(
-                temp_graph, possible_theorems, p, theorems_applied)
-            if not next_theorem:
-                break
-            # next_theorem.implication_graph.visualize("Next theorem to apply.")
-            apply_theorem(temp_graph, next_theorem)
-            # temp_graph.visualize("New execution graph.")
-            theorems_applied.append(next_theorem)
-            intermediate_graphs.append(temp_graph.get_copy())
-
-        if temp_graph.contains_property_graph(p):
+        if proved:
             if logipy.config.is_full_visualization_enabled():
                 visualize_proving_process(intermediate_graphs, theorems_applied, p)
             raise PropertyNotHoldsException(p.get_property_textual_representation())
@@ -84,6 +68,36 @@ def prove_set_of_properties(property_graphs, execution_graph):
     #     property_id += 1
     # execution_graph.export_to_graphml_file(base_path+"execution_graph.graphml")
     # prove_set_of_properties.exported_counter += 1
+
+
+def prove_property(execution_graph, property_graph, theorems, theorem_selector=None):
+    """Proves that given property holds into given execution graph by utilizing given theorems."""
+    if not theorem_selector:
+        theorem_selector = get_default_theorem_selector()
+
+    temp_graph = execution_graph.get_copy()  # Modify a separate graph for each property.
+    temp_graph.add_constant_property(NoPositiveAndNegativePredicatesSimultaneously(temp_graph))
+
+    theorems_applied = []
+    intermediate_graphs = [temp_graph.get_copy()]
+    while len(theorems_applied) < MAX_PROOF_PATH:
+        possible_theorems = find_possible_theorem_applications(temp_graph, theorems)
+        if not possible_theorems:
+            break
+
+        next_theorem = theorem_selector.select_next(
+            temp_graph, possible_theorems, property_graph, theorems_applied)
+        if not next_theorem:
+            break
+        # next_theorem.implication_graph.visualize("Next theorem to apply.")
+        apply_theorem(temp_graph, next_theorem)
+        # temp_graph.visualize("New execution graph.")
+        theorems_applied.append(next_theorem)
+        intermediate_graphs.append(temp_graph.get_copy())
+
+    proved = True if temp_graph.contains_property_graph(property_graph) else False
+
+    return proved, theorems_applied, intermediate_graphs
 
 
 def negate_conclusion_part_of_properties(properties):
