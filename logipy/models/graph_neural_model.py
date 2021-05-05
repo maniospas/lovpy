@@ -14,6 +14,7 @@ from tensorflow.keras.metrics import AUC
 
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, TIMESTAMP_PROPERTY_NAME
 from .dataset_generator import DatasetGenerator
+from .callbacks import ModelEvaluationOnTheoremProvingCallback
 
 
 DATASET_SIZE = 1000
@@ -72,11 +73,19 @@ def train_gnn_theorem_proving_model(properties):
     # Train model.
     model = create_gnn_model(current_generator, goal_generator, next_generator)
     print(model.summary())
+
+    actual_evaluation_cb = ModelEvaluationOnTheoremProvingCallback(
+        [graph_samples[i] for i in i_train],
+        [graph_samples[i] for i in i_test],
+        nodes_encoder
+    )
+
     model.fit(
         train_generator,
         epochs=EPOCHS,
         verbose=1,
-        validation_data=test_generator
+        validation_data=test_generator,
+        callbacks=[actual_evaluation_cb]
     )
 
     return model, nodes_encoder
