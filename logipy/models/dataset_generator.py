@@ -5,7 +5,6 @@ import string
 from matplotlib import pyplot as plt
 from matplotlib import image as mpimage
 
-import logipy.config
 import logipy.logic.prover as prover
 from logipy.graphs.monitored_predicate import Call, ReturnedBy, CalledBy
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, PredicateNode
@@ -14,7 +13,7 @@ from logipy.graphs.timed_property_graph import NoPositiveAndNegativePredicatesSi
 from logipy.logic.timestamps import Timestamp, is_interval_subset
 from logipy.graphs.logical_operators import NotOperator
 from logipy.monitor.time_source import TimeSource
-from logipy.config import get_scratchfile_path
+from . import io
 
 
 LOGGER_NAME = "logipy.models.dataset_generator"
@@ -197,35 +196,26 @@ class DatasetEntity:
         anext = self.next_theorem.to_agraph("Next Theorem") if self.next_theorem else None
 
         # Export to disk temp jpg images of the three graphs.
-        current_path = get_scratchfile_path("temp_current.jpg")
-        goal_path = get_scratchfile_path("temp_goal.jpg")
-        next_path = get_scratchfile_path("temp_next.jpg")
         acurrent.layout("dot")
-        acurrent.draw(current_path)
+        acurrent.draw(io.current_graph_path)
         agoal.layout("dot")
-        agoal.draw(goal_path)
+        agoal.draw(io.goal_graph_path)
         if anext:
             anext.layout("dot")
-            anext.draw(next_path)
+            anext.draw(io.next_graph_path)
 
         # Plot the three graph images side by side.
         f, axarr = plt.subplots(1, 3, num=None, figsize=(54, 18), dpi=80,
                                 facecolor='w', edgecolor='w')
         f.tight_layout()
         f.suptitle(title, fontsize=40, fontweight='bold')
-        axarr[0].imshow(mpimage.imread(current_path))
-        axarr[1].imshow(mpimage.imread(goal_path))
+        axarr[0].imshow(mpimage.imread(io.current_graph_path))
+        axarr[1].imshow(mpimage.imread(io.goal_graph_path))
         if anext:
-            axarr[2].imshow(mpimage.imread(next_path))
+            axarr[2].imshow(mpimage.imread(io.next_graph_path))
         for axes in axarr:
             axes.axis('off')
         plt.show()
-
-        # Cleanup temp images.
-        logipy.config.remove_scratchfile(current_path)
-        logipy.config.remove_scratchfile(goal_path)
-        if anext:
-            logipy.config.remove_scratchfile(next_path)
 
     # def get_negated_theorem_applications(self, theorems):
     #     negated_theorems = []

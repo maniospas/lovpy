@@ -5,14 +5,13 @@ import numpy as np
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 
-import logipy.logic.prover as prover
 from logipy.graphs.timed_property_graph import TimedPropertyGraph
 from logipy.graphs.logical_operators import NotOperator
-from . import MAIN_MODEL_PATH, PREDICATES_MAP_PATH
+from . import io
 from .dataset_generator import DatasetGenerator
 
 
-DATASET_SIZE = 1000
+DATASET_SIZE = 10
 MAX_DEPTH = 12
 EPOCHS = 10
 BATCH_SIZE = 10
@@ -46,6 +45,7 @@ class PredicatesMap:
 
     def _build_map(self):
         for prop in self.properties:
+            import logipy.logic.prover as prover
             basic_predicates = prover.convert_implication_to_and(prop).get_basic_predicates()
 
             for pred in basic_predicates:
@@ -77,8 +77,8 @@ def train_theorem_proving_model(properties):
 
     model.fit(x=data, y=outputs, epochs=EPOCHS, batch_size=1)
 
-    model.save(MAIN_MODEL_PATH)
-    json.dump(predicates_map.map, PREDICATES_MAP_PATH.open('w'))
+    model.save(io.main_model_path)
+    json.dump(predicates_map.map, io.predicates_map_path.open('w'))
 
     return model
 
@@ -86,8 +86,8 @@ def train_theorem_proving_model(properties):
 def create_dense_model(predicates_map):
     dim = 3 * PREDICATES_NUM * (len(predicates_map) + 1)
     model = Sequential()
-    model.add(Dense(dim, input_dim=dim, activation="sigmoid"))
-    model.add(Dense(dim/4, activation="sigmoid"))
+    model.add(Dense(dim, input_dim=dim, activation="relu"))
+    model.add(Dense(dim, activation="relu"))
     model.add(Dense(1))
     model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
     print(model.summary())
