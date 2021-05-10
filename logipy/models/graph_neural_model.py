@@ -57,7 +57,8 @@ def train_gnn_theorem_proving_model(properties):
     nodes_encoder.fit(np.array(nodes_labels).reshape((-1, 1)))
 
     # Create data generators.
-    graph_samples = list(DatasetGenerator(properties, MAX_DEPTH, DATASET_SIZE))
+    graph_samples = list(DatasetGenerator(properties, MAX_DEPTH, DATASET_SIZE,
+                                          random_expansion_probability=0.))
     y = np.array([int(s.is_positive()) for s in graph_samples]).reshape((-1, 1))
     current_generator, goal_generator, next_generator = \
         create_sample_generators(graph_samples,  nodes_encoder)

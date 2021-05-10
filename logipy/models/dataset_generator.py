@@ -494,7 +494,7 @@ class DatasetGenerator:
         sample = DatasetEntity(self.theorems)
 
         for i in range(depth):  # Apply 'depth' number of sample expansions.
-            random_expansion = False #random.random() < self.random_expansion_probability
+            random_expansion = random.random() < self.random_expansion_probability
 
             if random_expansion:
                 sample.expand_with_random_predicates()
