@@ -1,17 +1,13 @@
 from logipy.graphs.timed_property_graph import NoPositiveAndNegativePredicatesSimultaneously
 from logipy.logic.timestamps import RelativeTimestamp
 from logipy.monitor.time_source import get_zero_locked_timesource
+from logipy.exceptions import PropertyNotHoldsException
 from .next_theorem_selectors import get_default_theorem_selector
-import logipy.config
+
 
 MAX_PROOF_PATH = 10  # Max number of theorems to be applied in order to prove a property.
 
-
-class PropertyNotHoldsException(Exception):
-    def __init__(self, property_text):
-        message = "A property found not to hold:\n\t"
-        message += property_text
-        super().__init__(message)
+full_visualization_enabled = False
 
 
 def prove_set_of_properties(property_graphs, execution_graph, theorem_selector=None):
@@ -29,7 +25,7 @@ def prove_set_of_properties(property_graphs, execution_graph, theorem_selector=N
             prove_property(execution_graph, p, theorems, theorem_selector)
 
         if proved:
-            if logipy.config.is_full_visualization_enabled():
+            if full_visualization_enabled:
                 visualize_proving_process(intermediate_graphs, theorems_applied, p)
             raise PropertyNotHoldsException(p.get_property_textual_representation())
 
@@ -206,6 +202,11 @@ def visualize_proving_process(execution_graphs, theorems_applied, proved_propert
         execution_graphs[-1].graph.colorize_path(path)
     proved_property.visualize("Property that not holds.")
     execution_graphs[-1].visualize("Graph where property does not hold.", show_colorization=True)
+
+
+def enable_full_visualization():
+    global full_visualization_enabled
+    full_visualization_enabled = True
 
 
 # def _sort_modus_ponens_applications_chronologically(applications):

@@ -9,7 +9,6 @@ from networkx.exception import NodeNotFound
 from matplotlib import pyplot as plt
 from matplotlib import image as mpimage
 
-import logipy.config
 from logipy.graphs.colorizable_multidigraph import ColorizableMultiDiGraph
 from logipy.graphs.logical_operators import *
 from logipy.logic.timestamps import *
@@ -23,6 +22,8 @@ ASSUMPTION_GRAPH = "assumption"
 CONCLUSION_GRAPH = "conclusion"
 
 LOGGER_NAME = "logipy.logic.timed_property_graph"
+
+graphviz_out_scratchfile_path = None
 
 
 class TimedPath:
@@ -394,11 +395,10 @@ class TimedPropertyGraph:
         plt.tight_layout()
         a_graph = self.to_agraph(title, show_colorization)
         a_graph.layout('dot')
-        path = logipy.config.get_scratchfile_path('temp_graphviz_out.png')
+        path = graphviz_out_scratchfile_path
         a_graph.draw(path)
         plt.imshow(mpimage.imread(path))
         plt.show()
-        logipy.config.remove_scratchfile(path)
 
         # plt.figure(num=None, figsize=(18, 18), dpi=80, facecolor='w', edgecolor='w')
         # plt.title(title, fontsize=22, fontweight='bold')
