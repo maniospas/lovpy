@@ -1,8 +1,9 @@
-if 'DEFAULT_THEOREM_SELECTOR' not in globals():
-    DEFAULT_THEOREM_SELECTOR = None  # Current default next theorem selector.
+if 'default_theorem_selector' not in globals():
+    default_theorem_selector = None  # Current default next theorem selector.
 
 
 class NextTheoremSelector:
+    """Interface that provides the ability to a theorem prover to chose the next theorem."""
     def select_next(self, graph, theorem_applications, goal, previous_applications):
         raise NotImplementedError("Subclass and implement.")
 
@@ -42,18 +43,20 @@ class BetterNextTheoremSelector(NextTheoremSelector):
             return None
 
 
-def set_default_theorem_selector(theorem_selector):
-    global DEFAULT_THEOREM_SELECTOR
+def set_default_theorem_selector(theorem_selector: NextTheoremSelector):
+    """Sets the default theorem selector to be used by prover."""
+    global default_theorem_selector
 
     if not isinstance(theorem_selector, NextTheoremSelector):
         raise TypeError("Only subclasses of NextTheoremSelector can be used.")
 
-    DEFAULT_THEOREM_SELECTOR = theorem_selector
+    default_theorem_selector = theorem_selector
 
 
 def get_default_theorem_selector():
-    return DEFAULT_THEOREM_SELECTOR
+    """Returns the current active default theorem selector used by prover."""
+    return default_theorem_selector
 
 
-if not DEFAULT_THEOREM_SELECTOR:
-    DEFAULT_THEOREM_SELECTOR = BetterNextTheoremSelector()
+if not default_theorem_selector:
+    default_theorem_selector = BetterNextTheoremSelector()
