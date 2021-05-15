@@ -52,8 +52,8 @@ def get_scratchfile_path(filename):
 def remove_scratchfile(filename):
     if Path(filename).is_file():
         os.remove(filename)
-    if len(os.listdir(SCRATCHDIR_RELATIVE_PATH)) == 0:
-        os.rmdir(SCRATCHDIR_RELATIVE_PATH)
+        if len(os.listdir(SCRATCHDIR_RELATIVE_PATH)) == 0:
+            os.rmdir(SCRATCHDIR_RELATIVE_PATH)
 
 
 def get_models_dir_path(filename=None):
