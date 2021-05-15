@@ -9,7 +9,8 @@ import logipy.logic.prover as prover
 from logipy.graphs.monitored_predicate import Call, ReturnedBy, CalledBy
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, PredicateNode
 from logipy.graphs.timed_property_graph import TIMESTAMP_PROPERTY_NAME
-from logipy.graphs.timed_property_graph import NoPositiveAndNegativePredicatesSimultaneously
+from logipy.graphs.timed_property_graph import (NoPositiveAndNegativePredicatesSimultaneously,
+                                                NoComparisonRelativeTimestampAlone)
 from logipy.logic.timestamps import Timestamp, is_interval_subset
 from logipy.graphs.logical_operators import NotOperator
 from logipy.monitor.time_source import TimeSource
@@ -25,7 +26,9 @@ class DatasetEntity:
         # Attributes referring to the current state of execution graph.
         self.current_graph = TimedPropertyGraph()  # Current execution graph.
         self.current_graph.add_constant_property(
-            NoPositiveAndNegativePredicatesSimultaneously(self.current_graph))
+                NoPositiveAndNegativePredicatesSimultaneously(self.current_graph))
+        self.current_graph.add_constant_property(
+                NoComparisonRelativeTimestampAlone(self.current_graph))
         self.current_goal_predicates = []          # Current predicates in execution graph.
         self.current_validity_intervals = []       # Intervals during which current predicates hold.
         self.timesource = TimeSource()             # A local timesource for building exec graph.
@@ -609,19 +612,12 @@ class DatasetIterator:
         self.generator = generator
 
     def __next__(self):
-        # TODO: Fix bug in find_equivalent_subgraphs() about getting wrong timestamps
-        #  and remove while loop.
-        while True:
-            try:
-                next_sample = self.generator.next_sample()
+        next_sample = self.generator.next_sample()
+        if not next_sample:
+            raise StopIteration
+        return next_sample
 
-                if not next_sample:
-                    raise StopIteration
-                return next_sample
-            except RuntimeError:
-                pass
-#
-#
+
 # def reverse_apply_theorem(graph, theorem):
 #     reversed_theorem = theorem.get_copy()
 #     reversed_theorem.switch_implication_parts()

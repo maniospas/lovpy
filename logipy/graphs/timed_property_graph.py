@@ -502,6 +502,7 @@ class TimedPropertyGraph:
                 predicate_graph = self.get_copy()
                 predicate_graph._retain_only_edges_that_starts_with(p)
                 predicate_graph._fix_orphan_logical_operators()
+                predicate_graph._apply_all_constant_properties()
                 basic_predicates.append(predicate_graph)
 
         return basic_predicates
@@ -1103,6 +1104,49 @@ class NoPositiveAndNegativePredicatesSimultaneously(ConstantProperty):
 
                 self.property_graph._logically_remove_path_set([p.path for p in paths_to_remove])
                 self.property_graph._fix_orphan_logical_operators()
+
+
+class NoComparisonRelativeTimestampAlone(ConstantProperty):
+    """Property that a graph cannot have comparison relative timestamps without a fixed one.
+
+    If such a graph is found, the comparison relative timestamps closer to a relative 0, is
+    converted to a relative 0. If both a positive and a negative comparison timestamp are found
+    with the same distance from 0, the negative one is converted to a fixed 0. All other relative
+    timestamps are adjusted accordingly.
+    """
+    def apply(self):
+        # Get all timestamps of the graph.
+        all_timestamps = []
+        for e in self.property_graph.graph.edges:
+            all_timestamps.append(
+                    self.property_graph.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME])
+
+        # If it contains only relative timestamps, check if shifted is needed.
+        contains_only_relatives = True not in [t.is_absolute() for t in all_timestamps]
+        not_contains_zero = True not in [is_interval_subset([0, 0], t.get_validity_interval())
+                                         for t in all_timestamps]
+        if contains_only_relatives and not_contains_zero:
+            # Find the closest timestamp to zero  # TODO: Implement it also for GT timestamps.
+            all_timestamps.sort()
+            last_below_zero = None
+            for t in all_timestamps:
+                if t.get_validity_interval()[1] < 0:
+                    last_below_zero = t
+            offset = last_below_zero.get_validity_interval()[1]
+
+            # Shift old timestamps and map them to a shifted one.
+            map_to_shifted = {}
+            for t in all_timestamps:
+                if t.get_validity_interval[1] == offset:
+                    map_to_shifted[t] = RelativeTimestamp(0)
+                else:
+                    map_to_shifted[t] = t.get_shifted_timestamp(-offset)
+
+            # Replace timestamps of the graph with the shifted ones.
+            for e in self.property_graph.graph.edges:
+                old = self.property_graph.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME]
+                new = map_to_shifted[old]
+                self.property_graph.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME] = new
 
 
 # def _find_path_to_upper_non_and_nodes(property_graph, start_node):
