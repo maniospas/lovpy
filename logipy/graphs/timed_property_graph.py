@@ -1254,30 +1254,36 @@ class NoComparisonRelativeTimestampAlone(ConstantProperty):
     timestamps are adjusted accordingly.
     """
     def apply(self):
-        # Get all timestamps of the graph.
-        all_timestamps = []
+        # Get all relative timestamps of the graph.
+        all_relative_timestamps = []
+        contains_only_relatives = True
         for e in self.property_graph.graph.edges:
-            all_timestamps.append(
-                    self.property_graph.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME])
+            t = self.property_graph.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME]
+            if isinstance(t, RelativeTimestamp):
+                all_relative_timestamps.append(t)
+            else:
+                contains_only_relatives = False
 
-        # If it contains only relative timestamps, check if shifted is needed.
-        contains_only_relatives = True not in [t.is_absolute() for t in all_timestamps]
-        not_contains_zero = True not in [is_interval_subset([0, 0], t.get_validity_interval())
-                                         for t in all_timestamps]
-        if contains_only_relatives and not_contains_zero:
+        # TODO: Consider if it is needed to support mixed absolute/relative timestamped graphs.
+        # If it contains only relative timestamps, check if shifting is needed.
+        not_contains_zero_relative = True not in [t.get_relative_value() == 0
+                                                  for t in all_relative_timestamps]
+        if contains_only_relatives and not_contains_zero_relative:
             # Find the closest timestamp to zero  # TODO: Implement it also for GT timestamps.
-            all_timestamps.sort()
+            all_relative_timestamps.sort()
             last_below_zero = None
-            for t in all_timestamps:
+            for t in all_relative_timestamps:
                 if t.get_validity_interval()[1] < 0:
                     last_below_zero = t
             offset = last_below_zero.get_validity_interval()[1]
 
             # Shift old timestamps and map them to a shifted one.
             map_to_shifted = {}
-            for t in all_timestamps:
-                if t.get_validity_interval[1] == offset:
-                    map_to_shifted[t] = RelativeTimestamp(0)
+            for t in all_relative_timestamps:
+                if t.get_validity_interval()[1] == offset:
+                    new_timestamp = RelativeTimestamp(0)
+                    new_timestamp.set_time_source(t.get_time_source())
+                    map_to_shifted[t] = new_timestamp
                 else:
                     map_to_shifted[t] = t.get_shifted_timestamp(-offset)
 
