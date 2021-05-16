@@ -75,11 +75,21 @@ class RelativeTimestamp(Timestamp):
         super().__init__(value)
         self.time_source = time_source
 
-    def __repr__(self):
-        return "::" + str(self.get_relative_value())
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        if self.get_relative_value() != other.get_relative_value():
+            return False
+        return True
+
+    def __hash__(self):
+        return hash(repr(self))
 
     def __copy__(self):
         return type(self)(super().get_absolute_value(), time_source=self.time_source)
+
+    def __repr__(self):
+        return "::" + str(self.get_relative_value())
 
     def get_absolute_value(self):
         return self.time_source.get_current_time() + self.get_relative_value()
@@ -96,13 +106,6 @@ class RelativeTimestamp(Timestamp):
 
     def get_time_source(self):
         return self.time_source
-
-    def __eq__(self, other):
-        if type(self) != type(other):
-            return False
-        if self.get_relative_value() != other.get_relative_value():
-            return False
-        return True
 
 
 class LesserThanRelativeTimestamp(RelativeTimestamp):
