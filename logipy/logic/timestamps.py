@@ -94,9 +94,11 @@ class RelativeTimestamp(Timestamp):
         return "::" + str(self.get_relative_value())
 
     def get_absolute_value(self):
+        """Returns the absolute time value, calculated using timestamp's time source."""
         return self.time_source.get_current_time() + self.get_relative_value()
 
     def get_relative_value(self):
+        """Returns the relative offset value associated with timestamp."""
         return super().get_absolute_value()
 
     def get_validity_interval(self):

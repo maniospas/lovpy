@@ -149,6 +149,7 @@ def get_all_possible_modus_ponens(graph, properties):
 
 
 def find_possible_theorem_applications(graph, theorems):
+    # TODO: Move this function to the methods of TimedPropertyGraph.
     possible_theorem_applications = []
     for theorem in theorems:
         possible_theorem_applications.extend(graph.find_all_possible_modus_ponens(theorem))

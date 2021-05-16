@@ -444,6 +444,14 @@ class TimedPropertyGraph:
         #
 
     def find_equivalent_subgraphs(self, other):
+        """Finds logical matches of other graph into current graph.
+
+        :return:
+            -matching_cases
+            -matched_paths
+            -original_timestamps
+            -matching_cases_timestamps
+        """
         matched_paths, matching_groups, found = self._find_equivalent_path_structure(other)
         if not found:
             return [], [], [], []
