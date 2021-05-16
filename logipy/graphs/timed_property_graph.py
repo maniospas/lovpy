@@ -4,6 +4,7 @@ import logging
 import networkx
 from networkx.readwrite.graphml import write_graphml
 from networkx.algorithms.simple_paths import all_simple_edge_paths
+from networkx.algorithms.dag import topological_sort
 from networkx.drawing.nx_agraph import to_agraph
 from networkx.exception import NodeNotFound
 from matplotlib import pyplot as plt
@@ -292,6 +293,7 @@ class TimedPropertyGraph:
         _, matching_groups, found = self._find_equivalent_path_structure(subgraph)
         self._logically_remove_path_set([g[0] for g in matching_groups])
         self._fix_orphan_logical_operators()
+        self._clean_orphan_timestamps()
 
     def contains_property_graph(self, property_graph):
         matching_cases, _, _, _ = self.find_equivalent_subgraphs(property_graph)
@@ -502,6 +504,7 @@ class TimedPropertyGraph:
                 predicate_graph = self.get_copy()
                 predicate_graph._retain_only_edges_that_starts_with(p)
                 predicate_graph._fix_orphan_logical_operators()
+                predicate_graph._clean_orphan_timestamps()
                 predicate_graph._apply_all_constant_properties()
                 basic_predicates.append(predicate_graph)
 
@@ -841,7 +844,63 @@ class TimedPropertyGraph:
                 data_to_retain.update(deeper_edge_data)
             self.graph.edges[deeper_edge[0], deeper_edge[1], deeper_edge[2]].update(data_to_retain)
 
-    # def find_time_matching_paths_from_node_to_root(self, start_node, other_graph, other_start_node):
+    def _clean_orphan_timestamps(self):
+        """Removes timestamps that don't match the timestamp of any path they participate to.
+
+        Usually, orphan timestamps occur after removing from the graph a path with a more recent
+        timestamp than the ones left, so the deeper edges left still contain that more recent
+        timestamp. However, this timestamp is invalidated by older timestamps in every path.
+        The solution is to replace all such timestamps, with the most recent timestamp of the
+        paths that contain this specific edge.
+        """
+        topo_nodes = list(topological_sort(self.graph))
+
+        upper_max_time = "upper_max_time"
+        lower_min_time = "lower_min_time"
+
+        # Timestamps flow-down.
+        for n in topo_nodes:
+            n_time = self.graph.nodes[n].get(upper_max_time, None)
+
+            for e in self.graph.edges(n, keys=True):
+                e_time = self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME]
+
+                # If all upper paths contain a smaller timestamp, set that as timestamp of edge.
+                if n_time and n_time < e_time:
+                    self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME] = n_time
+                    prop_time = n_time
+                else:
+                    prop_time = e_time
+
+                succ_time = self.graph.nodes[e[1]].get(upper_max_time, None)
+                succ_time = max(succ_time, prop_time) if succ_time else prop_time
+                self.graph.nodes[e[1]][upper_max_time] = succ_time
+
+        # Timestamps flow-up.
+        for n in reversed(topo_nodes):
+            n_time = self.graph.nodes[n].get(lower_min_time, None)
+
+            for e in self.graph.in_edges(n, keys=True):
+                e_time = self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME]
+
+                # If all lower paths contain a smaller timestamp, set that as timestamp of edge.
+                if n_time and n_time < e_time:
+                    self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME] = n_time
+                    prop_time = n_time
+                else:
+                    prop_time = e_time
+
+                pred_time = self.graph.nodes[e[0]].get(lower_min_time, None)
+                pred_time = max(pred_time, prop_time) if pred_time else prop_time
+                self.graph.nodes[e[1]][lower_min_time] = pred_time
+
+        # Cleanup of temp nodes attributes.
+        for n in topo_nodes:
+            if upper_max_time in self.graph.nodes[n]:
+                del self.graph.nodes[n][upper_max_time]
+            if lower_min_time in self.graph.nodes[n]:
+                del self.graph.nodes[n][lower_min_time]
+
     #     matched_paths, matching_groups, found = self.find_equivalent_paths_from_node_to_root(
     #         start_node, other_graph, other_start_node)
     #
