@@ -17,6 +17,11 @@ class TimeSource:
     def get_current_time(self):
         return self._current_time
 
+    def __copy__(self):
+        new_timesource = type(self)()
+        new_timesource._current_time = self._current_time
+        return new_timesource
+
     # def pause(self):
     #     self._lock.acquire()
     #

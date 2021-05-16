@@ -42,8 +42,10 @@ class TimedPath:
 class TimedPropertyGraph:
 
     class ModusPonensApplication:
-        def __init__(self, graph, implication_graph, matching_paths, matching_paths_timestamps):
+        def __init__(self, graph, actual_implication, implication_graph,
+                     matching_paths, matching_paths_timestamps):
             self.graph = graph  # The graph on which modus ponens will be applied.
+            self.actual_implication = actual_implication  # Timestamped implication graph.
             self.implication_graph = implication_graph  # A --> B property graph.
             self.matching_paths = matching_paths  # Paths on graph that match A.
             self.matching_paths_timestamps = matching_paths_timestamps
@@ -201,17 +203,24 @@ class TimedPropertyGraph:
         #             break
 
     def find_all_possible_modus_ponens(self, implication_graph):
+        """Finds all possible modus ponens applications of given implication graph."""
         assumption, conclusion = implication_graph.get_top_level_implication_subgraphs()
-        matching_cases, _, _, cases_timestamps = \
+        matching_cases, matched_paths, matched_timestamps, cases_timestamps = \
             self.find_equivalent_subgraphs(assumption)
 
         possible_modus_ponens = []
 
-        for i in range(len(matching_cases)):
-            new_modus_ponen = TimedPropertyGraph.ModusPonensApplication(
-                self, implication_graph, matching_cases[i], cases_timestamps[i]
+        for case_paths, timestamps in zip(matching_cases, cases_timestamps):
+            actual_implication = self._timestamp_implication_graph(
+                implication_graph, assumption, conclusion,
+                matched_paths, case_paths,
+                matched_timestamps, timestamps
             )
-            possible_modus_ponens.append(new_modus_ponen)
+
+            new_modus_ponens = TimedPropertyGraph.ModusPonensApplication(
+                self, actual_implication, implication_graph, case_paths, timestamps
+            )
+            possible_modus_ponens.append(new_modus_ponens)
 
         return possible_modus_ponens
 
@@ -593,6 +602,16 @@ class TimedPropertyGraph:
         else:
             return str(n)
 
+    def shift_graph_timestamps(self, shift):
+        """Shifts all timestamps by given shift.
+
+        :param int shift: A shift value to be applied to every timestamp in graph.
+        """
+        for e in self.graph.edges:
+            old_timestamp = self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME]
+            self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME] = \
+                old_timestamp.get_shifted_timestamp(shift)
+
     def _get_top_level_implication_edges(self):
         assumption_edge = None
         conclusion_edge = None
@@ -913,6 +932,52 @@ class TimedPropertyGraph:
             if lower_min_time in self.graph.nodes[n]:
                 del self.graph.nodes[n][lower_min_time]
 
+    def _timestamp_implication_graph(self, implication_graph, assumption, conclusion,
+                                     assumption_matched_paths, assumption_matching_paths,
+                                     assumption_matched_timestamps, assumption_matching_timestamps):
+        """Timestamps given implication graph according to a match in current graph.
+
+        :return: An absolute timestamped implication TimedPropertyGraph.
+        """
+        if not implication_graph.is_implication_graph():
+            raise RuntimeError("Given graph is not an implication graph.")
+
+        assumption, conclusion = implication_graph.get_top_level_implication_subgraphs()
+        assumption = assumption.get_copy()
+        conclusion = conclusion.get_copy()
+
+        # Find absolute matching of relative zero.
+        relative_zero_matching = None
+        for matched_t, matching_t in zip(assumption_matched_timestamps,
+                                         assumption_matching_timestamps):
+            if isinstance(matched_t, RelativeTimestamp) and matched_t.get_relative_value() == 0:
+                relative_zero_matching = matching_t
+                break
+        if not relative_zero_matching:
+            raise RuntimeError("A relative zero was not found in assumption.")
+
+        # Timestamp assumption with the exact timestamps of the matching.
+        for path, new_timestamp in zip(assumption_matched_paths, assumption_matching_timestamps):
+            assumption.update_path_timestamp(path, new_timestamp)
+
+        # TODO: Consider if it is required to assign conclusion timestamps to different time
+        #  moments than the edge one.
+        # Timestamp conclusion with the most recent timestamp possible so it still holds.
+        for edge in conclusion.get_graph().edges(data=TIMESTAMP_PROPERTY_NAME, keys=True):
+            timestamp = edge[3]
+            if isinstance(timestamp, RelativeTimestamp):
+                timestamp = Timestamp(
+                    relative_zero_matching.get_absolute_value() + timestamp.get_relative_value())
+            conclusion.graph.edges[edge[0], edge[1], edge[2]][TIMESTAMP_PROPERTY_NAME] = \
+                timestamp
+
+        # Join assumption and conclusion with implication operator.
+        assumption.logical_implication(conclusion)
+
+        return assumption
+
+    # def find_time_matching_paths_from_node_to_root(self, start_node, other_graph,
+    #                                                other_start_node):
     #     matched_paths, matching_groups, found = self.find_equivalent_paths_from_node_to_root(
     #         start_node, other_graph, other_start_node)
     #

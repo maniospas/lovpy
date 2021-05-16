@@ -152,7 +152,7 @@ class DatasetEntity:
     def expand_with_theorem(self, reverse_theorem_application):
         """Expands current graph by reversely applying a theorem."""
         self.application_sequence.append(reverse_theorem_application)
-        self.next_theorem = reverse_theorem_application.implication_graph
+        self.next_theorem = reverse_theorem_application.actual_implication  # TODO: Switch to forward one
         self.current_graph.apply_modus_ponens(reverse_theorem_application)
         self._shift_current_graph_timestamps()
         self._update_timesource()
@@ -378,12 +378,10 @@ class DatasetEntity:
 
         shift = random.randint(min_shift, min_shift + 10)
 
-        for e in self.current_graph.graph.edges:
-            old_timestamp = self.current_graph.graph.edges[
-                e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME]
-            new_timestamp = Timestamp(old_timestamp.get_absolute_value()+shift)
-            self.current_graph.graph.edges[
-                e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME] = new_timestamp
+        self.current_graph.shift_graph_timestamps(shift)
+        if self.next_theorem:
+            self.next_theorem.shift_graph_timestamps(shift)
+
         # for p in paths:
         #     self.current_graph.update_path_timestamp(
         #         p.path, Timestamp(p.timestamp.get_absolute_value()+shift))
