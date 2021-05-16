@@ -38,7 +38,9 @@ class Timestamp:
         return [self._value, self._value]
 
     def get_shifted_timestamp(self, shift):
-        return Timestamp(self.get_absolute_value()+shift)
+        shifted = copy(self)
+        shifted._value += shift
+        return shifted
 
     def matches(self, other):
         # Check if intervals overlap.
