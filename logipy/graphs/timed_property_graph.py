@@ -332,6 +332,10 @@ class TimedPropertyGraph:
         copy_obj.root_node = self.root_node  # Node references remain the same.
         copy_obj.time_source = self.time_source
         copy_obj.property_textual_representation = self.property_textual_representation
+        copy_obj.constant_properties = [
+            type(constant_prop)(copy_obj) for constant_prop in self.constant_properties
+        ]
+
         return copy_obj
 
     def get_property_textual_representation(self):
@@ -1074,6 +1078,9 @@ class PredicateGraph(TimedPropertyGraph):
         copy_obj.root_node = self.root_node  # Node references remain the same.
         copy_obj.time_source = self.time_source
         copy_obj.property_textual_representation = self.property_textual_representation
+        copy_obj.constant_properties = [
+            type(constant_prop)(copy_obj) for constant_prop in self.constant_properties
+        ]
         return copy_obj
 
     def _add_argument(self, argument):
