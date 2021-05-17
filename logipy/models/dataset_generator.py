@@ -553,15 +553,21 @@ class DatasetGenerator:
             if (self.samples_generated <
                     int(self.total_samples*(1-self.negative_samples_percentage))
                     or len(self.negative_samples) == 0):
-                depth = random.randint(1, self.max_depth)
-                sample = self.generate_sample(depth)
 
-                negative_samples = sample.generate_negative_samples()
-                if self.verbose:
-                    sample.visualize(f"Sample #{self.samples_generated+1}")
-                    for i, s in enumerate(negative_samples):
-                        s.visualize(f"Negative sample #{i+1}")
-                self.negative_samples.extend(negative_samples)
+                # As long as generated sample doesn't contain next theorem, discard it and
+                # keep only the negative samples generated out of it.
+                sample_contains_next = False
+                while not sample_contains_next:
+                    depth = random.randint(1, self.max_depth)
+                    sample = self.generate_sample(depth)
+                    sample_contains_next = bool(sample.next_theorem)
+
+                    negative_samples = sample.generate_negative_samples()
+                    if self.verbose:
+                        sample.visualize(f"Sample #{self.samples_generated+1}")
+                        for i, s in enumerate(negative_samples):
+                            s.visualize(f"Negative sample #{i+1}")
+                    self.negative_samples.extend(negative_samples)
             else:
                 sample = random.choice(self.negative_samples)
                 self.negative_samples.remove(sample)
