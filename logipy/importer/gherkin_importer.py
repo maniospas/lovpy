@@ -1,6 +1,5 @@
-import os
-import glob
 import re
+from pathlib import Path
 
 import logipy.logic.properties
 from logipy.graphs.monitored_predicate import MonitoredPredicate
@@ -10,9 +9,9 @@ from logipy.logic.timestamps import RelativeTimestamp, LesserThanRelativeTimesta
 
 def import_gherkin_path(root_path=""):
     """Imports the rules from all .gherkin files under root_path."""
-    for path in glob.glob(root_path+"**/*.gherkin", recursive=True):
-        if os.path.isfile(path):
-            import_gherkin_file(path)
+    for gherkin_file in Path(root_path).rglob("*.gherkin"):
+        if gherkin_file.is_file():
+            import_gherkin_file(str(gherkin_file))
 
 
 def import_gherkin_file(path):

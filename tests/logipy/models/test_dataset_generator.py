@@ -1,8 +1,11 @@
 import unittest
 from collections import Counter
 
+from logipy import config
 from logipy.models.dataset_generator import *
 from logipy.logic.prover import split_into_theorems_and_properties_to_prove
+from logipy.importer.gherkin_importer import import_gherkin_path
+from logipy.logic.properties import get_global_properties
 
 from tests.logipy.importer.sample_properties import get_threading_sample_properties
 
@@ -171,4 +174,36 @@ class TestDatasetGenerator(unittest.TestCase):
             self.assertIsNotNone(s.goal)
 
     def test_full_examples_dataset(self):
-        pass  # TODO: Implement
+        # Utilize logipy's import scheme to import all examples.
+        print(f"Importing from {config.LOGIPY_ROOT_PATH.parent}")
+        import_gherkin_path(config.LOGIPY_ROOT_PATH.parent)
+        properties = get_global_properties()
+
+        max_depth = 10
+        total_samples = 100
+        negative_samples_percentage = 0.8
+
+        generator = DatasetGenerator(
+            properties,
+            max_depth,
+            total_samples,
+            random_expansion_probability=0.,
+            add_new_property_probability=0.2,
+            negative_samples_percentage=negative_samples_percentage,
+            verbose=False)
+        samples = list(generator)
+
+        # Test number of returned samples.
+        self.assertEqual(len(samples), total_samples)
+
+        # Test actual negative samples percentage.
+        negative_samples_counter = Counter([s.is_correct for s in samples])
+        actual_negative_samples_ratio = float(negative_samples_counter[False]) / len(samples)
+        self.assertAlmostEqual(
+            negative_samples_percentage, actual_negative_samples_ratio, delta=0.3)
+
+        # Test that every sample contains current, next and goal graphs.
+        for s in samples:
+            self.assertIsNotNone(s.current_graph)
+            self.assertIsNotNone(s.next_theorem)
+            self.assertIsNotNone(s.goal)
