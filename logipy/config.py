@@ -1,4 +1,3 @@
-import os
 import logging
 from enum import Enum
 from pathlib import Path
@@ -19,7 +18,7 @@ LOGIPY_ROOT_PATH = Path(__file__).absolute().parent  # Absolute path of logipy's
 LOGGER_NAME = "logipy"
 
 # Attributes controlling graph visualization.
-SCRATCHDIR_RELATIVE_PATH = "./_temp/"
+SCRATCHDIR_PATH = LOGIPY_ROOT_PATH.parent / "_temp/"
 GRAPHVIZ_OUT_FILE = 'temp_graphviz_out.png'
 
 # Attributes controlling models module.
@@ -45,17 +44,25 @@ class TheoremSelector(Enum):
 
 
 def get_scratchfile_path(filename):
-    if not os.path.exists(SCRATCHDIR_RELATIVE_PATH):
-        os.mkdir(SCRATCHDIR_RELATIVE_PATH)
-    path = SCRATCHDIR_RELATIVE_PATH + filename
-    return os.path.abspath(path)
+    """Returns absolute path of a file with given filename into logipy's scratchdir.
+
+    If scratchdir doesn't exist, it is created first.
+    """
+    if not SCRATCHDIR_PATH.exists():
+        SCRATCHDIR_PATH.mkdir()
+    return SCRATCHDIR_PATH / filename
 
 
 def remove_scratchfile(filename):
-    if Path(filename).is_file():
-        os.remove(filename)
-        if len(os.listdir(SCRATCHDIR_RELATIVE_PATH)) == 0:
-            os.rmdir(SCRATCHDIR_RELATIVE_PATH)
+    """Removes given file from logipy's scratchdir.
+
+    If removing the file empties scratchdir, scratchdir is also removed.
+    """
+    absolute_scratchfile_path = SCRATCHDIR_PATH / filename
+    if Path(absolute_scratchfile_path).is_file():
+        absolute_scratchfile_path.unlink()
+    if SCRATCHDIR_PATH.is_dir() and not any(SCRATCHDIR_PATH.iterdir()):
+        SCRATCHDIR_PATH.rmdir()
 
 
 def get_models_dir_path(filename=None):
