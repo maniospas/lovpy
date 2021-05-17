@@ -2,7 +2,6 @@ import logging
 from enum import Enum
 from pathlib import Path
 
-from logipy.exceptions import ModelNotFoundException
 from logipy.logic.next_theorem_selectors import set_default_theorem_selector, \
     BetterNextTheoremSelector
 import logipy.graphs
@@ -101,7 +100,8 @@ def set_theorem_selector(theorem_selector: TheoremSelector):
         else:
             logger.warning(
                 f"Logipy: No model found under {str(get_models_dir_path(GRAPH_MODEL_NAME))}")
-            raise ModelNotFoundException()
+            return False
+    return True
 
 
 def is_neural_selector_enabled():
