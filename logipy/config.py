@@ -109,7 +109,7 @@ def is_neural_selector_enabled():
 
 
 def enable_full_visualization():
-    logipy.logic.full_visualization_enabled = True
+    logipy.logic.prover.full_visualization_enabled = True
 
 
 def tearup_logipy():
