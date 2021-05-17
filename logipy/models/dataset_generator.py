@@ -1,3 +1,4 @@
+from copy import copy
 import logging
 import random
 import string
@@ -45,10 +46,31 @@ class DatasetEntity:
         self.application_sequence = []  # Theorems reversely applied so far.
         # Indicates whether next theorem should be applied to reach the final goal.
         self.is_correct = True
-        self.all_theorems = theorems
+        self.all_theorems = theorems  # A list of all theorems out of which sample is built.
 
-    def __deepcopy__(self, memodict={}):
-        pass  # TODO: Implement
+    def __copy__(self):
+        new_entity = type(self)(self.all_theorems)
+
+        # Attributes referring to the current state of execution graph.
+        new_entity.current_graph = self.current_graph.get_copy()
+        new_entity.current_goal_predicates = self.current_goal_predicates.copy()
+        new_entity.current_validity_intervals = self.current_validity_intervals.copy()
+        new_entity.timesource = copy(self.timesource)
+        new_entity.suppressed_predicates = self.suppressed_predicates
+
+        # Attributes referring to the property that should be finally proved.
+        new_entity.goal = self.goal.get_copy()
+        new_entity.is_provable = self.is_provable
+        new_entity.goal_predicates = self.goal_predicates.copy()
+        new_entity.goal_validity_intervals = self.goal_validity_intervals.copy()
+
+        # Attributes referring to theorem application sequence.
+        new_entity.next_theorem = self.next_theorem.get_copy() if self.next_theorem else None
+        new_entity.application_sequence = self.application_sequence.copy()
+        # Indicates whether next theorem should be applied to reach the final goal.
+        new_entity.is_correct = self.is_correct
+
+        return new_entity
 
     def add_property_to_prove(self, property_to_prove, goal=None, is_provable=True):
         """Adds a new goal property into the graph of the sample.
@@ -56,9 +78,13 @@ class DatasetEntity:
         Currently, only one property to prove is supported. Trying to add a second one, will
         raise a RuntimeError.
 
-        :param property_to_prove: An implication TimedPropertyGraph.
-        :param goal:
-        :param is_provable:
+        :param property_to_prove: The property that should finally be proved, in the form of
+                an implication TimedPropertyGraph.
+        :param goal: When property_to_prove should be provable, goal should be set to the
+                same value as property_to_prove. If None is provided, it is automatically
+                set to the same value as property_to_prove.
+        :param is_provable: Defines whether given goal can be proved from given initial
+                property_to_prove.
         """
         if self.goal:
             raise RuntimeError("Trying to add a second property to prove into the sample graph.")
@@ -146,8 +172,37 @@ class DatasetEntity:
     def get_suppressed_predicates(self):
         return list(self.suppressed_predicates)
 
-    def generate_negative_sample(self, next_invalid_theorem):
-        pass  # TODO: Implement
+    def generate_negative_samples(self):
+        """Generates all possible negative samples from a positive one.
+
+        Negative samples are considered to be all samples having a different next theorem
+        application from the one contained in current valid sample. Possible theorem
+        applications are generated from theorems sequence provided in 'all_theorems'
+        attribute.
+
+        :raises RuntimeError: When generate_negative_samples is called on a negative sample.
+
+        :return: A list of all possible negative samples.
+        """
+        if not self.is_correct:
+            raise RuntimeError("Cannot generate a negative sample out of a negative sample.")
+
+        available_modus_ponenses = prover.find_possible_theorem_applications(
+                self.current_graph, self.all_theorems)
+        # Remove the correct next modus ponens from available ones for negative samples.
+        if self.next_theorem:
+            available_modus_ponenses = [modus_ponens for modus_ponens in available_modus_ponenses
+                                        if modus_ponens.actual_implication != self.next_theorem]
+
+        negative_samples = []
+
+        for modus_ponens in available_modus_ponenses:
+            negative_sample = copy(self)
+            negative_sample.next_theorem = modus_ponens.actual_implication
+            negative_sample.is_correct = False
+            negative_samples.append(negative_sample)
+
+        return negative_samples
 
     def expand_with_theorem(self, reverse_theorem_application):
         """Expands current graph by reversely applying a theorem."""
@@ -196,7 +251,9 @@ class DatasetEntity:
         acurrent = self.current_graph.to_agraph("Current Graph")
         provable_text = "Provable" if self.is_provable else "Not Provable"
         agoal = self.goal.to_agraph(f"Goal Property - {provable_text}")
-        anext = self.next_theorem.to_agraph("Next Theorem") if self.next_theorem else None
+        negative_text = "Positive" if self.is_correct else "Negative"
+        anext = self.next_theorem.to_agraph(
+                        f"Next Theorem - {negative_text}") if self.next_theorem else None
 
         # Export to disk temp jpg images of the three graphs.
         acurrent.layout("dot")
@@ -242,6 +299,7 @@ class DatasetEntity:
             -validity_intervals
         """
         # TODO: Support instance generation with invalid timestamps (negative samples).
+        property_to_prove = property_to_prove.get_copy()
         basic_predicates = property_to_prove.get_basic_predicates()
         absolute_instance = property_to_prove.get_copy()
 
@@ -461,12 +519,16 @@ class DatasetGenerator:
     def __init__(self, properties, max_depth, total_samples,
                  random_expansion_probability=0.7,
                  add_new_property_probability=0.2,
+                 negative_samples_percentage=0.8,
                  verbose=False):
+
         self.max_depth = max_depth
         self.total_samples = total_samples
         self.samples_generated = 0
         self.random_expansion_probability = random_expansion_probability
         self.add_new_property_probability = add_new_property_probability
+        self.negative_samples_percentage = negative_samples_percentage
+        self.verbose = verbose
 
         self.theorems, properties_to_prove = \
             prover.split_into_theorems_and_properties_to_prove(properties)
@@ -476,19 +538,37 @@ class DatasetGenerator:
         # Also keep the negation of properties to prove, to create negative samples.
         self.invalid_properties = [prover.convert_implication_to_and(p)
                                    for p in properties_to_prove]
-        self.verbose = verbose
+
+        self.negative_samples = []  # Contains all possible negative samples so far.
 
     def __iter__(self):
         return DatasetIterator(self)
 
     def next_sample(self):
         """Generates a new training sample with depth in range(1,max_depth+1)."""
-        if self.samples_generated < self.total_samples:
+        sample = None
+
+        if self.samples_generated < self.total_samples:  # Max samples not reached yet.
+            # Firstly the percentage of positive samples is covered.
+            if (self.samples_generated <
+                    int(self.total_samples*(1-self.negative_samples_percentage))
+                    or len(self.negative_samples) == 0):
+                depth = random.randint(1, self.max_depth)
+                sample = self.generate_sample(depth)
+
+                negative_samples = sample.generate_negative_samples()
+                if self.verbose:
+                    sample.visualize(f"Sample #{self.samples_generated+1}")
+                    for i, s in enumerate(negative_samples):
+                        s.visualize(f"Negative sample #{i+1}")
+                self.negative_samples.extend(negative_samples)
+            else:
+                sample = random.choice(self.negative_samples)
+                self.negative_samples.remove(sample)
+
             self.samples_generated += 1
-            depth = random.randint(1, self.max_depth)
-            return self.generate_sample(depth)
-        else:
-            return None
+
+        return sample
 
     def generate_sample(self, depth):
         """Generates a training sample with given depth."""
@@ -503,32 +583,46 @@ class DatasetGenerator:
                     sample.current_graph.visualize(f"#{i+1} Random expanded.")
             else:
                 if sample.contains_property_to_prove():
-                    reverse_theorems = sample.get_reverse_theorem_applications(self.theorems)
-                    if reverse_theorems:
-                        sample.expand_with_theorem(random.choice(reverse_theorems))
-                        if self.verbose:
-                            sample.current_graph.visualize(f"#{i+1} Reverse theorem expansion.")
-                    else:
-                        suppressed_predicates = sample.get_suppressed_predicates()
-                        sample.add_suppressed_predicate(random.choice(suppressed_predicates))
-                        if self.verbose:
+                    added_suppressed_predicate = self._expand_sample_with_theorem(sample)
+                    if self.verbose:
+                        if added_suppressed_predicate:
                             sample.current_graph.visualize(
-                                f"#{i+1} Expansions by suppressed predicate")
+                                    f"#{i + 1} Expansions by suppressed predicate")
+                        else:
+                            sample.current_graph.visualize(f"#{i + 1} Reverse theorem expansion.")
                 else:
                     add_valid_property = bool(random.randint(0, 1))
-
-                    if add_valid_property:
-                        sample.add_property_to_prove(random.choice(self.valid_properties_to_prove))
-                        if self.verbose:
-                            sample.current_graph.visualize(f"#{i+1} Added property to prove.")
-                    else:
-                        invalid_index = random.randint(0, len(self.invalid_properties)-1)
-                        valid_property = self.valid_properties_to_prove[invalid_index]
-                        invalid_property = self.invalid_properties[invalid_index]
-                        sample.add_property_to_prove(invalid_property, valid_property, False)
-                        if self.verbose:
+                    self._add_property_to_sample(sample, add_valid_property)
+                    if self.verbose:
+                        if add_valid_property:
+                            sample.current_graph.visualize(f"#{i + 1} Added property to prove.")
+                        else:
                             sample.current_graph.visualize(f"#{i + 1} Added negation of property.")
         return sample
+
+    def _add_property_to_sample(self, sample: DatasetEntity, add_valid_property: bool):
+        if add_valid_property:
+            sample.add_property_to_prove(random.choice(self.valid_properties_to_prove))
+        else:
+            invalid_index = random.randint(0, len(self.invalid_properties) - 1)
+            valid_property = self.valid_properties_to_prove[invalid_index]
+            invalid_property = self.invalid_properties[invalid_index]
+            sample.add_property_to_prove(invalid_property, valid_property, False)
+
+    def _expand_sample_with_theorem(self, sample: DatasetEntity):
+        reverse_theorems = sample.get_reverse_theorem_applications(self.theorems)
+        added_suppressed_predicate = False
+
+        if reverse_theorems:
+            expansion_theorem = random.choice(reverse_theorems)
+            sample.expand_with_theorem(expansion_theorem)
+            reverse_theorems.remove(expansion_theorem)
+        else:  # When no theorems can be reversely applied, add a suppressed predicate.
+            suppressed_predicates = sample.get_suppressed_predicates()
+            sample.add_suppressed_predicate(random.choice(suppressed_predicates))
+            added_suppressed_predicate = True
+
+        return added_suppressed_predicate
 
     # def generate_sample_old_method(self, depth):
     #     """Generates a training sample with given depth."""

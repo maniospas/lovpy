@@ -57,6 +57,11 @@ class TimedPropertyGraph:
         self.property_textual_representation = None
         self.constant_properties = []
 
+    def __eq__(self, other):
+        matchings_on_self, _, _, _ = self.find_equivalent_subgraphs(other)
+        matchings_on_other, _, _, _ = other.find_equivalent_subgraphs(self)
+        return len(matchings_on_self) > 0 and len(matchings_on_other) > 0
+
     def add_constant_property(self, constant_property):
         if not isinstance(constant_property, ConstantProperty):
             raise RuntimeError("Given property is not instance of ConstantProperty.")
