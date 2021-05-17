@@ -1,4 +1,5 @@
 import unittest
+from collections import Counter
 
 from logipy.models.dataset_generator import *
 from logipy.logic.prover import split_into_theorems_and_properties_to_prove
@@ -138,16 +139,36 @@ class TestDatasetEntity(unittest.TestCase):
 
 class TestDatasetGenerator(unittest.TestCase):
 
-    def test_simple_threading_dataset(self):
-        generator = DatasetGenerator(get_threading_sample_properties(), 7, 5, verbose=False)
-        samples = list(generator)
-        # self.assertEqual(len(samples), 1)
-        i = 1
-        for s in samples:
-            s.current_graph.visualize(f"Sample graph #{i}")
-            can_prove = "Can prove property" if s.is_provable else "Impossible to prove property."
-            s.goal.visualize(can_prove)
-            i += 1
+    def test_threading_dataset(self):
+        threading_properties = get_threading_sample_properties()
+        max_depth = 10
+        total_samples = 100
+        negative_samples_percentage = 0.8
 
-    def test_simple_threading_theorem(self):
-        generator = DatasetGenerator(get_threading_sample_properties(), 5, 3)
+        generator = DatasetGenerator(
+            threading_properties,
+            max_depth,
+            total_samples,
+            random_expansion_probability=0.,
+            add_new_property_probability=0.2,
+            negative_samples_percentage=negative_samples_percentage,
+            verbose=False)
+        samples = list(generator)
+
+        # Test number of returned samples.
+        self.assertEqual(len(samples), total_samples)
+
+        # Test actual negative samples percentage.
+        negative_samples_counter = Counter([s.is_correct for s in samples])
+        actual_negative_samples_ratio = float(negative_samples_counter[False]) / len(samples)
+        self.assertAlmostEqual(
+                negative_samples_percentage, actual_negative_samples_ratio, delta=0.3)
+
+        # Test that every sample contains current, next and goal graphs.
+        for s in samples:
+            self.assertIsNotNone(s.current_graph)
+            self.assertIsNotNone(s.next_theorem)
+            self.assertIsNotNone(s.goal)
+
+    def test_full_examples_dataset(self):
+        pass  # TODO: Implement
