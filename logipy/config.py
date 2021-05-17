@@ -82,6 +82,12 @@ def get_models_dir_path(filename=None):
 
 
 def set_theorem_selector(theorem_selector: TheoremSelector):
+    """Sets logipy prover's theorem selector to the given one.
+
+    :return: True if requested theorem selector set successfully. In case of an error,
+            e.g. when a trained model does not exist for neural selectors, it returns
+            False.
+    """
     logger = logging.getLogger(LOGGER_NAME)
 
     if theorem_selector is TheoremSelector.DETERMINISTIC:
@@ -109,28 +115,31 @@ def is_neural_selector_enabled():
 
 
 def enable_full_visualization():
+    """Enables visualization of proving process."""
     logipy.logic.prover.full_visualization_enabled = True
 
 
 def tearup_logipy():
-    tearup_graphs_module()
-    tearup_models_module()
+    """Initializes logipy's modules."""
+    _tearup_graphs_module()
+    _tearup_models_module()
 
 
 def teardown_logipy():
-    teardown_models_module()
+    """Frees up resources allocated by logipy's modules."""
+    _teardown_models_module()
 
 
-def tearup_graphs_module():
+def _tearup_graphs_module():
     logipy.graphs.timed_property_graph.graphviz_out_scratchfile_path = \
         get_scratchfile_path(GRAPHVIZ_OUT_FILE)
 
 
-def teardown_graphs_module():
+def _teardown_graphs_module():
     remove_scratchfile(get_scratchfile_path(GRAPHVIZ_OUT_FILE))
 
 
-def tearup_models_module():
+def _tearup_models_module():
     # Set model paths.
     logipy.models.io.main_model_path = get_models_dir_path(MAIN_MODEL_NAME)
     logipy.models.io.predicates_map_path = get_models_dir_path(PREDICATES_MAP_NAME)
@@ -142,7 +151,7 @@ def tearup_models_module():
     logipy.models.io.next_graph_path = get_scratchfile_path(NEXT_GRAPH_FILENAME)
 
 
-def teardown_models_module():
+def _teardown_models_module():
     # Cleanup scratch files.
     remove_scratchfile(get_models_dir_path(CURRENT_GRAPH_FILENAME))
     remove_scratchfile(get_models_dir_path(GOAL_GRAPH_FILENAME))

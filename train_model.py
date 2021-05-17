@@ -1,4 +1,3 @@
-from logipy.models.theorem_proving_model import train_theorem_proving_model
 # from logipy.models.theorem_proving_model import train_theorem_proving_model
 from logipy.models.graph_neural_model import train_gnn_theorem_proving_model
 from logipy.models.io import save_gnn_model
