@@ -1,5 +1,4 @@
 from copy import copy
-import logging
 import random
 import string
 
@@ -9,7 +8,6 @@ from matplotlib import image as mpimage
 import logipy.logic.prover as prover
 from logipy.graphs.monitored_predicate import Call, ReturnedBy, CalledBy
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, PredicateNode
-from logipy.graphs.timed_property_graph import TIMESTAMP_PROPERTY_NAME
 from logipy.graphs.timed_property_graph import (NoPositiveAndNegativePredicatesSimultaneously,
                                                 NoComparisonRelativeTimestampAlone)
 from logipy.logic.timestamps import Timestamp, is_interval_subset
@@ -102,39 +100,6 @@ class DatasetEntity:
             get_non_monitored_predicates(self.goal_predicates, self.goal_validity_intervals)
         self._update_suppressed_predicates(non_monitored_predicates, non_monitored_intervals)
 
-    def add_properties_of_theorem(self, theorem):
-        """Adds an instance of the assumption of given theorem to current graph.
-
-        There are two possible cases:
-            1. Predicates of the newly added instance invalidate some predicates needed to
-                prove the goal theorem, so it cannot be proved anymore. In that case, the
-                theorem application process should stop, as the goal cannot be proved.
-            2. Predicates of the newly added instance do not affect the possibility to prove
-                the final goal, so current next theorem to be applied still remains the one
-                that should be applied next.
-
-        :param theorem: An implication TimedPropertyGraph object.
-        """
-        theorem_instance, basic_predicates, validity_intervals = \
-            self._generate_newer_absolute_property_instance(theorem)
-        assumption, conclusion = theorem_instance.get_top_level_implication_subgraphs()
-
-        if self._predicates_invalidate_goal(basic_predicates, validity_intervals):
-            # If goal predicates do not hold anymore, goal cannot be proved, so the best
-            # option is to stop applying theorems.
-            self.next_theorem = None
-            self._update_current_predicates(basic_predicates, validity_intervals)
-        else:  # Otherwise, the best theorem is still the last used one.
-            # Well, if a predicate was replaced by the newly added instance, then that's the best
-            # theorem to use.
-            if not prover.find_possible_theorem_applications(self.current_graph, self.next_theorem):
-                logger = logging.getLogger(LOGGER_NAME)
-                logger.info("Sample Info: Theorem application sequence broke.")
-                self.next_theorem = theorem
-
-        self.current_graph.logical_and(prover.convert_implication_to_and(theorem_instance))
-        self._update_timesource()
-
     def add_suppressed_predicate(self, suppressed_predicate):
         """Adds an instance of given suppressed predicate to current graph.
 
@@ -207,7 +172,8 @@ class DatasetEntity:
     def expand_with_theorem(self, reverse_theorem_application):
         """Expands current graph by reversely applying a theorem."""
         self.application_sequence.append(reverse_theorem_application)
-        self.next_theorem = reverse_theorem_application.actual_implication  # TODO: Switch to forward one
+        # TODO: Switch to forward one.
+        self.next_theorem = reverse_theorem_application.actual_implication
         self.current_graph.apply_modus_ponens(reverse_theorem_application)
         self._shift_current_graph_timestamps()
         self._update_timesource()
@@ -277,6 +243,40 @@ class DatasetEntity:
             axes.axis('off')
         plt.show()
 
+    # def add_properties_of_theorem(self, theorem):
+    #     """Adds an instance of the assumption of given theorem to current graph.
+    #
+    #     There are two possible cases:
+    #         1. Predicates of the newly added instance invalidate some predicates needed to
+    #             prove the goal theorem, so it cannot be proved anymore. In that case, the
+    #             theorem application process should stop, as the goal cannot be proved.
+    #         2. Predicates of the newly added instance do not affect the possibility to prove
+    #             the final goal, so current next theorem to be applied still remains the one
+    #             that should be applied next.
+    #
+    #     :param theorem: An implication TimedPropertyGraph object.
+    #     """
+    #     theorem_instance, basic_predicates, validity_intervals = \
+    #         self._generate_newer_absolute_property_instance(theorem)
+    #     assumption, conclusion = theorem_instance.get_top_level_implication_subgraphs()
+    #
+    #     if self._predicates_invalidate_goal(basic_predicates, validity_intervals):
+    #         # If goal predicates do not hold anymore, goal cannot be proved, so the best
+    #         # option is to stop applying theorems.
+    #         self.next_theorem = None
+    #         self._update_current_predicates(basic_predicates, validity_intervals)
+    #     else:  # Otherwise, the best theorem is still the last used one.
+    #         # Well, if a predicate was replaced by the newly added instance, then that's the best
+    #         # theorem to use.
+    #         if not prover.find_possible_theorem_applications(self.current_graph,
+    #                                                          self.next_theorem):
+    #             logger = logging.getLogger(LOGGER_NAME)
+    #             logger.info("Sample Info: Theorem application sequence broke.")
+    #             self.next_theorem = theorem
+    #
+    #     self.current_graph.logical_and(prover.convert_implication_to_and(theorem_instance))
+    #     self._update_timesource()
+
     # def get_negated_theorem_applications(self, theorems):
     #     negated_theorems = []
     #     for t in theorems:
@@ -307,12 +307,12 @@ class DatasetEntity:
         possible_intervals = self._find_newer_possible_intervals(basic_predicates)
         # Intervals during which predicates hold in the graph.
         validity_intervals = []
-        for i in range(len(basic_predicates)):
-            new_time = get_random_value_in_interval(possible_intervals[i])
+        for basic_pred, interval in zip(basic_predicates, possible_intervals):
+            new_time = get_random_value_in_interval(interval)
             # Validity interval starts from the newly assigned timestamp.
             validity_intervals.append([new_time, "inf"])  # TODO: Rewrite it more elegantly.
             absolute_timestamp = Timestamp(new_time)
-            absolute_instance.update_subgraph_timestamp(basic_predicates[i], absolute_timestamp)
+            absolute_instance.update_subgraph_timestamp(basic_pred, absolute_timestamp)
 
         return absolute_instance, basic_predicates, validity_intervals
 
@@ -710,28 +710,6 @@ class DatasetIterator:
         return next_sample
 
 
-# def reverse_apply_theorem(graph, theorem):
-#     reversed_theorem = theorem.get_copy()
-#     reversed_theorem.switch_implication_parts()
-#
-#     possible_modus_ponens = prover.get_all_possible_modus_ponens(graph, [reversed_theorem])
-#
-#     expanded_graph = None
-#     if possible_modus_ponens:
-#         expanded_graph = graph.get_copy()
-#         expanded_graph.apply_modus_ponens[0]
-#
-#     return expanded_graph
-#
-#
-# def add_theorem_assumption(graph, theorem):
-#     pass
-#
-#
-# def convert_to_absolute(property_graph):
-#     pass
-
-
 def get_random_value_in_interval(interval):
     """Returns a random value in the given interval."""
     lower_bound = interval[0] if interval[0] != "-inf" else max(interval[1]-20, 0)
@@ -837,7 +815,7 @@ def _find_non_suppressed_predicates(predicates, validity_intervals):
             pred_name = str(p.get_root_node())
             is_negated = False
 
-        if not pred_name in preds_by_name:
+        if pred_name not in preds_by_name:
             preds_by_name[pred_name] = []
         preds_by_name[pred_name].append({"timestamp": p.get_most_recent_timestamp(),
                                          "is_negated": is_negated,
