@@ -411,7 +411,7 @@ class TimedPropertyGraph:
 
         return to_agraph(prop_graph.graph)
 
-    def visualize(self, title="", show_colorization=False):
+    def visualize(self, title="", show_colorization=False, export_path=None):
         plt.figure(num=None, figsize=(18, 18), dpi=80, facecolor='w', edgecolor='w')
         plt.axis('off')
         plt.tight_layout()
@@ -420,7 +420,11 @@ class TimedPropertyGraph:
         path = graphviz_out_scratchfile_path
         a_graph.draw(path)
         plt.imshow(mpimage.imread(path))
-        plt.show()
+        if export_path:
+            plt.savefig(export_path)
+            plt.close('all')
+        else:
+            plt.show()
 
         # plt.figure(num=None, figsize=(18, 18), dpi=80, facecolor='w', edgecolor='w')
         # plt.title(title, fontsize=22, fontweight='bold')

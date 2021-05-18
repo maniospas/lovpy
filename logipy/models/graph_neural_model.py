@@ -15,7 +15,7 @@ from tensorflow.keras.metrics import AUC
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, TIMESTAMP_PROPERTY_NAME
 from .dataset_generator import DatasetGenerator
 from .callbacks import ModelEvaluationOnTheoremProvingCallback
-from .io import export_generated_samples
+from .io import export_generated_samples, export_theorems_and_properties
 
 
 DATASET_SIZE = 1000
@@ -63,14 +63,19 @@ def train_gnn_theorem_proving_model(properties):
     print(f"\tGenerating {DATASET_SIZE} samples...")
 
     # Create data generators.
+    generator = DatasetGenerator(properties, MAX_DEPTH, DATASET_SIZE,
+                                 random_expansion_probability=0.)
+
+    print(f"\tExporting theorems and properties...")
+    export_theorems_and_properties(generator.theorems, generator.valid_properties_to_prove)
+
     graph_samples = []
-    for i, s in enumerate(DatasetGenerator(properties, MAX_DEPTH, DATASET_SIZE,
-                                           random_expansion_probability=0.)):
+    for i, s in enumerate(generator):
         if (i % 10) == 0 or i == DATASET_SIZE - 1:
             print(f"\t\tGenerated {i}/{DATASET_SIZE}...", end="\r")
         graph_samples.append(s)
     print(f"\tExporting samples...")
-    export_generated_samples(graph_samples, 50)
+    export_generated_samples(graph_samples, min(DATASET_SIZE, 50))
     y = np.array([int(s.is_positive()) for s in graph_samples]).reshape((-1, 1))
     current_generator, goal_generator, next_generator = \
         create_sample_generators(graph_samples, nodes_encoder)

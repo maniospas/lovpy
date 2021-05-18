@@ -18,7 +18,7 @@ goal_graph_path = None
 next_graph_path = None
 
 # Paths about training samples exporting.
-graph_model_samples_export_dir_path = None
+graph_model_train_output_dir_path = None
 
 
 def save_gnn_model(model, encoder):
@@ -42,18 +42,35 @@ def load_gnn_model():
 
 
 def export_generated_samples(samples, max_num=None):
-    if graph_model_samples_export_dir_path is None:
+    samples_out_dir = graph_model_train_output_dir_path / "samples"
+
+    if samples_out_dir is None:
         raise RuntimeError("Models module was not correctly initialized.")
 
-    if not graph_model_samples_export_dir_path.exists():
-        graph_model_samples_export_dir_path.mkdir(parents=True)
+    if not samples_out_dir.exists():
+        samples_out_dir.mkdir(parents=True)
 
     if not max_num:
         max_num = len(samples)
     samples = random.sample(samples, max_num)
     for i, s in enumerate(samples):
         print(f"\t\tExported {i+1}/{len(samples)}", end="\r")
-        s.visualize(f"Sample #{i+1}", graph_model_samples_export_dir_path / f"sample{i + 1}.png")
+        s.visualize(f"Sample #{i+1}", samples_out_dir / f"sample{i + 1}.png")
+
+
+def export_theorems_and_properties(theorems, properties):
+    theorems_out_path = graph_model_train_output_dir_path / "theorems"
+    properties_out_path = graph_model_train_output_dir_path / "properties"
+
+    if not theorems_out_path.exists():
+        theorems_out_path.mkdir(parents=True)
+    if not properties_out_path.exists():
+        properties_out_path.mkdir(parents=True)
+
+    for i, t in enumerate(theorems):
+        t.visualize(f"Theorem #{i+1}", export_path=theorems_out_path/f"theorem_{i+1}.png")
+    for i, t in enumerate(properties):
+        t.visualize(f"Property #{i + 1}", export_path=properties_out_path/f"property_{i + 1}.png")
 
 
 def model_file_exists():
