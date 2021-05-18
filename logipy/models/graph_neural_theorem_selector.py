@@ -5,6 +5,9 @@ from .graph_neural_model import NextTheoremSamplesGenerator, create_three_padded
     convert_timedpropertygraph_to_stellargraph
 
 
+THRESHOLD = 0.5
+
+
 class GraphNeuralNextTheoremSelector(NextTheoremSelector):
     """A Next Theorem Selector that utilizes Graph Neural Networks based models."""
 
@@ -31,5 +34,7 @@ class GraphNeuralNextTheoremSelector(NextTheoremSelector):
             current_generator, goal_generator, next_generator)
 
         scores = self.model.predict(inference_generator)
-
-        return theorem_applications[np.argmax(scores, axis=0)[0]]
+        if max(scores) < THRESHOLD:
+            return None
+        else:
+            return theorem_applications[np.argmax(scores, axis=0)[0]]
