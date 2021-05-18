@@ -148,12 +148,16 @@ def create_graph_embedding_branch(generator: PaddedGraphGenerator, dgcnn_layer_s
 
 
 def create_sample_generators(graph_samples: list, encoder: OneHotEncoder, verbose=False):
-    current_graphs = [convert_timedpropertygraph_to_stellargraph(s.current_graph, encoder)
-                      for s in graph_samples]
-    goal_graphs = [convert_timedpropertygraph_to_stellargraph(s.goal, encoder)
-                   for s in graph_samples]
-    next_graphs = [convert_timedpropertygraph_to_stellargraph(s.next_theorem, encoder)
-                   for s in graph_samples]
+    current_graphs = []
+    goal_graphs = []
+    next_graphs = []
+    for s in graph_samples:
+        current_graph, norm = convert_timedpropertygraph_to_stellargraph(s.current_graph, encoder)
+        goal_graph, _ = convert_timedpropertygraph_to_stellargraph(s.goal, encoder)
+        next_graph, _ = convert_timedpropertygraph_to_stellargraph(s.next_theorem, encoder, norm)
+        current_graphs.append(current_graph)
+        goal_graphs.append(goal_graph)
+        next_graphs.append(next_graph)
 
     # Print statistical info about nodes and edges number in three types of graphs.
     if verbose:
@@ -186,14 +190,8 @@ def create_three_padded_generators(current_graphs, goal_graphs, next_graphs):
     return current_generator, goal_generator, next_generator
 
 
-def convert_timedpropertygraph_to_stellargraph(graph: TimedPropertyGraph, encoder: OneHotEncoder):
-    # TODO: Change dataset generator to always contain next graph.
-    if not graph:
-        from logipy.logic.timestamps import Timestamp
-        from logipy.graphs.timed_property_graph import MonitoredVariable, PredicateGraph
-        graph = PredicateGraph("a_random_predicate_graph_asdf", MonitoredVariable("VAR"))
-        graph.set_timestamp(Timestamp(0))
-
+def convert_timedpropertygraph_to_stellargraph(graph: TimedPropertyGraph, encoder: OneHotEncoder,
+                                               normalization_value=None):
     nx_graph = graph.graph.copy()
 
     # Use 1-hot encoded node labels as features of the nodes.
@@ -214,13 +212,17 @@ def convert_timedpropertygraph_to_stellargraph(graph: TimedPropertyGraph, encode
             value = timestamp.get_relative_value()
         time_values.append(value)
     time_values = np.array(time_values, dtype="float32")
-    if max(time_values) > 1.:
-        time_values = time_values / max(time_values)
+    if not normalization_value:
+        normalization_value = max(time_values)
+    if normalization_value > 1.:
+        time_values = time_values / normalization_value
     for e, v in zip(edges, time_values):
         nx_graph[e[0]][e[1]][e[2]]["time_value"] = v
 
-    return StellarGraph.from_networkx(graph.graph, edge_weight_attr="time_value",
-                                      node_features=zip(nodes, node_features))
+    sg_graph = StellarGraph.from_networkx(graph.graph, edge_weight_attr="time_value",
+                                          node_features=zip(nodes, node_features))
+
+    return sg_graph, normalization_value
 
 
 def get_nodes_labels(properties):

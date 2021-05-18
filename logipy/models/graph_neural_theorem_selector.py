@@ -17,13 +17,14 @@ class GraphNeuralNextTheoremSelector(NextTheoremSelector):
         self.encoder = nodes_encoder
 
     def select_next(self, graph, theorem_applications, goal, previous_applications):
+        current_graph, norm = convert_timedpropertygraph_to_stellargraph(graph, self.encoder)
+        goal_graph, _ = convert_timedpropertygraph_to_stellargraph(goal, self.encoder)
+
         current_generator, goal_generator, next_generator = create_three_padded_generators(
+            [current_graph] * len(theorem_applications),
+            [goal_graph] * len(theorem_applications),
             [convert_timedpropertygraph_to_stellargraph(
-                graph, self.encoder)] * len(theorem_applications),
-            [convert_timedpropertygraph_to_stellargraph(
-                goal, self.encoder)] * len(theorem_applications),
-            [convert_timedpropertygraph_to_stellargraph(
-                t_app.implication_graph, self.encoder) for t_app in theorem_applications]
+                t_app.actual_implication, self.encoder, norm)[0] for t_app in theorem_applications]
         )
 
         inference_generator = NextTheoremSamplesGenerator(
