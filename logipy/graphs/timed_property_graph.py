@@ -379,35 +379,37 @@ class TimedPropertyGraph:
 
     def to_agraph(self, title="", show_colorization=False):
         """Converts TimedPropertyGraph to pygraphviz's AGraph suitable for visualization."""
-        self.graph.graph['label'] = title
-        self.graph.graph['labelloc'] = 't'
+        prop_graph = self.get_copy()
+        prop_graph.graph.graph['label'] = title
+        prop_graph.graph.graph['labelloc'] = 't'
 
-        for e in self.graph.edges:
+        for e in prop_graph.graph.edges:
             # Set label text of each edge.
-            self.graph.edges[e[0], e[1], e[2]]['label'] = \
-                str(self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME])
+            prop_graph.graph.edges[e[0], e[1], e[2]]['label'] = \
+                str(prop_graph.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME])
             # Set color of each edge.
-            self.graph.edges[e[0], e[1], e[2]]['color'] = \
-                'red' if self.graph.is_edge_colorized(e[0], e[1], e[2]) else 'black'
-            self.graph.edges[e[0], e[1], e[2]]['fontcolor'] = 'red'
-        for n in self.graph.nodes:
+            prop_graph.graph.edges[e[0], e[1], e[2]]['color'] = \
+                'red' if prop_graph.graph.is_edge_colorized(e[0], e[1], e[2]) else 'black'
+            prop_graph.graph.edges[e[0], e[1], e[2]]['fontcolor'] = 'red'
+        for n in prop_graph.graph.nodes:
             # Set label of each node.
-            self.graph.nodes[n]['label'] = \
+            prop_graph.graph.nodes[n]['label'] = \
                 n.get_operator_symbol() if isinstance(n, LogicalOperator) else str(n)
             # Set color of each node.
             node_color = 'teal'
             if show_colorization:
-                if self.graph.is_node_in_colorized(n) and self.graph.is_node_out_colorized(n):
+                if (prop_graph.graph.is_node_in_colorized(n)
+                        and prop_graph.graph.is_node_out_colorized(n)):
                     node_color = 'red'
-                elif self.graph.is_node_in_colorized(n):
+                elif prop_graph.graph.is_node_in_colorized(n):
                     node_color = 'orange'
-                elif self.graph.is_node_out_colorized(n):
+                elif prop_graph.graph.is_node_out_colorized(n):
                     node_color = 'purple'
-            self.graph.nodes[n]['color'] = node_color
-            self.graph.nodes[n]['fillcolor'] = node_color
-            self.graph.nodes[n]['style'] = 'filled'
+            prop_graph.graph.nodes[n]['color'] = node_color
+            prop_graph.graph.nodes[n]['fillcolor'] = node_color
+            prop_graph.graph.nodes[n]['style'] = 'filled'
 
-        return to_agraph(self.graph)
+        return to_agraph(prop_graph.graph)
 
     def visualize(self, title="", show_colorization=False):
         plt.figure(num=None, figsize=(18, 18), dpi=80, facecolor='w', edgecolor='w')

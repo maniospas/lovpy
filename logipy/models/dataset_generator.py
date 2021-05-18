@@ -204,7 +204,7 @@ class DatasetEntity:
         # TODO: Reconsider this model output. Maybe split into multiple ones.
         return bool(self.next_theorem) and self.is_correct and self.is_provable
 
-    def visualize(self, title="Sample"):
+    def visualize(self, title="Sample", export_path=None):
         """Visualizes sample in a single figure.
 
         Figure is consisted of three subplots:
@@ -213,6 +213,8 @@ class DatasetEntity:
          -The rightmost subplot is the next theorem to be applied.
 
         :param str title: A supertitle for the whole figure.
+        :param Path export_path: If this argument is given, then instead of displaying the
+                sample figure on screen, it is exported to pointed location.
         """
         acurrent = self.current_graph.to_agraph("Current Graph")
         provable_text = "Provable" if self.is_provable else "Not Provable"
@@ -241,7 +243,14 @@ class DatasetEntity:
             axarr[2].imshow(mpimage.imread(io.next_graph_path))
         for axes in axarr:
             axes.axis('off')
-        plt.show()
+
+        if export_path:
+            plt.savefig(export_path)
+            plt.clf()
+            plt.cla()
+            plt.close('all')
+        else:
+            plt.show()
 
     # def add_properties_of_theorem(self, theorem):
     #     """Adds an instance of the assumption of given theorem to current graph.

@@ -33,6 +33,8 @@ GRAPH_ENCODER_NAME = "graph_nodes_encoder"
 CURRENT_GRAPH_FILENAME = "temp_current.jpg"
 GOAL_GRAPH_FILENAME = "temp_goal.jpg"
 NEXT_GRAPH_FILENAME = "temp_next.jpg"
+# Constants for training samples export.
+GRAPH_MODEL_TRAIN_SAMPLES_DIR = SCRATCHDIR_PATH / "train_gnn/samples"
 
 
 class TheoremSelector(Enum):
@@ -149,6 +151,8 @@ def _tearup_models_module():
     logipy.models.io.current_graph_path = get_scratchfile_path(CURRENT_GRAPH_FILENAME)
     logipy.models.io.goal_graph_path = get_scratchfile_path(GOAL_GRAPH_FILENAME)
     logipy.models.io.next_graph_path = get_scratchfile_path(NEXT_GRAPH_FILENAME)
+
+    logipy.models.io.graph_model_samples_export_dir_path = GRAPH_MODEL_TRAIN_SAMPLES_DIR
 
 
 def _teardown_models_module():
