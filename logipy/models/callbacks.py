@@ -1,4 +1,5 @@
 import numpy as np
+import tensorflow as tf
 from tensorflow.keras.callbacks import Callback
 from sklearn.metrics import accuracy_score, confusion_matrix
 
@@ -27,9 +28,9 @@ class ModelEvaluationOnTheoremProvingCallback(Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         acc, fallout = compute_accuracy_fallout_on_samples_proving(
-            self.train_samples, self.model, self.nodes_encoder)
+            self.train_samples, self.model, self.nodes_encoder, verbose=True)
         val_acc, val_fallout = compute_accuracy_fallout_on_samples_proving(
-            self.validation_samples, self.model, self.nodes_encoder)
+            self.validation_samples, self.model, self.nodes_encoder, verbose=True)
 
         if logs:
             logs["proving_acc"] = acc
@@ -37,16 +38,20 @@ class ModelEvaluationOnTheoremProvingCallback(Callback):
             logs["val_proving_acc"] = acc
             logs["val_proving_fallout"] = fallout
 
-        print(" - proving_acc: {} - proving_fallout: {}".format(round(acc, 4), round(fallout, 4)))
-        print(" - val_proving_acc: {} - val_proving_fallout: {}".format(
-            round(val_acc, 4), round(val_fallout, 4)))
+        print("\tTesting dataset:  proving_acc: {} - proving_fallout: {}".format(
+                round(acc, 4), round(fallout, 4)))
+        print("\tValidation dataset: val_proving_acc: {} - val_proving_fallout: {}".format(
+                round(val_acc, 4), round(val_fallout, 4)))
 
 
-def compute_accuracy_fallout_on_samples_proving(samples, model, nodes_encoder):
+def compute_accuracy_fallout_on_samples_proving(samples, model, nodes_encoder, verbose=False):
     from logipy.models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
     theorem_selector = GraphNeuralNextTheoremSelector(model, nodes_encoder)
 
     for i, s in enumerate(samples):
+        if verbose:
+            tf.print("\t{}/{} validating...".format(i, len(samples)), end="\r")
+
         proved, _, _ = prove_property(
             s.current_graph,
             s.goal,

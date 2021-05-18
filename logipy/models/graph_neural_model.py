@@ -57,13 +57,23 @@ def train_gnn_theorem_proving_model(properties):
     nodes_labels = list(get_nodes_labels(properties))
     nodes_encoder.fit(np.array(nodes_labels).reshape((-1, 1)))
 
+    print("-" * 80)
+    print("Training a DGCNN model.")
+    print("-" * 80)
+    print(f"\tGenerating {DATASET_SIZE} samples...")
+
     # Create data generators.
-    graph_samples = list(DatasetGenerator(properties, MAX_DEPTH, DATASET_SIZE,
-                                          random_expansion_probability=0.))
+    graph_samples = []
+    for i, s in enumerate(DatasetGenerator(properties, MAX_DEPTH, DATASET_SIZE,
+                                           random_expansion_probability=0.)):
+        if (i % 10) == 0 or i == DATASET_SIZE - 1:
+            print(f"\t\tGenerated {i}/{DATASET_SIZE}...", end="\r")
+        graph_samples.append(s)
+    print(f"\tExporting samples...")
     export_generated_samples(graph_samples, 50)
     y = np.array([int(s.is_positive()) for s in graph_samples]).reshape((-1, 1))
     current_generator, goal_generator, next_generator = \
-        create_sample_generators(graph_samples,  nodes_encoder)
+        create_sample_generators(graph_samples, nodes_encoder)
 
     # Split train and test data.
     test_size = 0.25
@@ -72,6 +82,10 @@ def train_gnn_theorem_proving_model(properties):
                                                   y, i_train, batch_size=BATCH_SIZE)
     test_generator = NextTheoremSamplesGenerator(current_generator, goal_generator, next_generator,
                                                  y, i_test, batch_size=1)
+
+    print("-" * 80)
+    print(f"Training model...")
+    print("-" * 80)
 
     # Train model.
     model = create_gnn_model(current_generator, goal_generator, next_generator)
