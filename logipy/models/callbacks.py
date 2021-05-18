@@ -67,7 +67,7 @@ def compute_accuracy_fallout_on_samples_proving(samples, model, nodes_encoder, v
             actual_proved = np.vstack((actual_proved, int(s.is_provable)))
 
     acc = accuracy_score(actual_proved, predicted_proved)
-    conf_matrix = confusion_matrix(actual_proved, predicted_proved)
+    conf_matrix = confusion_matrix(actual_proved, predicted_proved, labels=[0, 1])
     fallout = conf_matrix[0][1] / np.sum(conf_matrix, axis=1)[1]
 
     return acc, fallout
