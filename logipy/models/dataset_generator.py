@@ -10,7 +10,7 @@ from logipy.graphs.monitored_predicate import Call, ReturnedBy, CalledBy
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, PredicateNode
 from logipy.graphs.timed_property_graph import (NoPositiveAndNegativePredicatesSimultaneously,
                                                 NoComparisonRelativeTimestampAlone)
-from logipy.logic.timestamps import Timestamp, is_interval_subset
+from logipy.logic.timestamps import Timestamp, RelativeTimestamp, is_interval_subset
 from logipy.graphs.logical_operators import NotOperator
 from logipy.monitor.time_source import TimeSource
 from . import io
@@ -134,8 +134,10 @@ class DatasetEntity:
             reversed_theorems.append(reversed_theorem)
         return prover.find_possible_theorem_applications(self.current_graph, reversed_theorems)
 
-    def get_suppressed_predicates(self):
-        return list(self.suppressed_predicates)
+    def get_non_suppressible_suppressed_predicates(self):
+        non_suppressible = [s for s in self.suppressed_predicates
+                            if not self._is_suppressed_predicate_still_suppressible(s)]
+        return non_suppressible
 
     def generate_negative_samples(self):
         """Generates all possible negative samples from a positive one.
@@ -457,6 +459,20 @@ class DatasetEntity:
 
         self._update_timesource()
 
+    def _is_suppressed_predicate_still_suppressible(self, suppressed_predicate):
+        """Checks whether given suppressed predicate will be suppressed again if added to graph.
+
+        :param SuppressedPredicate suppressed_predicate: A suppressed predicate of current graph.
+
+        :return: True if given predicate will be suppressed again if added to current graph.
+                Otherwise, it returns False.
+        """
+        inv_pred_graph = suppressed_predicate.graph.get_copy()
+        inv_pred_graph.logical_not()
+        inv_pred_graph.set_timestamp(RelativeTimestamp(0))
+        matches, _, _, _ = self.current_graph.find_equivalent_subgraphs(inv_pred_graph)
+        return True if matches else False
+
 
 class SuppressedPredicate:
     def __init__(self, graph, suppressed_at):
@@ -589,6 +605,8 @@ class DatasetGenerator:
         """Generates a training sample with given depth."""
         sample = DatasetEntity(self.theorems)
 
+        no_further_expansion_possible = False
+
         for i in range(depth):  # Apply 'depth' number of sample expansions.
             random_expansion = random.random() < self.random_expansion_probability
 
@@ -596,9 +614,12 @@ class DatasetGenerator:
                 sample.expand_with_random_predicates()
                 if self.verbose:
                     sample.current_graph.visualize(f"#{i+1} Random expanded.")
-            else:
+            elif not no_further_expansion_possible:
                 if sample.contains_property_to_prove():
-                    added_suppressed_predicate = self._expand_sample_with_theorem(sample)
+                    added_suppressed_predicate, no_further_expansion_possible = \
+                        self._expand_sample_with_theorem(sample)
+                    if no_further_expansion_possible:
+                        continue
                     if self.verbose:
                         if added_suppressed_predicate:
                             sample.current_graph.visualize(
@@ -625,19 +646,34 @@ class DatasetGenerator:
             sample.add_property_to_prove(invalid_property, valid_property, False)
 
     def _expand_sample_with_theorem(self, sample: DatasetEntity):
+        """Expands given sample using a theorem or by a suppressed predicate.
+
+        If a theorem can be reversely applied, it is always preferred. However, when
+        no more theorems can be reversely applied, expansion by a suppressed predicate
+        is attempted. If there are no suppressed predicates to be added, further expansion
+        by theorems is not possible and such value is returned.
+
+        :return:
+            -added_suppressed_predicate: boolean
+            -no_further_expansion_possible: boolean
+        """
         reverse_theorems = sample.get_reverse_theorem_applications(self.theorems)
         added_suppressed_predicate = False
+        no_further_expansion_possible = False
 
         if reverse_theorems:
             expansion_theorem = random.choice(reverse_theorems)
             sample.expand_with_theorem(expansion_theorem)
             reverse_theorems.remove(expansion_theorem)
         else:  # When no theorems can be reversely applied, add a suppressed predicate.
-            suppressed_predicates = sample.get_suppressed_predicates()
-            sample.add_suppressed_predicate(random.choice(suppressed_predicates))
-            added_suppressed_predicate = True
+            suppressed_predicates = sample.get_non_suppressible_suppressed_predicates()
+            if suppressed_predicates:
+                sample.add_suppressed_predicate(random.choice(suppressed_predicates))
+                added_suppressed_predicate = True
+            else:
+                no_further_expansion_possible = True
 
-        return added_suppressed_predicate
+        return added_suppressed_predicate, no_further_expansion_possible
 
     # def generate_sample_old_method(self, depth):
     #     """Generates a training sample with given depth."""

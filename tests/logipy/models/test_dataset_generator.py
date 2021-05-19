@@ -105,7 +105,7 @@ class TestDatasetEntity(unittest.TestCase):
         entity.current_graph.visualize("Current graph after reverse theorem expansion.")
 
         # Expand by adding a suppressed predicate.
-        suppressed = entity.get_suppressed_predicates()
+        suppressed = entity.get_non_suppressible_suppressed_predicates()
         entity.add_suppressed_predicate(suppressed[0])
         entity.current_graph.visualize("Added suppressed predicate.")
 
@@ -122,7 +122,7 @@ class TestDatasetEntity(unittest.TestCase):
         entity.current_graph.visualize("Current graph after reverse theorem expansion.")
 
         # Expand by adding a suppressed predicate.
-        suppressed = entity.get_suppressed_predicates()
+        suppressed = entity.get_non_suppressible_suppressed_predicates()
         entity.add_suppressed_predicate(suppressed[0])
         entity.current_graph.visualize("Added suppressed predicate.")
 
