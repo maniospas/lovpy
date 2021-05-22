@@ -44,30 +44,30 @@ class TestDatasetEntity(unittest.TestCase):
 
         return entity
 
-    def test_add_properties_of_theorem(self):
-        entity = self.test_add_property_to_prove_on_empty_graph()
-
-        entity.add_properties_of_theorem(self.threading_theorems[0])
-        entity.current_graph._keep_most_recent_parallel_paths_out_of_inverted_ones()
-        self.threading_theorems[0].visualize("Theorem whose properties will be added.")
-        entity.current_graph.visualize("Current graph after adding theorem properties.")
-
-    def test_with_5_deep_theorem(self):
-        entity = self.test_expand_with_theorem()
-
-        entity.add_properties_of_theorem(self.threading_theorems[0])
-        self.threading_theorems[0].visualize("Theorem whose properties will be added.")
-        entity.current_graph.visualize("Current graph after adding theorem properties.")
-
-        entity.add_properties_of_theorem(self.threading_theorems[0])
-        self.threading_theorems[0].visualize("Theorem whose properties will add.")
-        entity.current_graph.visualize("Current graph after adding theorem properties.")
-
-        theorem_applications = entity.get_reverse_theorem_applications(self.threading_theorems)
-        self.assertGreater(len(theorem_applications), 0)
-        entity.current_graph.visualize("Current graph before theorem application.")
-        theorem_to_apply = theorem_applications[0]
-        theorem_to_apply.implication_graph.visualize()
+    # def test_add_properties_of_theorem(self):
+    #     entity = self.test_add_property_to_prove_on_empty_graph()
+    #
+    #     entity.add_properties_of_theorem(self.threading_theorems[0])
+    #     entity.current_graph._keep_most_recent_parallel_paths_out_of_inverted_ones()
+    #     self.threading_theorems[0].visualize("Theorem whose properties will be added.")
+    #     entity.current_graph.visualize("Current graph after adding theorem properties.")
+    #
+    # def test_with_5_deep_theorem(self):
+    #     entity = self.test_expand_with_theorem()
+    #
+    #     entity.add_properties_of_theorem(self.threading_theorems[0])
+    #     self.threading_theorems[0].visualize("Theorem whose properties will be added.")
+    #     entity.current_graph.visualize("Current graph after adding theorem properties.")
+    #
+    #     entity.add_properties_of_theorem(self.threading_theorems[0])
+    #     self.threading_theorems[0].visualize("Theorem whose properties will add.")
+    #     entity.current_graph.visualize("Current graph after adding theorem properties.")
+    #
+    #     theorem_applications = entity.get_reverse_theorem_applications(self.threading_theorems)
+    #     self.assertGreater(len(theorem_applications), 0)
+    #     entity.current_graph.visualize("Current graph before theorem application.")
+    #     theorem_to_apply = theorem_applications[0]
+    #     theorem_to_apply.implication_graph.visualize()
 
     # def test_not_provable_graph(self):
     #     entity = DatasetEntity()
@@ -77,22 +77,22 @@ class TestDatasetEntity(unittest.TestCase):
     #     entity.add_property_to_prove(ass)
     #     entity.current_graph.visualize()
 
-    def test_with_multiple_applications_of_call_acquire(self):
-        # Initial property addition.
-        entity = self.test_add_property_to_prove_on_empty_graph()
-
-        self.threading_properties_to_prove[0]
-
-        # Add properties of a theorem that negate final conclusion.
-        entity.add_properties_of_theorem(self.threading_theorems[0])
-        entity.current_graph.visualize("Adding release property.")
-        self.assertFalse(bool(entity.next_theorem))
-
-        # Expand by reversely applying theorem for release() predicate to show up.
-        applications = entity.get_reverse_theorem_applications(self.threading_theorems)
-        applications[0].implication_graph.visualize("Next theorem to reversely apply.")
-        entity.expand_with_theorem(applications[0])
-        entity.current_graph.visualize("Current graph after reverse theorem expansion.")
+    # def test_with_multiple_applications_of_call_acquire(self):
+    #     # Initial property addition.
+    #     entity = self.test_add_property_to_prove_on_empty_graph()
+    #
+    #     self.threading_properties_to_prove[0]
+    #
+    #     # Add properties of a theorem that negate final conclusion.
+    #     entity.add_properties_of_theorem(self.threading_theorems[0])
+    #     entity.current_graph.visualize("Adding release property.")
+    #     self.assertFalse(bool(entity.next_theorem))
+    #
+    #     # Expand by reversely applying theorem for release() predicate to show up.
+    #     applications = entity.get_reverse_theorem_applications(self.threading_theorems)
+    #     applications[0].implication_graph.visualize("Next theorem to reversely apply.")
+    #     entity.expand_with_theorem(applications[0])
+    #     entity.current_graph.visualize("Current graph after reverse theorem expansion.")
 
     def test_suppressed_predicates_addition(self):
         # Initial property addition.
