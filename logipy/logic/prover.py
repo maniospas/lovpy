@@ -194,7 +194,7 @@ def visualize_proving_process(execution_graphs, theorems_applied, proved_propert
 
     # Visualize proving process.
     for i in range(len(theorems_applied)):
-        theorems_applied[i].implication_graph.visualize(f"Theorem Applied #{i}")
+        theorems_applied[i].actual_implication.visualize(f"Theorem Applied #{i}")
         execution_graphs[i+1].visualize(f"Graph after applying theorem #{i}")
 
     # Visualize how the property was found not to hold.
