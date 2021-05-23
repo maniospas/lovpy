@@ -1,0 +1,25 @@
+SCENARIO:
+    WHEN call generate_data
+    THEN generated_data
+    AND NOT able_to_evaluate
+
+SCENARIO:
+    GIVEN generated_data
+    WHEN call distribute_data
+    THEN NOT able_to_evaluate
+    AND data_distributed
+
+SCENARIO:
+    GIVEN data_distributed
+    WHEN call gather_data
+    THEN all_data_in_master
+
+SCENARIO:
+    GIVEN generated_data
+    AND call process_on_all_nodes
+    WHEN all_data_in_master
+    THEN able_to_evaluate
+
+SCENARIO:
+    WHEN call generate_report
+    THEN SHOULD able_to_evaluate
