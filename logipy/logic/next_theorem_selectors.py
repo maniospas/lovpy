@@ -4,7 +4,7 @@ if 'default_theorem_selector' not in globals():
 
 class NextTheoremSelector:
     """Interface that provides the ability to a theorem prover to chose the next theorem."""
-    def select_next(self, graph, theorem_applications, goal, previous_applications):
+    def select_next(self, graph, theorem_applications, goal, previous_applications, label=None):
         raise NotImplementedError("Subclass and implement.")
 
 
@@ -29,7 +29,7 @@ class BetterNextTheoremSelector(NextTheoremSelector):
     Also, the same theorem is never applied twice in a row.
     """
 
-    def select_next(self, graph, theorem_applications, goal, previous_applications):
+    def select_next(self, graph, theorem_applications, goal, previous_applications, label=None):
         # Don't use the last applied theorem.
         used_theorems = \
             [previous_applications[-1].implication_graph] if previous_applications else []

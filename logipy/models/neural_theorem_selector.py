@@ -12,7 +12,7 @@ class NeuralNextTheoremSelector(NextTheoremSelector):
         self.model = load_model(io.main_model_path)
         self.predicates_map = PredicatesMap(pred_map=json.load(io.predicates_map_path.open('r')))
 
-    def select_next(self, graph, theorem_applications, goal, previous_applications):
+    def select_next(self, graph, theorem_applications, goal, previous_applications, label=None):
         scores = []
 
         for application in theorem_applications:
