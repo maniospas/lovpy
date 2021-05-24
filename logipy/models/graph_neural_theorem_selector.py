@@ -23,14 +23,24 @@ class GraphNeuralNextTheoremSelector(NextTheoremSelector):
 
     def select_next(self, graph, theorem_applications, goal, previous_applications, label=None):
         global exported
+
+        # TODO: Implement another more robust way to stop in-time.
+        # Don't use the last applied theorem.
+        used_theorems = \
+            [previous_applications[-1].implication_graph] if previous_applications else []
+        unused_applications = [t for t in theorem_applications
+                               if t.implication_graph not in used_theorems]
+        if not unused_applications:
+            return None
+
         current_graph, norm = convert_timedpropertygraph_to_stellargraph(graph, self.encoder)
         goal_graph, _ = convert_timedpropertygraph_to_stellargraph(goal, self.encoder)
 
         current_generator, goal_generator, next_generator = create_three_padded_generators(
-            [current_graph] * len(theorem_applications),
-            [goal_graph] * len(theorem_applications),
+            [current_graph] * len(unused_applications),
+            [goal_graph] * len(unused_applications),
             [convert_timedpropertygraph_to_stellargraph(
-                t_app.actual_implication, self.encoder, norm)[0] for t_app in theorem_applications]
+                t_app.actual_implication, self.encoder, norm)[0] for t_app in unused_applications]
         )
 
         inference_generator = NextTheoremSamplesGenerator(
@@ -46,3 +56,5 @@ class GraphNeuralNextTheoremSelector(NextTheoremSelector):
                                         label,
                                         exported+1)
             exported += 1
+
+        return unused_applications[np.argmax(scores, axis=0)[0]]
