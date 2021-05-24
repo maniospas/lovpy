@@ -37,7 +37,7 @@ CURRENT_GRAPH_FILENAME = "temp_current.jpg"
 GOAL_GRAPH_FILENAME = "temp_goal.jpg"
 NEXT_GRAPH_FILENAME = "temp_next.jpg"
 # Constants for training samples export.
-GRAPH_MODEL_TRAIN_OUTPUT_DIR = SCRATCHDIR_PATH / "train_gnn"
+GRAPH_MODEL_TRAIN_OUTPUT_DIR = "train_gnn"
 
 _logipy_session_name = ""  # A name of the session to be appended to the output directories.
 
@@ -54,10 +54,8 @@ def get_scratchfile_path(filename):
 
     If scratchdir doesn't exist, it is created first.
     """
-    session_identifier = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
-    if _logipy_session_name:
-        session_identifier += f"_{_logipy_session_name}"
-    current_instance_scratchdir = SCRATCHDIR_PATH / session_identifier
+    global _logipy_session_name
+    current_instance_scratchdir = SCRATCHDIR_PATH / _logipy_session_name
     if not current_instance_scratchdir.exists():
         current_instance_scratchdir.mkdir()
     return current_instance_scratchdir / filename
@@ -68,7 +66,11 @@ def remove_scratchfile(filename):
 
     If removing the file empties scratchdir, scratchdir is also removed.
     """
-    absolute_scratchfile_path = SCRATCHDIR_PATH / filename
+    if filename.is_absolute():
+        absolute_scratchfile_path = filename
+    else:
+        absolute_scratchfile_path = SCRATCHDIR_PATH / filename
+
     if Path(absolute_scratchfile_path).is_file():
         absolute_scratchfile_path.unlink()
     if SCRATCHDIR_PATH.is_dir() and not any(SCRATCHDIR_PATH.iterdir()):
@@ -140,8 +142,12 @@ def enable_proving_process_visualization():
 
 def tearup_logipy(session_name=""):
     """Initializes logipy's modules."""
+    # Generate session name.
     global _logipy_session_name
-    _logipy_session_name = session_name
+    _logipy_session_name = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+    if session_name:
+        _logipy_session_name += f"_{session_name}"
+
     _tearup_graphs_module()
     _tearup_models_module()
 
@@ -170,14 +176,15 @@ def _tearup_models_module():
     logipy.models.io.current_graph_path = get_scratchfile_path(CURRENT_GRAPH_FILENAME)
     logipy.models.io.goal_graph_path = get_scratchfile_path(GOAL_GRAPH_FILENAME)
     logipy.models.io.next_graph_path = get_scratchfile_path(NEXT_GRAPH_FILENAME)
-
-    logipy.models.io.graph_model_train_output_dir_path = GRAPH_MODEL_TRAIN_OUTPUT_DIR
+    # Set scratch dir paths for exporting training and graph based next theorem selector data.
+    logipy.models.io.graph_model_train_output_dir_path = \
+        get_scratchfile_path(GRAPH_MODEL_TRAIN_OUTPUT_DIR)
     logipy.models.io.dgcnn_selection_process_export_path = \
         get_scratchfile_path(GRAPH_SELECTOR_EXPORT_DIR)
 
 
 def _teardown_models_module():
     # Cleanup scratch files.
-    remove_scratchfile(get_models_dir_path(CURRENT_GRAPH_FILENAME))
-    remove_scratchfile(get_models_dir_path(GOAL_GRAPH_FILENAME))
-    remove_scratchfile(get_models_dir_path(NEXT_GRAPH_FILENAME))
+    remove_scratchfile(get_scratchfile_path(CURRENT_GRAPH_FILENAME))
+    remove_scratchfile(get_scratchfile_path(GOAL_GRAPH_FILENAME))
+    remove_scratchfile(get_scratchfile_path(NEXT_GRAPH_FILENAME))
