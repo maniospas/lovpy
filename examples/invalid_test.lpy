@@ -13,5 +13,4 @@ def print_counter(i):
 for i in range(10):
     value = ValueContainer(i)
     value.increase()
-    print(repr(value.x))
     print_counter(value.x)
