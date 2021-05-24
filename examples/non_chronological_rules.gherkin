@@ -1,16 +1,14 @@
 SCENARIO:
     WHEN call generate_data
     THEN generated_data
-    AND NOT able_to_evaluate
 
 SCENARIO:
     GIVEN generated_data
     WHEN call distribute_data
     THEN NOT able_to_evaluate
-    AND data_distributed
 
 SCENARIO:
-    GIVEN data_distributed
+    GIVEN call distribute_data
     WHEN call gather_data
     THEN all_data_in_master
 
