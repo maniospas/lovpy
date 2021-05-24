@@ -1,0 +1,43 @@
+import threading
+
+# ERROR EXAMPLE FROM: http://effbot.org/zone/thread-synchronization.htm
+
+lock = threading.Lock()
+
+obj = "ab"
+
+def get_first_part():
+    lock.acquire()
+    try:
+        data = obj[0]
+    finally:
+        lock.release()
+    return data
+
+def get_second_part():
+    lock.acquire()
+    try:
+        data = obj[1]
+    finally:
+        lock.release()
+    return data
+
+def get_both_parts():
+    # THIS WILL NOT HANG
+    lock.acquire()
+    lock.release()
+    lock.acquire()
+    lock.release()
+    lock.acquire()
+    lock.release()
+    try:
+        first = get_first_part()
+        second = get_second_part()
+    finally:
+        pass
+        # lock.release()
+    return first, second
+
+#threading.Thread(target=get_first_part).start()
+#threading.Thread(target=get_second_part).start()
+get_both_parts()
