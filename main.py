@@ -1,5 +1,6 @@
 import logipy
 from logipy.visualization_strategies import set_full_visualization_scheme
+# from logipy.visualization_strategies import set_proving_process_visualization_enabled
 
 import examples.invalid_test
 # import examples.invalid_thread_test

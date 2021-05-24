@@ -1,6 +1,14 @@
+# Fix for pygraphviz issue not properly releasing resources after calling graphviz binaries.
+# Exporting thousands of graphs in a single interpreter session will still crash.
+import win32file
+win32file._setmaxstdio(8192)
+
 import pickle
 import random
+from collections import Counter
 
+from matplotlib import pyplot as plt
+from matplotlib import image as mpimage
 from tensorflow.keras.models import load_model
 
 
@@ -19,6 +27,10 @@ next_graph_path = None
 
 # Paths about training samples exporting.
 graph_model_train_output_dir_path = None
+
+# Globals about DGCNN theorem selection process exporting.
+dgcnn_selection_process_export_path = None
+dgcnn_selection_processes_exported = Counter()
 
 
 def save_gnn_model(model, encoder):
@@ -73,5 +85,73 @@ def export_theorems_and_properties(theorems, properties):
         t.visualize(f"Property #{i + 1}", export_path=properties_out_path/f"property_{i + 1}.png")
 
 
+def export_grouped_instance(current_graph, goal_graph, next_graph, title,
+                            property_group, proving_process_group, group_label):
+    if not dgcnn_selection_process_export_path:
+        raise RuntimeError("Module was not initialized properly.")
+
+    export_dir = dgcnn_selection_process_export_path
+    export_dir /= str(property_group)
+    export_dir /= f"proving_process_{proving_process_group}"
+    export_dir /= f"selection_process_{group_label}"
+    if not export_dir.exists():
+        export_dir.mkdir(parents=True)
+
+    # Name exports under the same group label with an incrementing numerical value.
+    export_file_path = export_dir / (
+            str(dgcnn_selection_processes_exported[group_label]+1) + ".png")
+    visualize_three_graphs(current_graph, goal_graph, next_graph, title=title,
+                           export_path=export_file_path)
+    dgcnn_selection_processes_exported[group_label] += 1
+
+
 def model_file_exists():
     return main_model_path.exists()
+
+
+def visualize_three_graphs(graph1, graph2, graph3, title="", export_path=None):
+    """Visualizes three graphs in a single figure, side by side.
+
+    Figure is consisted of three subplots:
+     -The leftmost subplot is the instance of execution graph.
+     -The central subplot is the goal property that should be proved.
+     -The rightmost subplot is the next theorem to be applied.
+
+    :param graph1: Current graph.
+    :param graph2: Goal graph.
+    :param graph3: Next theorem graph.
+    :param str title: A supertitle for the whole figure.
+    :param Path export_path: If this argument is given, then instead of displaying the
+            sample figure on screen, it is exported to pointed location.
+    """
+    a_graph1 = graph1.to_agraph("Current Graph")
+    a_graph2 = graph2.to_agraph("Goal Property")
+    if graph3:
+        a_graph3 = graph3.to_agraph("Next Theorem")
+
+    # Export to disk temp jpg images of the three graphs.
+    a_graph1.layout("dot")
+    a_graph1.draw(current_graph_path)
+    a_graph2.layout("dot")
+    a_graph2.draw(goal_graph_path)
+    if graph3:
+        a_graph3.layout("dot")
+        a_graph3.draw(next_graph_path)
+
+    # Plot the three graph images side by side.
+    f, axarr = plt.subplots(1, 3, num=None, figsize=(54, 18), dpi=80,
+                            facecolor='w', edgecolor='w')
+    f.tight_layout()
+    f.suptitle(title, fontsize=40, fontweight='bold')
+    axarr[0].imshow(mpimage.imread(current_graph_path))
+    axarr[1].imshow(mpimage.imread(goal_graph_path))
+    if graph3:
+        axarr[2].imshow(mpimage.imread(next_graph_path))
+    for axes in axarr:
+        axes.axis('off')
+
+    if export_path:
+        f.savefig(export_path)
+        plt.close(f)
+    else:
+        plt.show()

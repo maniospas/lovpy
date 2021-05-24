@@ -1,9 +1,10 @@
 import logging
 from enum import Enum
 from pathlib import Path
+from datetime import datetime
 
 from logipy.logic.next_theorem_selectors import set_default_theorem_selector, \
-    BetterNextTheoremSelector
+    get_default_theorem_selector, BetterNextTheoremSelector
 import logipy.graphs
 import logipy.models
 import logipy.logic.prover
@@ -29,6 +30,8 @@ PREDICATES_MAP_NAME = "main_model_predicates.json"
 # Constants for DGCNN model.
 GRAPH_MODEL_NAME = "gnn_model"
 GRAPH_ENCODER_NAME = "graph_nodes_encoder"
+GRAPH_SELECTOR_EXPORT_DIR = "dgcnn_selector"
+GRAPH_VISUALIZE_SELECTION_PROCESS = False
 # Constants for sample visualization.
 CURRENT_GRAPH_FILENAME = "temp_current.jpg"
 GOAL_GRAPH_FILENAME = "temp_goal.jpg"
@@ -49,9 +52,11 @@ def get_scratchfile_path(filename):
 
     If scratchdir doesn't exist, it is created first.
     """
-    if not SCRATCHDIR_PATH.exists():
-        SCRATCHDIR_PATH.mkdir()
-    return SCRATCHDIR_PATH / filename
+    timestamp = datetime.now().strftime("%d-%m-%Y %H-%M-%S")
+    current_instance_scratchdir = SCRATCHDIR_PATH / timestamp
+    if not current_instance_scratchdir.exists():
+        current_instance_scratchdir.mkdir()
+    return current_instance_scratchdir / filename
 
 
 def remove_scratchfile(filename):
@@ -104,7 +109,8 @@ def set_theorem_selector(theorem_selector: TheoremSelector):
         model, encoder = load_gnn_model()
         if model:
             logger.info("Setting theorem prover to the graph neural one.")
-            set_default_theorem_selector(GraphNeuralNextTheoremSelector(model, encoder))
+            set_default_theorem_selector(GraphNeuralNextTheoremSelector(
+                    model, encoder, export=GRAPH_VISUALIZE_SELECTION_PROCESS))
         else:
             logger.warning(
                 f"Logipy: No model found under {str(get_models_dir_path(GRAPH_MODEL_NAME))}")
@@ -116,9 +122,16 @@ def is_neural_selector_enabled():
     return USE_NEURAL_SELECTOR
 
 
-def enable_full_visualization():
-    """Enables visualization of proving process."""
+def enable_failure_visualization():
+    """Enables visualization of proving process when a failure occurs."""
     logipy.logic.prover.full_visualization_enabled = True
+
+
+def enable_proving_process_visualization():
+    """Enables visualization of the whole proving process."""
+    current_theorem_selector = get_default_theorem_selector()
+    if isinstance(current_theorem_selector, GraphNeuralNextTheoremSelector):
+        current_theorem_selector.export = True
 
 
 def tearup_logipy():
@@ -153,6 +166,8 @@ def _tearup_models_module():
     logipy.models.io.next_graph_path = get_scratchfile_path(NEXT_GRAPH_FILENAME)
 
     logipy.models.io.graph_model_train_output_dir_path = GRAPH_MODEL_TRAIN_OUTPUT_DIR
+    logipy.models.io.dgcnn_selection_process_export_path = \
+        get_scratchfile_path(GRAPH_SELECTOR_EXPORT_DIR)
 
 
 def _teardown_models_module():

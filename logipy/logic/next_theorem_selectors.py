@@ -10,7 +10,7 @@ class NextTheoremSelector:
 
 class SimpleNextTheoremSelector(NextTheoremSelector):
     """Theorem selector that applies the first available theorem."""
-    def select_next(self, graph, theorem_applications, goal, previous_applications):
+    def select_next(self, graph, theorem_applications, goal, previous_applications, label=None):
         used_base_theorems = {t.implication_graph for t in previous_applications}
         unused_base_applications = [t for t in theorem_applications
                                     if t.implication_graph not in used_base_theorems]

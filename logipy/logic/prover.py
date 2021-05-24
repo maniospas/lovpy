@@ -8,6 +8,7 @@ from .next_theorem_selectors import get_default_theorem_selector
 MAX_PROOF_PATH = 10  # Max number of theorems to be applied in order to prove a property.
 
 full_visualization_enabled = False
+prover_invocations = 0
 
 
 def prove_set_of_properties(property_graphs, execution_graph, theorem_selector=None):
@@ -68,6 +69,8 @@ def prove_set_of_properties(property_graphs, execution_graph, theorem_selector=N
 
 def prove_property(execution_graph, property_graph, theorems, theorem_selector=None):
     """Proves that given property holds into given execution graph by utilizing given theorems."""
+    global prover_invocations
+
     if not theorem_selector:
         theorem_selector = get_default_theorem_selector()
 
@@ -82,7 +85,7 @@ def prove_property(execution_graph, property_graph, theorems, theorem_selector=N
             break
 
         next_theorem = theorem_selector.select_next(
-            temp_graph, possible_theorems, property_graph, theorems_applied)
+            temp_graph, possible_theorems, property_graph, theorems_applied, prover_invocations)
         if not next_theorem:
             break
         # next_theorem.implication_graph.visualize("Next theorem to apply.")
@@ -92,6 +95,8 @@ def prove_property(execution_graph, property_graph, theorems, theorem_selector=N
         intermediate_graphs.append(temp_graph.get_copy())
 
     proved = True if temp_graph.contains_property_graph(property_graph) else False
+
+    prover_invocations += 1
 
     return proved, theorems_applied, intermediate_graphs
 
