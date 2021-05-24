@@ -25,7 +25,8 @@ logipy.importer.gherkin_importer.import_gherkin_path()
 atexit.register(config.teardown_logipy)
 sys.excepthook = logipy.importer.exception_handler.logipy_exception_handler
 
-config.tearup_logipy()
+session_name = os.environ.get("LOGIPY_SESSION_NAME", "")
+config.tearup_logipy(session_name)
 
 # Choose between neural and deterministic prover.
 if config.is_neural_selector_enabled():

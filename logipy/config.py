@@ -39,6 +39,8 @@ NEXT_GRAPH_FILENAME = "temp_next.jpg"
 # Constants for training samples export.
 GRAPH_MODEL_TRAIN_OUTPUT_DIR = SCRATCHDIR_PATH / "train_gnn"
 
+_logipy_session_name = ""  # A name of the session to be appended to the output directories.
+
 
 class TheoremSelector(Enum):
     """An Enum that defines all available theorem selectors in logipy."""
@@ -52,8 +54,10 @@ def get_scratchfile_path(filename):
 
     If scratchdir doesn't exist, it is created first.
     """
-    timestamp = datetime.now().strftime("%d-%m-%Y %H-%M-%S")
-    current_instance_scratchdir = SCRATCHDIR_PATH / timestamp
+    session_identifier = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+    if _logipy_session_name:
+        session_identifier += f"_{_logipy_session_name}"
+    current_instance_scratchdir = SCRATCHDIR_PATH / session_identifier
     if not current_instance_scratchdir.exists():
         current_instance_scratchdir.mkdir()
     return current_instance_scratchdir / filename
@@ -134,8 +138,10 @@ def enable_proving_process_visualization():
         current_theorem_selector.export = True
 
 
-def tearup_logipy():
+def tearup_logipy(session_name=""):
     """Initializes logipy's modules."""
+    global _logipy_session_name
+    _logipy_session_name = session_name
     _tearup_graphs_module()
     _tearup_models_module()
 
