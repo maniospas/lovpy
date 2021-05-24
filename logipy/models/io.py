@@ -33,10 +33,14 @@ dgcnn_selection_process_export_path = None
 dgcnn_selection_processes_exported = Counter()
 
 
-def save_gnn_model(model, encoder):
+def save_gnn_model(model, encoder, model_path=None, encoder_path=None):
     """Saves given gnn model along with nodes encoder to disk."""
-    model.save(graph_model_path)
-    with graph_encoder_path.open("wb") as f:
+    if not model_path or not encoder_path:
+        model_path = graph_model_path
+        encoder_path = graph_encoder_path
+
+    model.save(model_path)
+    with encoder_path.open("wb") as f:
         pickle.dump(encoder, f)
 
 
