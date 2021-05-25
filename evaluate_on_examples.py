@@ -1,20 +1,13 @@
-import tensorflow as tf
-tf.config.set_visible_devices([], 'GPU')
-from contextlib import contextmanager
-import multiprocessing
 import threading
-import _thread
+from pathlib import Path
 
 import logipy
 from logipy.exceptions import PropertyNotHoldsException
-from pathlib import Path
+from logipy.wrappers import clear_previous_raised_exceptions
 
 
 EXAMPLES_DIR = "./examples"
-
-
-class TimeoutException(Exception):
-    pass
+LONGEST_ESTIMATED_SCRIPT_RUNTIME = 60.  # 60 seconds
 
 
 def evaluate_proving_methods():
@@ -26,17 +19,17 @@ def evaluate_proving_methods():
     print("\t-{} scripts are valid.".format(len(valid_script_paths)))
     print("\t-{} scripts contain a bug.".format((len(invalid_script_paths))))
 
-    # print("-" * 64)
-    # print("Evaluating deterministic prover.")
-    # print("-" * 64)
-    # logipy.config.set_theorem_selector(logipy.config.TheoremSelector.DETERMINISTIC)
-    # evaluate_on_examples(valid_script_paths, invalid_script_paths)
-    #
-    # print("-" * 64)
-    # print("Evaluating fully-connected NN based prover.")
-    # print("-" * 64)
-    # logipy.config.set_theorem_selector(logipy.config.TheoremSelector.SIMPLE_NN)
-    # evaluate_on_examples(valid_script_paths, invalid_script_paths)
+    print("-" * 64)
+    print("Evaluating deterministic prover.")
+    print("-" * 64)
+    logipy.config.set_theorem_selector(logipy.config.TheoremSelector.DETERMINISTIC)
+    evaluate_on_examples(valid_script_paths, invalid_script_paths)
+
+    print("-" * 64)
+    print("Evaluating fully-connected NN based prover.")
+    print("-" * 64)
+    logipy.config.set_theorem_selector(logipy.config.TheoremSelector.SIMPLE_NN)
+    evaluate_on_examples(valid_script_paths, invalid_script_paths)
 
     print("-" * 64)
     print("Evaluating DGCNN based prover.")
@@ -58,7 +51,7 @@ def evaluate_on_examples(valid_script_paths, invalid_script_paths):
             valid_to_invalid.append(p)
     for p in invalid_script_paths:
         print("\t\tEvaluating {}".format(p))
-        if evaluate_script(p, timeout=60.):
+        if evaluate_script(p, timeout=LONGEST_ESTIMATED_SCRIPT_RUNTIME):
             invalid_to_valid.append(p)
         else:
             invalid_to_invalid.append(p)
@@ -78,33 +71,30 @@ def evaluate_script(path, timeout=None):
     with path.open("r") as f:
         script = f.read()
 
-    is_valid = True
+    # Workaround to escape deadlocks and keep testing, since calls to lock.acquire()
+    # cannot be interrupted. Drawback: deadlocked threads are not killed.
+    return_dict = {}
+    t = threading.Thread(target=run_script, args=(script, return_dict))
+    t.daemon = True
+    t.start()
+    t.join(timeout)
+    if not t.is_alive():
+        is_valid = return_dict["is_valid"]
+    else:
+        is_valid = True  # Never raised exception on an invalid script, so it was labeled as valid.
+        print("\t\t\t-->Terminated due to timeout.")
 
-    try:
-        if timeout:
-            with time_limit(timeout):  # Use timeout to escape deadlocks.
-                exec(script, {})
-        else:
-            exec(script, {})
-    except PropertyNotHoldsException:
-        is_valid = False
-    except TimeoutException:
-        pass
+    clear_previous_raised_exceptions()
 
     return is_valid
 
 
-@contextmanager
-def time_limit(seconds, msg=''):
-    timer = threading.Timer(seconds, lambda: _thread.interrupt_main())
-    timer.start()
+def run_script(script, return_dict):
+    return_dict["is_valid"] = True
     try:
-        yield
-    except KeyboardInterrupt:
-        raise TimeoutException("Timed out for operation {}".format(msg))
-    finally:
-        # if the action ends in specified time, timer is canceled
-        timer.cancel()
+        exec(script, {})
+    except PropertyNotHoldsException:
+        return_dict["is_valid"] = False
 
 
 if __name__ == "__main__":

@@ -244,6 +244,11 @@ def logipy_warning(logipy_warning_message):
     warnings.warn(logipy_warning_message)
 
 
+def clear_previous_raised_exceptions():
+    global property_exception_raised
+    property_exception_raised = False
+
+
 def _make_primitive_method(method_name):
     def method(self, *args, **kwargs):
         if method_name in _PRIMITIVE_CONVERTERS:
