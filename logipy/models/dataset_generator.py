@@ -17,7 +17,6 @@ from . import io
 
 
 LOGGER_NAME = "logipy.models.dataset_generator"
-INVALID_THEOREMS_PER_VALID_THEOREM = 10
 
 
 class DatasetEntity:
