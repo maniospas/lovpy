@@ -117,7 +117,7 @@ def convert_sample_to_data(sample, predicates_map):
     goal_table = convert_property_graph_to_matrix(sample.goal, predicates_map)
 
     input_data = np.concatenate((current_table, next_table, goal_table), axis=0)
-    output_data = int(sample.is_provable and sample.is_correct)
+    output_data = int(sample.is_provable and sample.next_theorem_correct)
 
     return input_data, output_data
 

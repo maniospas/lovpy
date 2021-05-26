@@ -17,7 +17,8 @@ main_model_path = None
 predicates_map_path = None
 
 # Paths about DGCNN model.
-graph_model_path = None
+graph_selection_model_path = None
+graph_termination_model_path = None
 graph_encoder_path = None
 
 # Paths about sample visualization.
@@ -33,28 +34,37 @@ dgcnn_selection_process_export_path = None
 dgcnn_selection_processes_exported = Counter()
 
 
-def save_gnn_model(model, encoder, model_path=None, encoder_path=None):
-    """Saves given gnn model along with nodes encoder to disk."""
-    if not model_path or not encoder_path:
-        model_path = graph_model_path
+def save_gnn_models(selection_model, termination_model, encoder,
+                    selection_model_path=None,
+                    termination_model_path=None,
+                    encoder_path=None):
+    """Saves given gnn models along with nodes encoder to disk."""
+    if not selection_model_path or not termination_model_path or not encoder_path:
+        selection_model_path = graph_selection_model_path
+        termination_model_path = graph_termination_model_path
         encoder_path = graph_encoder_path
 
-    model.save(model_path)
+    selection_model.save(selection_model_path)
+    termination_model.save(termination_model_path)
     with encoder_path.open("wb") as f:
         pickle.dump(encoder, f)
 
 
-def load_gnn_model():
-    """Loads gnn model along with nodes encoder from disk."""
-    model = None
+def load_gnn_models():
+    """Loads gnn models along with nodes encoder from disk."""
+    selection_model = None
+    termination_model = None
     encoder = None
 
-    if graph_model_path.exists() and graph_encoder_path.exists():
-        model = load_model(graph_model_path)
+    if (graph_selection_model_path.exists()
+            and graph_termination_model_path.exists()
+            and graph_encoder_path.exists()):
+        selection_model = load_model(graph_selection_model_path)
+        termination_model = load_model(graph_termination_model_path)
         with graph_encoder_path.open("rb") as f:
             encoder = pickle.load(f)
 
-    return model, encoder
+    return selection_model, termination_model, encoder
 
 
 def export_generated_samples(samples, max_num=None):
@@ -71,7 +81,10 @@ def export_generated_samples(samples, max_num=None):
     samples = random.sample(samples, max_num)
     for i, s in enumerate(samples):
         print(f"\t\tExported {i+1}/{len(samples)}", end="\r")
-        s.visualize(f"Sample #{i+1}", samples_out_dir / f"sample{i + 1}.png")
+        is_positive_text = "Positive" if s.is_next_theorem_correct() else "Negative"
+        is_terminal_text = "Terminate" if s.should_proving_process_terminate() else "Continue"
+        s.visualize(f"Sample #{i+1} ({is_positive_text} | {is_terminal_text})",
+                    samples_out_dir/f"sample{i + 1}.png")
 
 
 def export_theorems_and_properties(theorems, properties):

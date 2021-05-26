@@ -162,7 +162,7 @@ class TestDatasetGenerator(unittest.TestCase):
         self.assertEqual(len(samples), total_samples)
 
         # Test actual negative samples percentage.
-        negative_samples_counter = Counter([s.is_correct for s in samples])
+        negative_samples_counter = Counter([s.next_theorem_correct for s in samples])
         actual_negative_samples_ratio = float(negative_samples_counter[False]) / len(samples)
         self.assertAlmostEqual(
                 negative_samples_percentage, actual_negative_samples_ratio, delta=0.3)
@@ -197,7 +197,7 @@ class TestDatasetGenerator(unittest.TestCase):
         self.assertEqual(len(samples), total_samples)
 
         # Test actual negative samples percentage.
-        negative_samples_counter = Counter([s.is_correct for s in samples])
+        negative_samples_counter = Counter([s.next_theorem_correct for s in samples])
         actual_negative_samples_ratio = float(negative_samples_counter[False]) / len(samples)
         self.assertAlmostEqual(
             negative_samples_percentage, actual_negative_samples_ratio, delta=0.3)
@@ -232,7 +232,7 @@ class TestDatasetGenerator(unittest.TestCase):
         self.assertEqual(len(samples), total_samples)
 
         # Test actual negative samples percentage.
-        negative_samples_counter = Counter([s.is_correct for s in samples])
+        negative_samples_counter = Counter([s.next_theorem_correct for s in samples])
         actual_negative_samples_ratio = float(negative_samples_counter[False]) / len(samples)
         self.assertAlmostEqual(
             negative_samples_percentage, actual_negative_samples_ratio, delta=0.3)

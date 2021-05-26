@@ -43,7 +43,7 @@ class DatasetEntity:
         self.next_theorem = None        # Next theorem to be applied.
         self.application_sequence = []  # Theorems reversely applied so far.
         # Indicates whether next theorem should be applied to reach the final goal.
-        self.is_correct = True
+        self.next_theorem_correct = True
         self.all_theorems = theorems  # A list of all theorems out of which sample is built.
 
     def __copy__(self):
@@ -66,7 +66,7 @@ class DatasetEntity:
         new_entity.next_theorem = self.next_theorem.get_copy() if self.next_theorem else None
         new_entity.application_sequence = self.application_sequence.copy()
         # Indicates whether next theorem should be applied to reach the final goal.
-        new_entity.is_correct = self.is_correct
+        new_entity.next_theorem_correct = self.next_theorem_correct
 
         return new_entity
 
@@ -151,7 +151,7 @@ class DatasetEntity:
 
         :return: A list of all possible negative samples.
         """
-        if not self.is_correct:
+        if not self.next_theorem_correct:
             raise RuntimeError("Cannot generate a negative sample out of a negative sample.")
 
         available_modus_ponenses = prover.find_possible_theorem_applications(
@@ -166,7 +166,7 @@ class DatasetEntity:
         for modus_ponens in available_modus_ponenses:
             negative_sample = copy(self)
             negative_sample.next_theorem = modus_ponens.actual_implication
-            negative_sample.is_correct = False
+            negative_sample.next_theorem_correct = False
             negative_samples.append(negative_sample)
 
         return negative_samples
@@ -203,9 +203,14 @@ class DatasetEntity:
 
         self.current_graph.logical_and(predicate)
 
-    def is_positive(self):
-        # TODO: Reconsider this model output. Maybe split into multiple ones.
-        return bool(self.next_theorem) and self.is_correct and self.is_provable
+    def is_next_theorem_correct(self):
+        """Returns True if contained next theorem is the right one in proving sequence."""
+        assert bool(self.next_theorem)
+        return self.next_theorem_correct
+
+    def should_proving_process_terminate(self):
+        """Returns True if proving process of goal into current graph should terminate."""
+        return not self.is_provable or not self.application_sequence
 
     def visualize(self, title="Sample", export_path=None):
         """Visualizes sample in a single figure.
@@ -222,7 +227,7 @@ class DatasetEntity:
         acurrent = self.current_graph.to_agraph("Current Graph")
         provable_text = "Provable" if self.is_provable else "Not Provable"
         agoal = self.goal.to_agraph(f"Goal Property - {provable_text}")
-        negative_text = "Positive" if self.is_correct else "Negative"
+        negative_text = "Positive" if self.next_theorem_correct else "Negative"
         anext = self.next_theorem.to_agraph(
                         f"Next Theorem - {negative_text}") if self.next_theorem else None
 

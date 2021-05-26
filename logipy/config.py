@@ -10,7 +10,7 @@ import logipy.models
 import logipy.logic.prover
 from logipy.models.neural_theorem_selector import NeuralNextTheoremSelector
 from logipy.models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
-from logipy.models.io import load_gnn_model
+from logipy.models.io import load_gnn_models
 
 
 LOGIPY_ROOT_PATH = Path(__file__).absolute().parent  # Absolute path of logipy's installation.
@@ -27,8 +27,9 @@ USE_NEURAL_SELECTOR = True
 # Constants for simple NN model.
 MAIN_MODEL_NAME = "main_model"
 PREDICATES_MAP_NAME = "main_model_predicates.json"
-# Constants for DGCNN model.
-GRAPH_MODEL_NAME = "gnn_model"
+# Constants for DGCNN based proving system.
+GRAPH_SELECTION_MODEL_NAME = "gnn_selection_model"
+GRAPH_TERMINATION_MODEL_NAME = "gnn_termination_model"
 GRAPH_ENCODER_NAME = "graph_nodes_encoder"
 GRAPH_SELECTOR_EXPORT_DIR = "dgcnn_selector"
 GRAPH_VISUALIZE_SELECTION_PROCESS = False
@@ -112,14 +113,15 @@ def set_theorem_selector(theorem_selector: TheoremSelector):
         set_default_theorem_selector(NeuralNextTheoremSelector())
 
     elif theorem_selector is TheoremSelector.DGCNN:
-        model, encoder = load_gnn_model()
-        if model:
+        selection_model, termination_model, encoder = load_gnn_models()
+        if selection_model:
             logger.info("Setting theorem prover to the graph neural one.")
             set_default_theorem_selector(GraphNeuralNextTheoremSelector(
-                    model, encoder, export=GRAPH_VISUALIZE_SELECTION_PROCESS))
+                    selection_model, termination_model, encoder,
+                    export=GRAPH_VISUALIZE_SELECTION_PROCESS))
         else:
-            logger.warning(
-                f"Logipy: No model found under {str(get_models_dir_path(GRAPH_MODEL_NAME))}")
+            logger.warning("Logipy: No model found under {}".format(
+                    str(get_models_dir_path(GRAPH_SELECTION_MODEL_NAME))))
             return False
     return True
 
@@ -170,7 +172,9 @@ def _tearup_models_module():
     # Set model paths.
     logipy.models.io.main_model_path = get_models_dir_path(MAIN_MODEL_NAME)
     logipy.models.io.predicates_map_path = get_models_dir_path(PREDICATES_MAP_NAME)
-    logipy.models.io.graph_model_path = get_models_dir_path(GRAPH_MODEL_NAME)
+    logipy.models.io.graph_selection_model_path = get_models_dir_path(GRAPH_SELECTION_MODEL_NAME)
+    logipy.models.io.graph_termination_model_path = \
+        get_models_dir_path(GRAPH_TERMINATION_MODEL_NAME)
     logipy.models.io.graph_encoder_path = get_models_dir_path(GRAPH_ENCODER_NAME)
     # Set scratch files paths for visualization.
     logipy.models.io.current_graph_path = get_scratchfile_path(CURRENT_GRAPH_FILENAME)

@@ -14,20 +14,21 @@ from tensorflow.keras.metrics import AUC
 
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, TIMESTAMP_PROPERTY_NAME
 from .dataset_generator import DatasetGenerator
-from .callbacks import ModelEvaluationOnTheoremProvingCallback
+# from .callbacks import ModelEvaluationOnTheoremProvingCallback
 from .io import export_generated_samples, export_theorems_and_properties
 
 
-DATASET_SIZE = 1000
-MAX_DEPTH = 12
+DATASET_SIZE = 20000
+MAX_DEPTH = 20
 EPOCHS = 100
-BATCH_SIZE = 1
+BATCH_SIZE = 40
+TEST_SIZE = 0.25
 
 
-class NextTheoremSamplesGenerator(Sequence):
+class ProvingModelSamplesGenerator(Sequence):
     """Wrapper sequence for creating samples out of current, goal, next sequences."""
 
-    def __init__(self, current_generator, goal_generator, next_generator,
+    def __init__(self, current_generator, goal_generator, next_generator=None,
                  target_data=None, active_indexes=None, batch_size=1):
         # If no active_indexes sequence is applied, then use all data of given generators.
         if not active_indexes:
@@ -38,7 +39,10 @@ class NextTheoremSamplesGenerator(Sequence):
         self.current_data_generator = current_generator.flow(
             active_indexes, targets=self.targets, batch_size=batch_size)
         self.goal_data_generator = goal_generator.flow(active_indexes, batch_size=batch_size)
-        self.next_data_generator = next_generator.flow(active_indexes, batch_size=batch_size)
+        if next_generator:
+            self.next_data_generator = next_generator.flow(active_indexes, batch_size=batch_size)
+        else:
+            self.next_data_generator = None
 
     def __len__(self):
         return self.current_data_generator.__len__()
@@ -46,80 +50,162 @@ class NextTheoremSamplesGenerator(Sequence):
     def __getitem__(self, item):
         x1 = self.current_data_generator[item]
         x2 = self.goal_data_generator[item]
-        x3 = self.next_data_generator[item]
-        return [x1[0], x2[0], x3[0]], x1[1]
+        if self.next_data_generator:
+            x3 = self.next_data_generator[item]
+            return [x1[0], x2[0], x3[0]], x1[1]
+        else:
+            return [x1[0], x2[0]], x1[1]
 
 
-def train_gnn_theorem_proving_model(properties):
-    """Trains an end-to-end GNN-based model for next theorem selection."""
-    # Create an one-hot encoder for node labels.
-    nodes_encoder = OneHotEncoder(handle_unknown='ignore')
-    nodes_labels = list(get_nodes_labels(properties))
-    nodes_encoder.fit(np.array(nodes_labels).reshape((-1, 1)))
-
+def train_gnn_theorem_proving_models(properties,
+                                     export_samples=False,
+                                     export_properties=False,
+                                     system_validation_after_train=False):
+    """Trains two end-to-end GNN-based models for theorem proving process."""
     print("-" * 80)
     print("Training a DGCNN model.")
     print("-" * 80)
-    print(f"\tGenerating {DATASET_SIZE} samples...")
 
-    # Create data generators.
     generator = DatasetGenerator(properties, MAX_DEPTH, DATASET_SIZE,
                                  random_expansion_probability=0.)
+    nodes_encoder = create_nodes_encoder(properties)
 
-    print(f"\tExporting theorems and properties...")
-    export_theorems_and_properties(generator.theorems, generator.valid_properties_to_prove)
+    if export_properties:
+        print(f"\tExporting theorems and properties...")
+        export_theorems_and_properties(generator.theorems, generator.valid_properties_to_prove)
 
+    print(f"\tGenerating {DATASET_SIZE} samples...")
     graph_samples = []
     for i, s in enumerate(generator):
         if (i % 10) == 0 or i == DATASET_SIZE - 1:
             print(f"\t\tGenerated {i}/{DATASET_SIZE}...", end="\r")
         graph_samples.append(s)
-    print(f"\tExporting samples...")
-    export_generated_samples(graph_samples, min(DATASET_SIZE, 50))
-    y = np.array([int(s.is_positive()) for s in graph_samples]).reshape((-1, 1))
-    current_generator, goal_generator, next_generator = \
-        create_sample_generators(graph_samples, nodes_encoder)
+    if export_samples:
+        print(f"\tExporting samples...")
+        export_generated_samples(graph_samples, min(DATASET_SIZE, 250))
 
     # Split train and test data.
-    test_size = 0.25
-    i_train, i_test = train_test_split(list(range(len(graph_samples))), test_size=test_size)
-    train_generator = NextTheoremSamplesGenerator(current_generator, goal_generator, next_generator,
-                                                  y, i_train, batch_size=BATCH_SIZE)
-    test_generator = NextTheoremSamplesGenerator(current_generator, goal_generator, next_generator,
-                                                 y, i_test, batch_size=1)
+    i_train, i_test = train_test_split(list(range(len(graph_samples))), test_size=TEST_SIZE)
 
     print("-" * 80)
-    print(f"Training model...")
+    print(f"Training next theorem selection model...")
     print("-" * 80)
+    next_theorem_model = train_next_theorem_selection_model(graph_samples, nodes_encoder,
+                                                            i_train, i_test)
+
+    print("-" * 80)
+    print(f"Training proving process termination model...")
+    print("-" * 80)
+    proving_termination_model = train_proving_termination_model(graph_samples, nodes_encoder,
+                                                                i_train, i_test)
+
+    if system_validation_after_train:
+        print("-" * 80)
+        print(f"Evaluating proving system on synthetic theorems of samples...")
+        print("-" * 80)
+        from .graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
+        from .evaluation import evaluate_theorem_selector
+        theorem_selector = GraphNeuralNextTheoremSelector(
+            next_theorem_model,
+            proving_termination_model,
+            nodes_encoder
+        )
+        evaluate_theorem_selector(
+            theorem_selector,
+            [graph_samples[i] for i in i_train],
+            [graph_samples[i] for i in i_test]
+        )
+
+    return next_theorem_model, proving_termination_model, nodes_encoder
+
+
+def train_next_theorem_selection_model(graph_samples, nodes_encoder, i_train, i_test):
+    # Create input generators to feed model and output data.
+    current_generator, goal_generator, next_generator = \
+        create_sample_generators(graph_samples, nodes_encoder)
+    next_theorem_labels = np.array(
+        [int(s.is_next_theorem_correct()) for s in graph_samples]).reshape((-1, 1))
+
+    train_generator = ProvingModelSamplesGenerator(current_generator,
+                                                   goal_generator,
+                                                   next_generator,
+                                                   target_data=next_theorem_labels,
+                                                   active_indexes=i_train,
+                                                   batch_size=BATCH_SIZE)
+    test_generator = ProvingModelSamplesGenerator(current_generator,
+                                                  goal_generator,
+                                                  next_generator,
+                                                  target_data=next_theorem_labels,
+                                                  active_indexes=i_test,
+                                                  batch_size=1)
 
     # Train model.
     model = create_gnn_model(current_generator, goal_generator, next_generator)
     print(model.summary())
 
-    actual_evaluation_cb = ModelEvaluationOnTheoremProvingCallback(
-        [graph_samples[i] for i in i_train],
-        [graph_samples[i] for i in i_test],
-        nodes_encoder
+    model.fit(
+        train_generator,
+        epochs=EPOCHS,
+        verbose=1,
+        validation_data=test_generator
     )
+
+    return model
+
+
+def train_proving_termination_model(graph_samples, nodes_encoder, i_train, i_test):
+    # Create input generators to feed model and output data.
+    current_generator, goal_generator, _ = \
+        create_sample_generators(graph_samples, nodes_encoder)
+    termination_labels = []
+    for s in graph_samples:
+        should_terminate = s.should_proving_process_terminate()
+        if should_terminate:
+            termination_labels.append([0., 1.])
+        else:
+            termination_labels.append([1., 0])
+    termination_labels = np.array(termination_labels).reshape((-1, 2))
+
+    train_generator = ProvingModelSamplesGenerator(current_generator,
+                                                   goal_generator,
+                                                   target_data=termination_labels,
+                                                   active_indexes=i_train,
+                                                   batch_size=BATCH_SIZE)
+    test_generator = ProvingModelSamplesGenerator(current_generator,
+                                                  goal_generator,
+                                                  target_data=termination_labels,
+                                                  active_indexes=i_test,
+                                                  batch_size=1)
+
+    # Train model.
+    model = create_proving_termination_model(current_generator, goal_generator)
+    print(model.summary())
 
     model.fit(
         train_generator,
         epochs=EPOCHS,
         verbose=1,
-        validation_data=test_generator,
-        callbacks=[actual_evaluation_cb]
+        validation_data=test_generator
     )
 
-    return model, nodes_encoder
+    return model
+
+
+def create_nodes_encoder(properties):
+    """Create an one-hot encoder for node labels."""
+    nodes_encoder = OneHotEncoder(handle_unknown='ignore')
+    nodes_labels = list(get_nodes_labels(properties))
+    nodes_encoder.fit(np.array(nodes_labels).reshape((-1, 1)))
+    return nodes_encoder
 
 
 def create_gnn_model(current_generator: PaddedGraphGenerator, goal_generator: PaddedGraphGenerator,
                      next_generator: PaddedGraphGenerator):
     """Creates an end-to-end model for next theorem selection."""
-    current_dgcnn_layer_sizes = [32, 32, 32, 1]
-    goal_dgcnn_layer_sizes = [32, 32, 32, 1]
-    next_dgcnn_layer_sizes = [32, 32, 32, 1]
-    k = 20
+    current_dgcnn_layer_sizes = [64, 64, 64, 64, 64]
+    goal_dgcnn_layer_sizes = [64, 64, 64, 64, 64]
+    next_dgcnn_layer_sizes = [64, 64, 64, 64, 64]
+    k = 32
 
     # Define the graph embedding branches for the three types of graphs (current, goal, next).
     current_input, current_out = create_graph_embedding_branch(
@@ -134,8 +220,8 @@ def create_gnn_model(current_generator: PaddedGraphGenerator, goal_generator: Pa
 
     # Define the final common branch.
     out = Concatenate()([current_out, goal_out, next_out])
-    out = Dense(units=64, activation="relu")(out)
-    out = Dense(units=32, activation="relu")(out)
+    out = Dense(units=1152, activation="relu")(out)
+    out = Dense(units=512, activation="relu")(out)
     out = Dense(units=1, activation="sigmoid")(out)
 
     model = Model(inputs=[current_input, goal_input, next_input], outputs=out)
@@ -147,10 +233,40 @@ def create_gnn_model(current_generator: PaddedGraphGenerator, goal_generator: Pa
     return model
 
 
+def create_proving_termination_model(current_generator: PaddedGraphGenerator,
+                                     goal_generator: PaddedGraphGenerator):
+    """Creates an end-to-end model for next theorem selection."""
+    current_dgcnn_layer_sizes = [64, 64, 64, 64, 64]
+    goal_dgcnn_layer_sizes = [64, 64, 64, 64, 64]
+    k = 32
+
+    # Define the graph embedding branches for the three types of graphs (current, goal, next).
+    current_input, current_out = create_graph_embedding_branch(
+        current_generator, current_dgcnn_layer_sizes, k
+    )
+    goal_input, goal_out = create_graph_embedding_branch(
+        goal_generator, goal_dgcnn_layer_sizes, k
+    )
+
+    # Define the final common branch.
+    out = Concatenate()([current_out, goal_out])
+    out = Dense(units=768, activation="relu")(out)
+    out = Dense(units=512, activation="relu")(out)
+    out = Dense(units=2, activation="softmax")(out)
+
+    model = Model(inputs=[current_input, goal_input], outputs=out)
+    model.compile(
+        optimizer=Adam(learning_rate=0.001),
+        loss="binary_crossentropy",
+        metrics=["acc", AUC()]
+    )
+    return model
+
+
 def create_graph_embedding_branch(generator: PaddedGraphGenerator, dgcnn_layer_sizes: list, k: int):
     dgcnn = DeepGraphCNN(
         layer_sizes=dgcnn_layer_sizes,
-        activations=["tanh", "tanh", "tanh", "tanh"],
+        activations=["relu", "relu", "relu", "relu", "relu"],
         generator=generator,
         k=k,
         bias=False
@@ -201,14 +317,12 @@ def create_sample_generators(graph_samples: list, encoder: OneHotEncoder, verbos
         print("Summary of next theorem graphs:")
         print(next_summary.describe().round(1))
 
-    return create_three_padded_generators(current_graphs, goal_graphs, next_graphs)
+    return create_padded_generators(current_graphs, goal_graphs, next_graphs)
 
 
-def create_three_padded_generators(current_graphs, goal_graphs, next_graphs):
-    current_generator = PaddedGraphGenerator(current_graphs)
-    goal_generator = PaddedGraphGenerator(goal_graphs)
-    next_generator = PaddedGraphGenerator(next_graphs)
-    return current_generator, goal_generator, next_generator
+def create_padded_generators(*args):
+    generators = [PaddedGraphGenerator(arg) for arg in args]
+    return tuple(generators)
 
 
 def convert_timedpropertygraph_to_stellargraph(graph: TimedPropertyGraph, encoder: OneHotEncoder,
