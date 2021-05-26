@@ -126,32 +126,52 @@ def model_file_exists():
     return main_model_path.exists()
 
 
-def visualize_three_graphs(graph1, graph2, graph3, title="", export_path=None):
-    """Visualizes three graphs in a single figure, side by side.
+def visualize_three_graphs(current_graph, goal_graph, next_graph,
+                           title="",
+                           export_path=None,
+                           current_title="Current Graph",
+                           goal_title="Goal Property",
+                           next_title="Next Theorem",
+                           visualize_next_assumption_in_current=True):
+    """Visualizes current, goal, next graphs in a single figure, side by side.
 
     Figure is consisted of three subplots:
      -The leftmost subplot is the instance of execution graph.
      -The central subplot is the goal property that should be proved.
      -The rightmost subplot is the next theorem to be applied.
 
-    :param graph1: Current graph.
-    :param graph2: Goal graph.
-    :param graph3: Next theorem graph.
+    :param current_graph: Current graph.
+    :param goal_graph: Goal graph.
+    :param next_graph: Next theorem graph.
     :param str title: A supertitle for the whole figure.
     :param Path export_path: If this argument is given, then instead of displaying the
             sample figure on screen, it is exported to pointed location.
+    :param current_title: Subtitle of current graph.
+    :param goal_title: Subtitle of goal graph.
+    :param next_title: Subtitle of next theorem graph.
+    :param visualize_next_assumption_in_current: If set to True, assumption part of next
+            theorem is marked with a different color in current graph. If assumption is not
+            contained in current graph, then nothing happens.
     """
-    a_graph1 = graph1.to_agraph("Current Graph")
-    a_graph2 = graph2.to_agraph("Goal Property")
-    if graph3:
-        a_graph3 = graph3.to_agraph("Next Theorem")
+    if visualize_next_assumption_in_current:
+        assumption, _ = next_graph.get_top_level_implication_subgraphs()
+        current_graph = current_graph.get_copy()
+        matching_cases, _, _, _ = current_graph.find_equivalent_subgraphs(assumption)
+        if matching_cases:
+            for path in matching_cases[0]:
+                current_graph.graph.colorize_path(path)
+
+    a_graph1 = current_graph.to_agraph(current_title)
+    a_graph2 = goal_graph.to_agraph(goal_title)
+    if next_graph:
+        a_graph3 = next_graph.to_agraph(next_title)
 
     # Export to disk temp jpg images of the three graphs.
     a_graph1.layout("dot")
     a_graph1.draw(current_graph_path)
     a_graph2.layout("dot")
     a_graph2.draw(goal_graph_path)
-    if graph3:
+    if next_graph:
         a_graph3.layout("dot")
         a_graph3.draw(next_graph_path)
 
@@ -162,7 +182,7 @@ def visualize_three_graphs(graph1, graph2, graph3, title="", export_path=None):
     f.suptitle(title, fontsize=40, fontweight='bold')
     axarr[0].imshow(mpimage.imread(current_graph_path))
     axarr[1].imshow(mpimage.imread(goal_graph_path))
-    if graph3:
+    if next_graph:
         axarr[2].imshow(mpimage.imread(next_graph_path))
     for axes in axarr:
         axes.axis('off')

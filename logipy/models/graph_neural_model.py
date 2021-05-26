@@ -11,18 +11,13 @@ from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.layers import Dense, Conv1D, MaxPool1D, Flatten, Concatenate
 from tensorflow.keras.utils import Sequence
 from tensorflow.keras.metrics import AUC
+from tensorflow.keras.callbacks import ModelCheckpoint
 
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, TIMESTAMP_PROPERTY_NAME
 from .dataset_generator import DatasetGenerator
 # from .callbacks import ModelEvaluationOnTheoremProvingCallback
 from .io import export_generated_samples, export_theorems_and_properties
-
-
-DATASET_SIZE = 20000
-MAX_DEPTH = 20
-EPOCHS = 100
-BATCH_SIZE = 40
-TEST_SIZE = 0.25
+from .train_config import TrainConfiguration
 
 
 class ProvingModelSamplesGenerator(Sequence):
@@ -57,49 +52,50 @@ class ProvingModelSamplesGenerator(Sequence):
             return [x1[0], x2[0]], x1[1]
 
 
-def train_gnn_theorem_proving_models(properties,
-                                     export_samples=False,
-                                     export_properties=False,
-                                     system_validation_after_train=False):
+def train_gnn_theorem_proving_models(properties, config: TrainConfiguration):
     """Trains two end-to-end GNN-based models for theorem proving process."""
+    print("-" * 80)
+    print("Active Training Configuration")
+    config.print()
     print("-" * 80)
     print("Training a DGCNN model.")
     print("-" * 80)
 
-    generator = DatasetGenerator(properties, MAX_DEPTH, DATASET_SIZE,
-                                 random_expansion_probability=0.)
+    generator = DatasetGenerator(properties, config.max_depth, config.dataset_size,
+                                 random_expansion_probability=config.random_expansion_probability,
+                                 negative_samples_percentage=config.negative_samples_percentage)
     nodes_encoder = create_nodes_encoder(properties)
 
-    if export_properties:
+    if config.export_properties:
         print(f"\tExporting theorems and properties...")
         export_theorems_and_properties(generator.theorems, generator.valid_properties_to_prove)
 
-    print(f"\tGenerating {DATASET_SIZE} samples...")
+    print(f"\tGenerating {config.dataset_size} samples...")
     graph_samples = []
     for i, s in enumerate(generator):
-        if (i % 10) == 0 or i == DATASET_SIZE - 1:
-            print(f"\t\tGenerated {i}/{DATASET_SIZE}...", end="\r")
+        if (i % 10) == 0 or i == config.dataset_size - 1:
+            print(f"\t\tGenerated {i}/{config.dataset_size}...", end="\r")
         graph_samples.append(s)
-    if export_samples:
+    if config.export_samples:
         print(f"\tExporting samples...")
-        export_generated_samples(graph_samples, min(DATASET_SIZE, 250))
+        export_generated_samples(graph_samples, min(config.dataset_size, 250))
 
     # Split train and test data.
-    i_train, i_test = train_test_split(list(range(len(graph_samples))), test_size=TEST_SIZE)
+    i_train, i_test = train_test_split(list(range(len(graph_samples))), test_size=config.test_size)
 
     print("-" * 80)
     print(f"Training next theorem selection model...")
     print("-" * 80)
     next_theorem_model = train_next_theorem_selection_model(graph_samples, nodes_encoder,
-                                                            i_train, i_test)
+                                                            i_train, i_test, config)
 
     print("-" * 80)
     print(f"Training proving process termination model...")
     print("-" * 80)
     proving_termination_model = train_proving_termination_model(graph_samples, nodes_encoder,
-                                                                i_train, i_test)
+                                                                i_train, i_test, config)
 
-    if system_validation_after_train:
+    if config.system_evaluation_after_train:
         print("-" * 80)
         print(f"Evaluating proving system on synthetic theorems of samples...")
         print("-" * 80)
@@ -119,7 +115,8 @@ def train_gnn_theorem_proving_models(properties,
     return next_theorem_model, proving_termination_model, nodes_encoder
 
 
-def train_next_theorem_selection_model(graph_samples, nodes_encoder, i_train, i_test):
+def train_next_theorem_selection_model(graph_samples, nodes_encoder, i_train, i_test,
+                                       config: TrainConfiguration):
     # Create input generators to feed model and output data.
     current_generator, goal_generator, next_generator = \
         create_sample_generators(graph_samples, nodes_encoder)
@@ -131,7 +128,7 @@ def train_next_theorem_selection_model(graph_samples, nodes_encoder, i_train, i_
                                                    next_generator,
                                                    target_data=next_theorem_labels,
                                                    active_indexes=i_train,
-                                                   batch_size=BATCH_SIZE)
+                                                   batch_size=config.batch_size)
     test_generator = ProvingModelSamplesGenerator(current_generator,
                                                   goal_generator,
                                                   next_generator,
@@ -143,17 +140,28 @@ def train_next_theorem_selection_model(graph_samples, nodes_encoder, i_train, i_
     model = create_gnn_model(current_generator, goal_generator, next_generator)
     print(model.summary())
 
+    model_filename = ("selection_model"
+                      + "-epoch_{epoch:02d}"
+                      + "-val_acc_{val_acc:.2f}"
+                      + "-val_auc_{val_auc:.2f}")
+    model_checkpoint_cb = ModelCheckpoint(
+        filepath=config.selection_models_dir/model_filename,
+        monitor="val_auc"
+    )
+
     model.fit(
         train_generator,
-        epochs=EPOCHS,
+        epochs=config.epochs,
         verbose=1,
-        validation_data=test_generator
+        validation_data=test_generator,
+        callbacks=[model_checkpoint_cb]
     )
 
     return model
 
 
-def train_proving_termination_model(graph_samples, nodes_encoder, i_train, i_test):
+def train_proving_termination_model(graph_samples, nodes_encoder, i_train, i_test,
+                                    config: TrainConfiguration):
     # Create input generators to feed model and output data.
     current_generator, goal_generator, _ = \
         create_sample_generators(graph_samples, nodes_encoder)
@@ -170,7 +178,7 @@ def train_proving_termination_model(graph_samples, nodes_encoder, i_train, i_tes
                                                    goal_generator,
                                                    target_data=termination_labels,
                                                    active_indexes=i_train,
-                                                   batch_size=BATCH_SIZE)
+                                                   batch_size=config.batch_size)
     test_generator = ProvingModelSamplesGenerator(current_generator,
                                                   goal_generator,
                                                   target_data=termination_labels,
@@ -181,11 +189,21 @@ def train_proving_termination_model(graph_samples, nodes_encoder, i_train, i_tes
     model = create_proving_termination_model(current_generator, goal_generator)
     print(model.summary())
 
+    model_filename = ("termination_model"
+                      + "-epoch_{epoch:02d}"
+                      + "-val_acc_{val_acc:.2f}"
+                      + "-val_auc_{val_auc_1:.2f}")
+    model_checkpoint_cb = ModelCheckpoint(
+        filepath=config.termination_models_dir/model_filename,
+        monitor="val_auc_1"
+    )
+
     model.fit(
         train_generator,
-        epochs=EPOCHS,
+        epochs=config.epochs,
         verbose=1,
-        validation_data=test_generator
+        validation_data=test_generator,
+        callbacks=[model_checkpoint_cb]
     )
 
     return model

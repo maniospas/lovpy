@@ -2,9 +2,6 @@ from copy import copy
 import random
 import string
 
-from matplotlib import pyplot as plt
-from matplotlib import image as mpimage
-
 import logipy.logic.prover as prover
 from logipy.graphs.monitored_predicate import Call, ReturnedBy, CalledBy
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, PredicateNode
@@ -223,41 +220,16 @@ class DatasetEntity:
         :param Path export_path: If this argument is given, then instead of displaying the
                 sample figure on screen, it is exported to pointed location.
         """
-        acurrent = self.current_graph.to_agraph("Current Graph")
         provable_text = "Provable" if self.is_provable else "Not Provable"
-        agoal = self.goal.to_agraph(f"Goal Property - {provable_text}")
+        goal_title = f"Goal Property - {provable_text}"
         negative_text = "Positive" if self.next_theorem_correct else "Negative"
-        anext = self.next_theorem.to_agraph(
-                        f"Next Theorem - {negative_text}") if self.next_theorem else None
+        next_title = f"Next Theorem - {negative_text}"
 
-        # Export to disk temp jpg images of the three graphs.
-        acurrent.layout("dot")
-        acurrent.draw(io.current_graph_path)
-        agoal.layout("dot")
-        agoal.draw(io.goal_graph_path)
-        if anext:
-            anext.layout("dot")
-            anext.draw(io.next_graph_path)
-
-        # Plot the three graph images side by side.
-        f, axarr = plt.subplots(1, 3, num=None, figsize=(54, 18), dpi=80,
-                                facecolor='w', edgecolor='w')
-        f.tight_layout()
-        f.suptitle(title, fontsize=40, fontweight='bold')
-        axarr[0].imshow(mpimage.imread(io.current_graph_path))
-        axarr[1].imshow(mpimage.imread(io.goal_graph_path))
-        if anext:
-            axarr[2].imshow(mpimage.imread(io.next_graph_path))
-        for axes in axarr:
-            axes.axis('off')
-
-        if export_path:
-            plt.savefig(export_path)
-            plt.clf()
-            plt.cla()
-            plt.close('all')
-        else:
-            plt.show()
+        io.visualize_three_graphs(self.current_graph, self.goal, self.next_theorem,
+                                  title=title,
+                                  export_path=export_path,
+                                  goal_title=goal_title,
+                                  next_title=next_title)
 
     # def add_properties_of_theorem(self, theorem):
     #     """Adds an instance of the assumption of given theorem to current graph.
