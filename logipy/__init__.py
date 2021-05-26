@@ -4,6 +4,11 @@ import atexit
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
+if os.environ.get("LOGIPY_DISABLE_GPU", 0) == "1":
+    # Disable GPU usage.
+    import tensorflow as tf
+    tf.config.set_visible_devices([], 'GPU')
+
 from logipy.importer.file_converter import cleanup
 from logipy.logic.rules import add_rule
 from logipy.wrappers import LogipyPrimitive as logipy_obj
