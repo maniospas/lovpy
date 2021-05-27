@@ -91,7 +91,10 @@ class RelativeTimestamp(Timestamp):
         return type(self)(super().get_absolute_value(), time_source=self.time_source)
 
     def __repr__(self):
-        return "::" + str(self.get_relative_value())
+        if self.get_relative_value() == 0:
+            return "t"
+        else:
+            return "t" + "{0:+}".format(self.get_relative_value())
 
     def get_absolute_value(self):
         """Returns the absolute time value, calculated using timestamp's time source."""
