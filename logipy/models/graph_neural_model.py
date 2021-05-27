@@ -32,10 +32,28 @@ class ProvingModelSamplesGenerator(Sequence):
         self.targets = target_data[active_indexes] if target_data is not None else None
 
         self.current_data_generator = current_generator.flow(
-            active_indexes, targets=self.targets, batch_size=batch_size)
-        self.goal_data_generator = goal_generator.flow(active_indexes, batch_size=batch_size)
+            active_indexes,
+            targets=self.targets,
+            symmetric_normalization=True,
+            weighted=True,
+            shuffle=False,
+            batch_size=batch_size
+        )
+        self.goal_data_generator = goal_generator.flow(
+            active_indexes,
+            symmetric_normalization=True,
+            weighted=True,
+            shuffle=False,
+            batch_size=batch_size
+        )
         if next_generator:
-            self.next_data_generator = next_generator.flow(active_indexes, batch_size=batch_size)
+            self.next_data_generator = next_generator.flow(
+                active_indexes,
+                symmetric_normalization=True,
+                weighted=True,
+                shuffle=False,
+                batch_size=batch_size
+            )
         else:
             self.next_data_generator = None
 
@@ -344,7 +362,8 @@ def create_padded_generators(*args):
 
 
 def convert_timedpropertygraph_to_stellargraph(graph: TimedPropertyGraph, encoder: OneHotEncoder,
-                                               normalization_value=None):
+                                               normalization_value=None, shift_to_positive=True):
+    """Converts a TimedPropertyGraph to a StellarGraph object."""
     nx_graph = graph.graph.copy()
 
     # Use 1-hot encoded node labels as features of the nodes.
@@ -365,6 +384,12 @@ def convert_timedpropertygraph_to_stellargraph(graph: TimedPropertyGraph, encode
             value = timestamp.get_relative_value()
         time_values.append(value)
     time_values = np.array(time_values, dtype="float32")
+
+    if shift_to_positive and min(time_values) <= 0:
+        # Shifts relative timestamps that hold a value of 0 or lower, in order normalized
+        # timestamps to always be in (0, 1]. This is required, since timestamps are passed
+        # as edge weights, so a valid weight cannot be <= 0.
+        time_values += -min(time_values) + 1
     if not normalization_value:
         normalization_value = max(time_values)
     if normalization_value > 1.:
@@ -372,7 +397,7 @@ def convert_timedpropertygraph_to_stellargraph(graph: TimedPropertyGraph, encode
     for e, v in zip(edges, time_values):
         nx_graph[e[0]][e[1]][e[2]]["time_value"] = v
 
-    sg_graph = StellarGraph.from_networkx(graph.graph, edge_weight_attr="time_value",
+    sg_graph = StellarGraph.from_networkx(nx_graph, edge_weight_attr="time_value",
                                           node_features=zip(nodes, node_features))
 
     return sg_graph, normalization_value
