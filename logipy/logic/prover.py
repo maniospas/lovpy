@@ -5,6 +5,7 @@ from logipy.exceptions import PropertyNotHoldsException
 from .next_theorem_selectors import get_default_theorem_selector
 
 
+PROVE_IF_FULLY_REDUCED = True  # A property is proved only if reduced graph perfectly matches it.
 MAX_PROOF_PATH = 10  # Max number of theorems to be applied in order to prove a property.
 
 full_visualization_enabled = False
@@ -67,7 +68,11 @@ def prove_set_of_properties(property_graphs, execution_graph, theorem_selector=N
     # prove_set_of_properties.exported_counter += 1
 
 
-def prove_property(execution_graph, property_graph, theorems, theorem_selector=None):
+def prove_property(execution_graph,
+                   property_graph,
+                   theorems,
+                   theorem_selector=None,
+                   prove_if_fully_reduced=PROVE_IF_FULLY_REDUCED):
     """Proves that given property holds into given execution graph by utilizing given theorems."""
     global prover_invocations
 
@@ -94,7 +99,11 @@ def prove_property(execution_graph, property_graph, theorems, theorem_selector=N
         theorems_applied.append(next_theorem)
         intermediate_graphs.append(temp_graph.get_copy())
 
-    proved = True if temp_graph.contains_property_graph(property_graph) else False
+    if prove_if_fully_reduced:
+        matches = temp_graph.find_subgraph_matches(property_graph)
+        proved = True if (matches and matches[0] == temp_graph) else False
+    else:
+        proved = True if temp_graph.contains_property_graph(property_graph) else False
 
     prover_invocations += 1
 

@@ -497,6 +497,19 @@ class TimedPropertyGraph:
 
         return matching_cases, matched_paths, original_timestamps, matching_cases_timestamps
 
+    def find_subgraph_matches(self, other):
+        subgraph_matches = []
+
+        _, matched_paths, _, matching_cases_timestamps = self.find_equivalent_subgraphs(other)
+
+        for case_paths_timestamps in matching_cases_timestamps:
+            timestamped_other = other.get_copy()
+            for matched_path, matching_timestamp in zip(matched_paths, case_paths_timestamps):
+                timestamped_other.update_path_timestamp(matched_path, matching_timestamp)
+            subgraph_matches.append(timestamped_other)
+
+        return subgraph_matches
+
     def switch_implication_parts(self):
         """Switches assumption with conclusion and vice-versa."""
         if not isinstance(self.get_root_node(), ImplicationOperator):
