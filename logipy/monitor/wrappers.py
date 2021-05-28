@@ -117,11 +117,11 @@ class LogipyMethod:
         ret = LogipyPrimitive(ret, total_execution_graph)
 
         returned_by_predicate = ReturnedBy(self.__method.__name__)
+        current_timestamp = Timestamp(global_stamp_and_increment())
         if is_predicate_monitored(returned_by_predicate) or not MONITOR_ONLY_MONITORED_PREDICATES:
-            current_timestamp = Timestamp(global_stamp_and_increment())
             returned_by_graph = returned_by_predicate.convert_to_graph()
             returned_by_graph.set_timestamp(current_timestamp)
-            ret.get_execution_graph().logical_and(returned_by_graph, current_timestamp)
+            ret.get_execution_graph().logical_and(returned_by_graph)
             if not _property_exception_raised or \
                     not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED:
                 prover.prove_set_of_properties(logipy_properties.get_global_properties(),
