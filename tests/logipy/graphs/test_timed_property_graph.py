@@ -1,6 +1,6 @@
 import unittest
 
-from logipy.graphs.monitored_predicate import *
+from logipy.monitor.monitored_predicate import *
 from logipy.graphs.timed_property_graph import PredicateNode
 from logipy.graphs.timed_property_graph import PredicateGraph
 from logipy.monitor.time_source import get_zero_locked_timesource, TimeSource

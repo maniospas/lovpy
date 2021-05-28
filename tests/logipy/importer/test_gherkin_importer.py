@@ -1,7 +1,7 @@
 import unittest
 
 from logipy.importer.gherkin_importer import *
-from logipy.graphs.monitored_predicate import *
+from logipy.monitor.monitored_predicate import *
 
 
 class TestConvertSpecificationToGraph(unittest.TestCase):

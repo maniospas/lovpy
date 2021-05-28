@@ -3,7 +3,7 @@ import random
 import string
 
 import logipy.logic.prover as prover
-from logipy.graphs.monitored_predicate import Call, ReturnedBy, CalledBy
+from logipy.monitor.monitored_predicate import Call, ReturnedBy, CalledBy
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, PredicateNode
 from logipy.graphs.timed_property_graph import (NoPositiveAndNegativePredicatesSimultaneously,
                                                 NoComparisonRelativeTimestampAlone)

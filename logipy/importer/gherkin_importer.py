@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 
 import logipy.logic.properties
-from logipy.graphs.monitored_predicate import MonitoredPredicate
+from logipy.monitor.monitored_predicate import MonitoredPredicate, add_predicate_to_monitor
 from logipy.graphs.timed_property_graph import *
 from logipy.graphs.timestamps import RelativeTimestamp, LesserThanRelativeTimestamp
 
@@ -131,5 +131,6 @@ def convert_predicate_to_graph(predicate):
         predicate_graph = PredicateGraph(predicate, MonitoredVariable("VAR"))
     else:
         predicate_graph = monitored_predicate.convert_to_graph()
+        add_predicate_to_monitor(monitored_predicate)
 
     return predicate_graph

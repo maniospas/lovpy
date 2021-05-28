@@ -3,9 +3,29 @@ import re
 from logipy.graphs.timed_property_graph import *
 
 
+predicates_to_monitor = set()  # Predicates the monitor should add to execution graphs.
+
+
 class MonitoredPredicate:
     def __init__(self, *args):
         self.args = list(args)
+
+    def __str__(self):
+        return "{}({})".format(self.get_predicate_name(),
+                               ", ".join([str(arg) for arg in self.args]))
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def __eq__(self, other):
+        if not isinstance(other, MonitoredPredicate):
+            return False
+        if self.get_predicate_name() != other.get_predicate_name():
+            return False
+        for self_arg, other_arg in zip(self.args, other.args):
+            if self_arg != other_arg:
+                return False
+        return True
 
     def convert_to_graph(self):
         return PredicateGraph(
@@ -19,11 +39,11 @@ class MonitoredPredicate:
 
     def get_regex(self):
         """Subclass and implement."""
-        raise Exception("Subclass and implement.")
+        raise NotImplementedError("Subclass and implement.")
 
     def get_predicate_name(self):
         """Subclass and implement."""
-        raise Exception("Subclass and implement.")
+        raise NotImplementedError("Subclass and implement.")
 
     @staticmethod
     def find_text_matching_monitored_predicate(text):
@@ -67,3 +87,14 @@ class CalledBy(MonitoredPredicate):
 
     def get_regex(self):
         return re.compile(r"^called by (?P<called_by_arg>\S*)$")
+
+
+def add_predicate_to_monitor(monitored_predicate: MonitoredPredicate):
+    """Adds a predicate to the list of actively monitored predicates."""
+    assert isinstance(monitored_predicate, MonitoredPredicate)
+    predicates_to_monitor.add(monitored_predicate)
+
+
+def is_predicate_monitored(monitored_predicate: MonitoredPredicate):
+    """Checks whether a predicate is currently monitored."""
+    return monitored_predicate in predicates_to_monitor
