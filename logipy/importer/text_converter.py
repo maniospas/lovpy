@@ -12,7 +12,7 @@ LOGIPY_KEYWORDS = []  # All newly introduced keywords by logipy.
 
 def transform_lines(lines):
     """Transforms lines of python code into a logipy testable unit."""
-    new_lines = ["from logipy.wrappers import LogipyPrimitive, logipy_call\n"]
+    new_lines = ["from logipy import LogipyPrimitive, logipy_call\n"]
 
     for line in lines:
         if (line.startswith("import ") or line.startswith("from ") or
@@ -26,7 +26,10 @@ def transform_lines(lines):
             for c in line:
                 # Parse each line, primitive by primitive.
                 if c in SPECIALS:  # When a special character is found, primitive is over.
-                    if c == '(' and primitive and primitive not in LOGIPY_KEYWORDS and "." != primitive[0]:
+                    if (c == '('
+                            and primitive
+                            and primitive not in LOGIPY_KEYWORDS
+                            and "." != primitive[0]):
                         # Pass all callable objects as the first argument to a logipy_call call.
                         primitive = "logipy_call(" + primitive + ","
                         c = ""

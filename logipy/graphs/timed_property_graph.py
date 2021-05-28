@@ -12,8 +12,8 @@ from matplotlib import image as mpimage
 
 from logipy.graphs.colorizable_multidigraph import ColorizableMultiDiGraph
 from logipy.graphs.logical_operators import *
-from logipy.logic.timestamps import *
 from logipy.monitor.time_source import get_global_time_source
+from .timestamps import *
 
 
 TIMESTAMP_PROPERTY_NAME = "timestamp"

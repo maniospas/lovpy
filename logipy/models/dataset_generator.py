@@ -7,7 +7,7 @@ from logipy.graphs.monitored_predicate import Call, ReturnedBy, CalledBy
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, PredicateNode
 from logipy.graphs.timed_property_graph import (NoPositiveAndNegativePredicatesSimultaneously,
                                                 NoComparisonRelativeTimestampAlone)
-from logipy.logic.timestamps import Timestamp, RelativeTimestamp, is_interval_subset
+from logipy.graphs.timestamps import Timestamp, RelativeTimestamp, is_interval_subset
 from logipy.graphs.logical_operators import NotOperator
 from logipy.monitor.time_source import TimeSource
 from . import io

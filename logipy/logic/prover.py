@@ -1,5 +1,5 @@
 from logipy.graphs.timed_property_graph import NoPositiveAndNegativePredicatesSimultaneously
-from logipy.logic.timestamps import RelativeTimestamp
+from logipy.graphs.timestamps import RelativeTimestamp
 from logipy.monitor.time_source import get_zero_locked_timesource
 from logipy.exceptions import PropertyNotHoldsException
 from .next_theorem_selectors import get_default_theorem_selector

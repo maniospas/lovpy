@@ -9,13 +9,14 @@ if os.environ.get("LOGIPY_DISABLE_GPU", 0) == "1":
     import tensorflow as tf
     tf.config.set_visible_devices([], 'GPU')
 
+from logipy.monitor.wrappers import *
 from logipy.importer.file_converter import cleanup
 from logipy.logic.rules import add_rule
-from logipy.wrappers import LogipyPrimitive as logipy_obj
-from logipy.wrappers import logipy_call as logipy_call
+from logipy.monitor.wrappers import LogipyPrimitive as logipy_obj
+from logipy.monitor.wrappers import logipy_call as logipy_call
 import logipy.importer.file_converter
 import logipy.importer.gherkin_importer
-import logipy.importer.exception_handler
+import logipy.exception_handler
 
 from . import config
 
@@ -28,7 +29,7 @@ logipy.importer.gherkin_importer.import_gherkin_path()
 # TODO: Uncomment cleanup.
 # atexit.register(cleanup)
 atexit.register(config.teardown_logipy)
-sys.excepthook = logipy.importer.exception_handler.logipy_exception_handler
+sys.excepthook = logipy.exception_handler.logipy_exception_handler
 
 session_name = os.environ.get("LOGIPY_SESSION_NAME", "")
 config.tearup_logipy(session_name)

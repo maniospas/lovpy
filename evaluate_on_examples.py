@@ -3,7 +3,7 @@ from pathlib import Path
 
 import logipy
 from logipy.exceptions import PropertyNotHoldsException
-from logipy.wrappers import clear_previous_raised_exceptions
+from logipy.monitor.wrappers import clear_previous_raised_exceptions
 
 
 EXAMPLES_DIR = "./examples"
