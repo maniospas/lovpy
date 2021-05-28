@@ -96,7 +96,7 @@ def train_gnn_theorem_proving_models(properties, config: TrainConfiguration):
         graph_samples.append(s)
     if config.export_samples:
         print(f"\tExporting samples...")
-        export_generated_samples(graph_samples, min(config.dataset_size, 250))
+        export_generated_samples(graph_samples, min(config.dataset_size, config.samples_to_export))
 
     # Split train and test data.
     i_train, i_test = train_test_split(list(range(len(graph_samples))), test_size=config.test_size)
