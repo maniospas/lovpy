@@ -67,19 +67,15 @@ class TimedPropertyGraph:
             raise RuntimeError("Given property is not instance of ConstantProperty.")
         self.constant_properties.append(constant_property)
 
-    def logical_and(self, property_graph, timestamp=None):
+    def logical_and(self, property_graph):
         if property_graph.graph.number_of_nodes() == 0:
             # Nothing to do if given graph is empty.
             return
 
         was_empty = self.graph.number_of_nodes() == 0
 
-        timestamp1 = timestamp
-        timestamp2 = timestamp
-
-        if not timestamp:
-            timestamp1 = self.get_most_recent_timestamp()
-            timestamp2 = property_graph.get_most_recent_timestamp()
+        timestamp1 = self.get_most_recent_timestamp()
+        timestamp2 = property_graph.get_most_recent_timestamp()
         if isinstance(timestamp1, RelativeTimestamp):
             timestamp1.set_time_source(self.time_source)
         if isinstance(timestamp2, RelativeTimestamp):
@@ -97,9 +93,8 @@ class TimedPropertyGraph:
 
         self._apply_all_constant_properties()
 
-    def logical_not(self, timestamp=None):
-        if not timestamp:
-            timestamp = self.get_most_recent_timestamp()
+    def logical_not(self):
+        timestamp = self.get_most_recent_timestamp()
         if timestamp and isinstance(timestamp, RelativeTimestamp):
             timestamp.set_time_source(self.time_source)
         # TODO: Implement recursive naming.
@@ -107,7 +102,7 @@ class TimedPropertyGraph:
         self._add_edge(not_node, self.get_root_node(), {TIMESTAMP_PROPERTY_NAME: timestamp})
         self._fix_orphan_logical_operators()
 
-    def logical_implication(self, property_graph, timestamp=None):
+    def logical_implication(self, property_graph):
         if not self.get_root_node():
             raise Exception("Implication cannot be performed with an empty assumption.")
         if not property_graph.get_root_node():
@@ -116,13 +111,8 @@ class TimedPropertyGraph:
         # TODO: Implement recursive naming.
         impl_node = ImplicationOperator(self.get_root_node(), property_graph.get_root_node())
 
-        if not timestamp:
-            assumption_timestamp = self.get_most_recent_timestamp()
-            conclusion_timestamp = property_graph.get_most_recent_timestamp()
-        else:
-            timestamp.set_time_source(self.time_source)
-            assumption_timestamp = timestamp
-            conclusion_timestamp = timestamp
+        assumption_timestamp = self.get_most_recent_timestamp()
+        conclusion_timestamp = property_graph.get_most_recent_timestamp()
 
         self.graph.add_edges_from(property_graph.graph.edges(data=True, keys=True))
         self._add_edge(impl_node, self.get_root_node(),

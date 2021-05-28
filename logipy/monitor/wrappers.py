@@ -67,14 +67,12 @@ class LogipyMethod:
             if is_predicate_monitored(call_predicate) or not MONITOR_ONLY_MONITORED_PREDICATES:
                 call_graph = call_predicate.convert_to_graph()
                 call_graph.set_timestamp(current_timestamp)
-                self.__parent_object.get_execution_graph().logical_and(
-                        call_graph, current_timestamp)
+                self.__parent_object.get_execution_graph().logical_and(call_graph)
                 if (not _property_exception_raised
                         or not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED):
                     prover.prove_set_of_properties(logipy_properties.get_global_properties(),
                                                    self.__parent_object.get_execution_graph())
-            total_execution_graph.logical_and(
-                self.__parent_object.get_execution_graph(), current_timestamp)
+            total_execution_graph.logical_and(self.__parent_object.get_execution_graph())
 
         # Monitor "called by" predicate on arguments passed to current call.
         args_list = list(args)
@@ -89,12 +87,12 @@ class LogipyMethod:
                     called_by_graph = called_by_predicate.convert_to_graph()
                     called_by_graph.set_timestamp(current_timestamp)
 
-                    arg.get_execution_graph().logical_and(called_by_graph, current_timestamp)
+                    arg.get_execution_graph().logical_and(called_by_graph)
                     if (not _property_exception_raised
                             or not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED):
                         prover.prove_set_of_properties(logipy_properties.get_global_properties(),
                                                        arg.get_execution_graph())
-                total_execution_graph.logical_and(arg.get_execution_graph(), current_timestamp)
+                total_execution_graph.logical_and(arg.get_execution_graph())
 
         # TODO: FIND THE BEST WAY TO DO THE FOLLOWING
         # Monitor "returned by" predicate.
@@ -153,8 +151,7 @@ class LogipyPrimitive:
 
         if previous_execution_graph is not None:
             previous_copy = previous_execution_graph.get_copy()
-            previous_copy.logical_and(self.execution_graph,
-                                      self.execution_graph.get_most_recent_timestamp())
+            previous_copy.logical_and(self.execution_graph)
             self.execution_graph = previous_copy
 
         self.__logipy_id = str(LogipyPrimitive.__logipy_id_count)
