@@ -164,7 +164,6 @@ class TimedPropertyGraph:
         deeper_common_node = self._find_deeper_common_node_in_graph(matching_paths)
         if deeper_common_node:
             and_node = AndOperator(deeper_common_node, conclusion.get_root_node())
-            and_node.disable_hashing_by_structure()
             # Move all incoming edges from deeper common node to the new AND node.
             predecessor_edges = list(self.graph.in_edges(deeper_common_node, keys=True))
             for p_edge in predecessor_edges:

@@ -13,10 +13,8 @@ class LogicalOperator:
         else:
             self.str_representation = self.get_operator_symbol() + "(" + ",".join(args_list) + ")"
 
-        self.hashing_by_name_is_disabled = False
-
-    # def __str__(self):
-    #     return str(hash(self.str_representation))
+    def __str__(self):
+        return self.str_representation
 
     # def __hash__(self):
     #     if self.hashing_by_name_is_disabled:
@@ -25,8 +23,7 @@ class LogicalOperator:
     #         return hash(self.str_representation)
 
     def __repr__(self):
-        # TODO: Implement matching of nodes that should be added to graph once in a better way.
-        return str(hash(self.str_representation))
+        return self.str_representation
 
     def operands_order_matters(self):
         return False
@@ -36,9 +33,6 @@ class LogicalOperator:
 
     def logically_matches(self, other):
         return type(self) is type(other)
-
-    def disable_hashing_by_structure(self, disable=True):
-        self.hashing_by_name_is_disabled = disable
 
 
 class AndOperator(LogicalOperator):
