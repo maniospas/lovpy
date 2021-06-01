@@ -12,6 +12,7 @@ from tensorflow.keras.layers import Dense, Conv1D, MaxPool1D, Flatten, Concatena
 from tensorflow.keras.utils import Sequence
 from tensorflow.keras.metrics import AUC
 from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.models import load_model
 
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, TIMESTAMP_PROPERTY_NAME
 from .dataset_generator import DatasetGenerator
@@ -158,7 +159,13 @@ def train_next_theorem_selection_model(graph_samples, nodes_encoder, i_train, i_
                       + "-val_auc_{val_auc:.2f}")
     model_checkpoint_cb = ModelCheckpoint(
         filepath=config.selection_models_dir/model_filename,
-        monitor="val_auc"
+    )
+    best_model_path = config.selection_models_dir / "_best_selection_model"
+    best_model_cb = ModelCheckpoint(
+        filepath=best_model_path,
+        monitor="val_loss",
+        mode="min",
+        save_best_only=True
     )
 
     model.fit(
@@ -166,10 +173,12 @@ def train_next_theorem_selection_model(graph_samples, nodes_encoder, i_train, i_
         epochs=config.epochs,
         verbose=1,
         validation_data=test_generator,
-        callbacks=[model_checkpoint_cb]
+        callbacks=[model_checkpoint_cb, best_model_cb]
     )
 
-    return model
+    best_model = load_model(best_model_path)
+
+    return best_model
 
 
 # def train_proving_termination_model(graph_samples, nodes_encoder, i_train, i_test,
