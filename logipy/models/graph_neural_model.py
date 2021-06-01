@@ -430,7 +430,7 @@ def get_nodes_labels(properties):
 
 def _evaluate_model(model, encoder, train_samples, validation_samples, config: TrainConfiguration):
     print("-" * 80)
-    print(f"Evaluating DGCNN proving system on synthetic theorems of samples...")
+    print("Evaluating DGCNN proving system on synthetic theorems of samples...")
     print("-" * 80)
     from .graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
     theorem_selector = GraphNeuralNextTheoremSelector(model, None, encoder)
@@ -438,7 +438,7 @@ def _evaluate_model(model, encoder, train_samples, validation_samples, config: T
 
     if config.system_comparison_to_deterministic_after_train:
         print("-" * 80)
-        print(f"Evaluating deterministic proving system on synthetic theorems of samples...")
+        print("Evaluating deterministic proving system on synthetic theorems of samples...")
         print("-" * 80)
         from logipy.logic.next_theorem_selectors import BetterNextTheoremSelector
         theorem_selector = BetterNextTheoremSelector()
