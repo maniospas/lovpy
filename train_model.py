@@ -98,12 +98,12 @@ def train_gnn_model(properties, config):
         show_shapes=True,
         show_layer_names=True
     )
-    plot_model(
-        proving_termination_model,
-        to_file=scratch_model_out_base / "dgcnn_termination_model.png",
-        show_shapes=True,
-        show_layer_names=True
-    )
+    # plot_model(
+    #     proving_termination_model,
+    #     to_file=scratch_model_out_base / "dgcnn_termination_model.png",
+    #     show_shapes=True,
+    #     show_layer_names=True
+    # )
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ def save_gnn_models(selection_model, termination_model, encoder,
         encoder_path = graph_encoder_path
 
     selection_model.save(selection_model_path)
-    termination_model.save(termination_model_path)
+    # termination_model.save(termination_model_path)
     with encoder_path.open("wb") as f:
         pickle.dump(encoder, f)
 
@@ -57,10 +57,10 @@ def load_gnn_models():
     encoder = None
 
     if (graph_selection_model_path.exists()
-            and graph_termination_model_path.exists()
+            # and graph_termination_model_path.exists()
             and graph_encoder_path.exists()):
         selection_model = load_model(graph_selection_model_path)
-        termination_model = load_model(graph_termination_model_path)
+        # termination_model = load_model(graph_termination_model_path)
         with graph_encoder_path.open("rb") as f:
             encoder = pickle.load(f)
 

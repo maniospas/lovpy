@@ -107,11 +107,12 @@ def train_gnn_theorem_proving_models(properties, config: TrainConfiguration):
     next_theorem_model = train_next_theorem_selection_model(graph_samples, nodes_encoder,
                                                             i_train, i_test, config)
 
-    print("-" * 80)
-    print(f"Training proving process termination model...")
-    print("-" * 80)
-    proving_termination_model = train_proving_termination_model(graph_samples, nodes_encoder,
-                                                                i_train, i_test, config)
+    # print("-" * 80)
+    # print(f"Training proving process termination model...")
+    # print("-" * 80)
+    # proving_termination_model = train_proving_termination_model(graph_samples, nodes_encoder,
+    #                                                             i_train, i_test, config)
+    proving_termination_model = None
 
     if config.system_evaluation_after_train:
         print("-" * 80)
@@ -178,53 +179,53 @@ def train_next_theorem_selection_model(graph_samples, nodes_encoder, i_train, i_
     return model
 
 
-def train_proving_termination_model(graph_samples, nodes_encoder, i_train, i_test,
-                                    config: TrainConfiguration):
-    # Create input generators to feed model and output data.
-    current_generator, goal_generator, _ = \
-        create_sample_generators(graph_samples, nodes_encoder)
-    termination_labels = []
-    for s in graph_samples:
-        should_terminate = s.should_proving_process_terminate()
-        if should_terminate:
-            termination_labels.append([0., 1.])
-        else:
-            termination_labels.append([1., 0])
-    termination_labels = np.array(termination_labels).reshape((-1, 2))
-
-    train_generator = ProvingModelSamplesGenerator(current_generator,
-                                                   goal_generator,
-                                                   target_data=termination_labels,
-                                                   active_indexes=i_train,
-                                                   batch_size=config.batch_size)
-    test_generator = ProvingModelSamplesGenerator(current_generator,
-                                                  goal_generator,
-                                                  target_data=termination_labels,
-                                                  active_indexes=i_test,
-                                                  batch_size=1)
-
-    # Train model.
-    model = create_proving_termination_model(current_generator, goal_generator)
-    print(model.summary())
-
-    model_filename = ("termination_model"
-                      + "-epoch_{epoch:02d}"
-                      + "-val_acc_{val_acc:.2f}"
-                      + "-val_auc_{val_auc_1:.2f}")
-    model_checkpoint_cb = ModelCheckpoint(
-        filepath=config.termination_models_dir/model_filename,
-        monitor="val_auc_1"
-    )
-
-    model.fit(
-        train_generator,
-        epochs=config.epochs,
-        verbose=1,
-        validation_data=test_generator,
-        callbacks=[model_checkpoint_cb]
-    )
-
-    return model
+# def train_proving_termination_model(graph_samples, nodes_encoder, i_train, i_test,
+#                                     config: TrainConfiguration):
+#     # Create input generators to feed model and output data.
+#     current_generator, goal_generator, _ = \
+#         create_sample_generators(graph_samples, nodes_encoder, verbose=True)
+#     termination_labels = []
+#     for s in graph_samples:
+#         should_terminate = s.should_proving_process_terminate()
+#         if should_terminate:
+#             termination_labels.append([0., 1.])
+#         else:
+#             termination_labels.append([1., 0])
+#     termination_labels = np.array(termination_labels).reshape((-1, 2))
+#
+#     train_generator = ProvingModelSamplesGenerator(current_generator,
+#                                                    goal_generator,
+#                                                    target_data=termination_labels,
+#                                                    active_indexes=i_train,
+#                                                    batch_size=config.batch_size)
+#     test_generator = ProvingModelSamplesGenerator(current_generator,
+#                                                   goal_generator,
+#                                                   target_data=termination_labels,
+#                                                   active_indexes=i_test,
+#                                                   batch_size=1)
+#
+#     # Train model.
+#     model = create_proving_termination_model(current_generator, goal_generator)
+#     print(model.summary())
+#
+#     model_filename = ("termination_model"
+#                       + "-epoch_{epoch:02d}"
+#                       + "-val_acc_{val_acc:.2f}"
+#                       + "-val_auc_{val_auc_1:.2f}")
+#     model_checkpoint_cb = ModelCheckpoint(
+#         filepath=config.termination_models_dir/model_filename,
+#         monitor="val_auc_1"
+#     )
+#
+#     model.fit(
+#         train_generator,
+#         epochs=config.epochs,
+#         verbose=1,
+#         validation_data=test_generator,
+#         callbacks=[model_checkpoint_cb]
+#     )
+#
+#     return model
 
 
 def create_nodes_encoder(properties):
@@ -269,34 +270,36 @@ def create_gnn_model(current_generator: PaddedGraphGenerator, goal_generator: Pa
     return model
 
 
-def create_proving_termination_model(current_generator: PaddedGraphGenerator,
-                                     goal_generator: PaddedGraphGenerator):
-    """Creates an end-to-end model for next theorem selection."""
-    current_dgcnn_layer_sizes = [64, 64, 64, 64, 64]
-    goal_dgcnn_layer_sizes = [64, 64, 64, 64, 64]
-    k = 32
-
-    # Define the graph embedding branches for the three types of graphs (current, goal, next).
-    current_input, current_out = create_graph_embedding_branch(
-        current_generator, current_dgcnn_layer_sizes, k
-    )
-    goal_input, goal_out = create_graph_embedding_branch(
-        goal_generator, goal_dgcnn_layer_sizes, k
-    )
-
-    # Define the final common branch.
-    out = Concatenate()([current_out, goal_out])
-    out = Dense(units=768, activation="relu")(out)
-    out = Dense(units=512, activation="relu")(out)
-    out = Dense(units=2, activation="softmax")(out)
-
-    model = Model(inputs=[current_input, goal_input], outputs=out)
-    model.compile(
-        optimizer=Adam(learning_rate=0.001),
-        loss="binary_crossentropy",
-        metrics=["acc", AUC()]
-    )
-    return model
+# def create_proving_termination_model(current_generator: PaddedGraphGenerator,
+#                                      goal_generator: PaddedGraphGenerator):
+#     """Creates an end-to-end model for next theorem selection."""
+#     current_dgcnn_layer_sizes = [64] * 6
+#     current_dgcnn_layer_activations = ["relu"] * 6
+#     goal_dgcnn_layer_sizes = [64] * 6
+#     goal_dgcnn_layer_activations = ["relu"] * 6
+#     sortpooling_out_nodes = 32
+#
+#     # Define the graph embedding branches for the three types of graphs (current, goal, next).
+#     current_input, current_out = create_graph_embedding_branch(
+#         current_generator, current_dgcnn_layer_sizes,
+#         current_dgcnn_layer_activations, sortpooling_out_nodes
+#     )
+#     goal_input, goal_out = create_graph_embedding_branch(
+#         goal_generator, goal_dgcnn_layer_sizes,
+#         goal_dgcnn_layer_activations, sortpooling_out_nodes
+#     )
+#
+#     # Define the final common branch.
+#     out = Concatenate()([current_out, goal_out])
+#     out = Dense(units=64, activation="relu")(out)
+#     out = Dense(units=32, activation="relu")(out)
+#     out = Dense(units=2, activation="softmax")(out)
+#
+#     model = Model(inputs=[current_input, goal_input], outputs=out)
+#     model.compile(
+#         optimizer=Adam(learning_rate=0.001),
+#         loss="binary_crossentropy",
+#         metrics=["acc", AUC()]
 
 
 def create_graph_embedding_branch(generator: PaddedGraphGenerator, dgcnn_layer_sizes: list, k: int):

@@ -39,7 +39,7 @@ class GraphNeuralNextTheoremSelector(NextTheoremSelector):
         current_graph, norm = convert_timedpropertygraph_to_stellargraph(graph, self.encoder)
         goal_graph, _ = convert_timedpropertygraph_to_stellargraph(goal, self.encoder)
 
-        should_terminate = self._should_terminate(current_graph, goal_graph)
+        should_terminate = False  # self._should_terminate(current_graph, goal_graph)
 
         if not should_terminate:
             next_application, scores = self._get_next_theorem_application(
