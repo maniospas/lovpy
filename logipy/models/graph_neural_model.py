@@ -374,43 +374,50 @@ def create_padded_generators(*args):
 
 def convert_timedpropertygraph_to_stellargraph(graph: TimedPropertyGraph, encoder: OneHotEncoder,
                                                normalization_value=None, shift_to_positive=True):
-    """Converts a TimedPropertyGraph to a StellarGraph object."""
-    nx_graph = graph.graph.copy()
+    """Converts a TimedPropertyGraph to a StellarGraph object.
 
-    # Use 1-hot encoded node labels as features of the nodes.
-    nodes = list(nx_graph.nodes)
-    node_features = [
-        encoder.transform(np.array([graph.get_node_label(n)]).reshape(-1, 1)).toarray().flatten()
-        for n in nodes
-    ]
+    :param TimedPropertyGraph graph: Graph to be converted to StellarGraph object.
+    :param OneHotEncoder encoder: One-hot encoder for node labels contained in graph.
+    :param normalization_value: Value to be used for edge timestamps normalization. If not
+            provided, normalization is performed using the maximum timestamp value out of
+            all edges in the graph.
+    :param shift_to_positive: Currently not used.
 
-    # Use normalized time values as weights of the edges.
-    edges = list(nx_graph.edges)
-    time_values = []
-    for e in edges:
-        timestamp = nx_graph[e[0]][e[1]][e[2]][TIMESTAMP_PROPERTY_NAME]
-        if timestamp.is_absolute():
-            value = timestamp.get_absolute_value()
-        else:
-            value = timestamp.get_relative_value()
-        time_values.append(value)
-    time_values = np.array(time_values, dtype="float32")
+    :return: A StellarGraph representation of input graph, suitable for input to a
+            PaddedGraphGenerator.
+    """
+    nx_graph = graph.graph
 
-    if shift_to_positive and min(time_values) <= 0:
-        # Shifts relative timestamps that hold a value of 0 or lower, in order normalized
-        # timestamps to always be in (0, 1]. This is required, since timestamps are passed
-        # as edge weights, so a valid weight cannot be <= 0.
-        time_values += -min(time_values) + 1
     if not normalization_value:
+        # Find maximum timestamp value to be used for normalization.
+        time_values = []
+        for e in nx_graph.edges:
+            timestamp = nx_graph[e[0]][e[1]][e[2]][TIMESTAMP_PROPERTY_NAME]
+            time_values.append(_get_timestamp_numerical_value(timestamp))
+        time_values = np.array(time_values, dtype="float32")
         normalization_value = max(time_values)
-    if normalization_value > 1.:
-        time_values = time_values / normalization_value
-    for e, v in zip(edges, time_values):
-        nx_graph[e[0]][e[1]][e[2]]["time_value"] = v
 
-    sg_graph = StellarGraph.from_networkx(nx_graph, edge_weight_attr="time_value",
-                                          node_features=zip(nodes, node_features))
+    # Use 1-hot encoded node labels, along with normalized min and max of outgoing edges as
+    # features of the nodes.
+    nodes = list(nx_graph.nodes)
+    node_features = []
+    for n in nodes:
+        feature = encoder.transform(
+            np.array([graph.get_node_label(n)]).reshape(-1, 1)).toarray().flatten()
 
+        out_timestamps = [_get_timestamp_numerical_value(e[3])
+                          for e in nx_graph.edges(n, data=TIMESTAMP_PROPERTY_NAME, keys=True)]
+        if out_timestamps:
+            out_timestamps = np.array(out_timestamps, dtype="float32")
+            if normalization_value > 1.:
+                out_timestamps = out_timestamps / normalization_value
+            np.append(feature, [min(out_timestamps), max(out_timestamps)])
+        else:
+            np.append(feature, [0., 0.])
+
+        node_features.append(feature)
+
+    sg_graph = StellarGraph.from_networkx(nx_graph, node_features=zip(nodes, node_features))
     return sg_graph, normalization_value
 
 
@@ -426,6 +433,13 @@ def get_nodes_labels(properties):
         for n in p.graph.nodes:
             labels.add(p.get_node_label(n))
     return labels
+
+
+def _get_timestamp_numerical_value(timestamp):
+    if timestamp.is_absolute():
+        return timestamp.get_absolute_value()
+    else:
+        return timestamp.get_relative_value()
 
 
 def _evaluate_model(model, encoder, train_samples, validation_samples, config: TrainConfiguration):
