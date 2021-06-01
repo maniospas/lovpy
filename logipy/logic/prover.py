@@ -82,6 +82,7 @@ def prove_property(execution_graph,
     temp_graph = execution_graph.get_copy()  # Modify a separate graph for each property.
     temp_graph.add_constant_property(NoPositiveAndNegativePredicatesSimultaneously(temp_graph))
 
+    proved = False
     theorems_applied = []
     intermediate_graphs = [temp_graph.get_copy()]
     while len(theorems_applied) < MAX_PROOF_PATH:
@@ -99,10 +100,14 @@ def prove_property(execution_graph,
         theorems_applied.append(next_theorem)
         intermediate_graphs.append(temp_graph.get_copy())
 
-    if prove_if_fully_reduced:
-        matches = temp_graph.find_subgraph_matches(property_graph)
-        proved = True if (matches and matches[0] == temp_graph) else False
-    else:
+        if prove_if_fully_reduced:
+            # Check after each theorem application if property has been proved.
+            matches = temp_graph.find_subgraph_matches(property_graph)
+            proved = True if (matches and matches[0] == temp_graph) else False
+            if proved:
+                break
+
+    if not prove_if_fully_reduced:
         proved = True if temp_graph.contains_property_graph(property_graph) else False
 
     prover_invocations += 1
