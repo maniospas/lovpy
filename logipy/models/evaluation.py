@@ -4,8 +4,8 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 from logipy.logic.prover import prove_property
 
 
-def evaluate_theorem_selector(theorem_selector, train_samples, validation_samples):
-    """Evaluates a theorem prover on its ability to prove theorems.
+def evaluate_theorem_selector_on_samples(theorem_selector, samples, verbose=False):
+    """Evaluates a theorem selector on its ability to prove theorems.
 
     The ability to prove theorems is evaluated in the sense that a model should be able
     to produce a sequence of theorem applications in order to finally prove or consider as
@@ -16,19 +16,16 @@ def evaluate_theorem_selector(theorem_selector, train_samples, validation_sample
         -Accuracy
         -Fallout
         -AUC (not yet implemented)
+
+    :param samples:
+    :param theorem_selector: Theorem selector to evaluate.
+    :param verbose:
+
+    :return:
+        -Accuracy metric.
+        -Fallout metric.
     """
-    acc, fallout = compute_accuracy_fallout_on_samples_proving(
-        train_samples, theorem_selector, verbose=True)
-    val_acc, val_fallout = compute_accuracy_fallout_on_samples_proving(
-        validation_samples, theorem_selector, verbose=True)
 
-    print("\tTesting dataset:  proving_acc: {} - proving_fallout: {}".format(
-        round(acc, 4), round(fallout, 4)))
-    print("\tValidation dataset: val_proving_acc: {} - val_proving_fallout: {}".format(
-        round(val_acc, 4), round(val_fallout, 4)))
-
-
-def compute_accuracy_fallout_on_samples_proving(samples, theorem_selector, verbose=False):
     for i, s in enumerate(samples):
         if verbose:
             print("\t{}/{} validating...".format(i, len(samples)), end="\r")

@@ -18,6 +18,7 @@ from .dataset_generator import DatasetGenerator
 # from .callbacks import ModelEvaluationOnTheoremProvingCallback
 from .io import export_generated_samples, export_theorems_and_properties
 from .train_config import TrainConfiguration
+from .evaluation import evaluate_theorem_selector_on_samples
 
 
 class ProvingModelSamplesGenerator(Sequence):
@@ -115,20 +116,12 @@ def train_gnn_theorem_proving_models(properties, config: TrainConfiguration):
     proving_termination_model = None
 
     if config.system_evaluation_after_train:
-        print("-" * 80)
-        print(f"Evaluating proving system on synthetic theorems of samples...")
-        print("-" * 80)
-        from .graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
-        from .evaluation import evaluate_theorem_selector
-        theorem_selector = GraphNeuralNextTheoremSelector(
+        _evaluate_model(
             next_theorem_model,
-            proving_termination_model,
-            nodes_encoder
-        )
-        evaluate_theorem_selector(
-            theorem_selector,
+            nodes_encoder,
             [graph_samples[i] for i in i_train],
-            [graph_samples[i] for i in i_test]
+            [graph_samples[i] for i in i_test],
+            config
         )
 
     return next_theorem_model, proving_termination_model, nodes_encoder
@@ -424,3 +417,32 @@ def get_nodes_labels(properties):
         for n in p.graph.nodes:
             labels.add(p.get_node_label(n))
     return labels
+
+
+def _evaluate_model(model, encoder, train_samples, validation_samples, config: TrainConfiguration):
+    print("-" * 80)
+    print(f"Evaluating DGCNN proving system on synthetic theorems of samples...")
+    print("-" * 80)
+    from .graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
+    theorem_selector = GraphNeuralNextTheoremSelector(model, None, encoder)
+    _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples)
+
+    if config.system_comparison_to_deterministic_after_train:
+        print("-" * 80)
+        print(f"Evaluating deterministic proving system on synthetic theorems of samples...")
+        print("-" * 80)
+        from logipy.logic.next_theorem_selectors import BetterNextTheoremSelector
+        theorem_selector = BetterNextTheoremSelector()
+        _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples)
+
+
+def _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples):
+    acc, fallout = evaluate_theorem_selector_on_samples(
+        theorem_selector, train_samples, verbose=True)
+    print("\tTesting dataset:  proving_acc: {} - proving_fallout: {}".format(
+        round(acc, 4), round(fallout, 4)))
+
+    val_acc, val_fallout = evaluate_theorem_selector_on_samples(
+        theorem_selector, validation_samples, verbose=True)
+    print("\tValidation dataset: val_proving_acc: {} - val_proving_fallout: {}".format(
+        round(val_acc, 4), round(val_fallout, 4)))
