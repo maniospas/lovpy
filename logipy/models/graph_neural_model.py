@@ -138,7 +138,7 @@ def train_next_theorem_selection_model(graph_samples, nodes_encoder, i_train, i_
                                        config: TrainConfiguration):
     # Create input generators to feed model and output data.
     current_generator, goal_generator, next_generator = \
-        create_sample_generators(graph_samples, nodes_encoder)
+        create_sample_generators(graph_samples, nodes_encoder, verbose=True)
     next_theorem_labels = np.array(
         [int(s.is_next_theorem_correct()) for s in graph_samples]).reshape((-1, 1))
 
@@ -239,26 +239,32 @@ def create_nodes_encoder(properties):
 def create_gnn_model(current_generator: PaddedGraphGenerator, goal_generator: PaddedGraphGenerator,
                      next_generator: PaddedGraphGenerator):
     """Creates an end-to-end model for next theorem selection."""
-    current_dgcnn_layer_sizes = [64, 64, 64, 64, 64]
-    goal_dgcnn_layer_sizes = [64, 64, 64, 64, 64]
-    next_dgcnn_layer_sizes = [64, 64, 64, 64, 64]
-    k = 32
+    current_dgcnn_layer_sizes = [32] * 3 + [1]
+    current_dgcnn_layer_activations = ["relu"] * 4
+    goal_dgcnn_layer_sizes = [32] * 3 + [1]
+    goal_dgcnn_layer_activations = ["relu"] * 4
+    next_dgcnn_layer_sizes = [32] * 3 + [1]
+    next_dgcnn_layer_activations = ["relu"] * 4
+    sortpooling_out_nodes = 32
 
     # Define the graph embedding branches for the three types of graphs (current, goal, next).
     current_input, current_out = create_graph_embedding_branch(
-        current_generator, current_dgcnn_layer_sizes, k
+        current_generator, current_dgcnn_layer_sizes,
+        current_dgcnn_layer_activations, sortpooling_out_nodes
     )
     goal_input, goal_out = create_graph_embedding_branch(
-        goal_generator, goal_dgcnn_layer_sizes, k
+        goal_generator, goal_dgcnn_layer_sizes,
+        goal_dgcnn_layer_activations, sortpooling_out_nodes
     )
     next_input, next_out = create_graph_embedding_branch(
-        next_generator, next_dgcnn_layer_sizes, k
+        next_generator, next_dgcnn_layer_sizes,
+        next_dgcnn_layer_activations, sortpooling_out_nodes
     )
 
     # Define the final common branch.
     out = Concatenate()([current_out, goal_out, next_out])
-    out = Dense(units=1152, activation="relu")(out)
-    out = Dense(units=512, activation="relu")(out)
+    out = Dense(units=64, activation="relu")(out)
+    out = Dense(units=32, activation="relu")(out)
     out = Dense(units=1, activation="sigmoid")(out)
 
     model = Model(inputs=[current_input, goal_input, next_input], outputs=out)
@@ -302,22 +308,22 @@ def create_gnn_model(current_generator: PaddedGraphGenerator, goal_generator: Pa
 #         metrics=["acc", AUC()]
 
 
-def create_graph_embedding_branch(generator: PaddedGraphGenerator, dgcnn_layer_sizes: list, k: int):
+def create_graph_embedding_branch(generator: PaddedGraphGenerator, dgcnn_layer_sizes: list,
+                                  dgcnn_layer_activations: list, k: int):
     dgcnn = DeepGraphCNN(
         layer_sizes=dgcnn_layer_sizes,
-        activations=["relu", "relu", "relu", "relu", "relu"],
+        activations=dgcnn_layer_activations,
         generator=generator,
         k=k,
-        bias=False
+        bias=True,
+        dropout=0.5,
     )
     x_in, x_out = dgcnn.in_out_tensors()
 
     x_out = Conv1D(filters=16, kernel_size=sum(dgcnn_layer_sizes),
                    strides=sum(dgcnn_layer_sizes))(x_out)
     x_out = MaxPool1D(pool_size=2)(x_out)
-
     x_out = Conv1D(filters=32, kernel_size=5, strides=1)(x_out)
-
     x_out = Flatten()(x_out)
 
     return x_in, x_out
