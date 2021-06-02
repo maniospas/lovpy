@@ -1,6 +1,6 @@
 import unittest
 
-from logipy.logic.timestamps import *
+from logipy.graphs.timestamps import *
 from logipy.monitor.time_source import get_zero_locked_timesource
 
 
