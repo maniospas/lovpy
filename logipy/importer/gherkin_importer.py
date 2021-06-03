@@ -17,29 +17,36 @@ def import_gherkin_path(root_path=""):
 def import_gherkin_file(path):
     """Imports the rules of given .gherkin file."""
     if not path.endswith(".gherkin"):
-        raise Exception("Can only import .gherkin files: "+path)
+        raise Exception("Can only import .gherkin files: " + path)
 
-    lines = list()
     with open(path, "r") as file:
-        for line in file:
-            line = line.strip()
-            if line and line[0] != "#":
-                if line[-1] == "\n":
-                    line[-1] = line[:-1]
-                lines.append(line)
-        file.close()
+        gherkin = file.read()
 
-    import_gherkin_lines(lines)
+    properties = convert_gherkin_to_graphs(gherkin)
+    for p in properties:
+        logipy.logic.properties.add_global_property(p)
 
 
-def import_gherkin_lines(lines):
-    """Imports all rules defined in given gherkin lines of code."""
+def convert_gherkin_to_graphs(gherkin):
+    """Converts given gherkin text to a sequence of property graphs."""
+    lines = gherkin.split("\n")
+    # Remove comment lines.
+    lines = [line for line in lines if not line.startswith("#")]
+    # Remove preceding and trailing whitespaces.
+    lines = [line.strip() for line in lines]
+    return convert_gherkin_lines_to_graphs(lines)
+
+
+def convert_gherkin_lines_to_graphs(lines):
+    """Converts given gherkin lines to a sequence of property graphs."""
+    graphs = []
     for rule in (" ".join(lines)).split("SCENARIO:"):
         rule = rule.strip()
         if rule:
             graph = convert_specification_to_graph(rule)
             graph.set_property_textual_representation(rule)
-            logipy.logic.properties.add_global_property(graph)
+            graphs.append(graph)
+    return graphs
 
 
 def convert_specification_to_graph(formula):
