@@ -225,11 +225,14 @@ class DatasetEntity:
         negative_text = "Positive" if self.next_theorem_correct else "Negative"
         next_title = f"Next Theorem - {negative_text}"
 
-        io.visualize_three_graphs(self.current_graph, self.goal, self.next_theorem,
-                                  title=title,
-                                  export_path=export_path,
-                                  goal_title=goal_title,
-                                  next_title=next_title)
+        io.visualize_three_graphs(
+            self.current_graph, self.goal, self.next_theorem,
+            title=title,
+            export_path=export_path,
+            goal_title=goal_title,
+            next_title=next_title,
+            visualize_next_assumption_in_current=bool(self.next_theorem)
+        )
 
     # def add_properties_of_theorem(self, theorem):
     #     """Adds an instance of the assumption of given theorem to current graph.
