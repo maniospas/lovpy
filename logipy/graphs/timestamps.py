@@ -49,7 +49,7 @@ class Timestamp:
         return shifted
 
     def matches(self, other):
-        # Check if intervals overlap.
+        """Checks whether the intervals of current and other timestamps overlap."""
         a = self.get_validity_interval()
         b = other.get_validity_interval()
 
@@ -138,7 +138,7 @@ class GreaterThanRelativeTimestamp(RelativeTimestamp):
 
 
 def timestamp_sequences_matches(seq1, seq2):
-    """Check if two timestamp sequences matches."""
+    """Checks if two timestamp sequences match."""
     if len(seq1) != len(seq2):
         raise RuntimeError("Timestamp sequences lengths should match.")
 
