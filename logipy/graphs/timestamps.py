@@ -25,6 +25,12 @@ class Timestamp:
     def __ge__(self, other):
         return self.get_validity_interval()[1] >= other.get_validity_interval()[1]
 
+    def __eq__(self, other):
+        return type(self) == type(other) and self._value == other._value
+
+    def __hash__(self):
+        return hash(repr(self))
+
     def __copy__(self):
         return type(self)(self._value)
 
