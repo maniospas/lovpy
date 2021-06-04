@@ -733,13 +733,20 @@ class TimedPropertyGraph:
         self.graph.clear_colorization()
 
     def _find_deeper_common_node_in_graph(self, paths):
-        """Returns the deeper common node of all paths, that also belongs in current graph."""
+        """Returns the deeper common node of all paths, that also belongs in current graph.
+
+        Deeper common node can never exceed a predicate node.
+        """
         last_common_node = paths[0][0][0]  # Consider top node of all paths to be the same.
         if not self.graph.has_node(last_common_node):
             return None  # Either graph is empty or path belongs to a different graph.
 
         for i in range(min([len(p) for p in paths])):
             edge = paths[0][i]  # Use the first path as a guideline.
+
+            if isinstance(edge[1], PredicateNode):
+                break
+
             for path in paths:
                 if not _edges_match(edge, path[i]):
                     break

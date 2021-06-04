@@ -1,5 +1,7 @@
 import unittest
 
+from networkx.algorithms.dag import is_directed_acyclic_graph
+
 from logipy.monitor.monitored_predicate import *
 from logipy.graphs.timed_property_graph import PredicateNode
 from logipy.graphs.timed_property_graph import PredicateGraph
@@ -169,6 +171,180 @@ class TestTimedPropertyGraph(unittest.TestCase):
                     break
             else:
                 self.fail("Original predicate did not matched by any basic predicate.")
+
+    def test_apply_modus_ponens_on_single_predicate(self):
+        """Tests the case when assumption of theorem is matched by a single path to VAR."""
+        # Create current state graph.
+        pred1 = PredicateGraph("is_sth_a", MonitoredVariable("VAR"))
+        pred1.set_timestamp(Timestamp(10))
+        pred2 = Call("a_method").convert_to_graph()
+        pred2.set_timestamp(Timestamp(30))
+        graph = pred1
+        graph.logical_and(pred2)
+
+        # Create theorem that replace single predicate
+        pred3 = PredicateGraph("is_sth_a", MonitoredVariable("VAR"))
+        pred3.set_timestamp(RelativeTimestamp(0))
+        pred4 = PredicateGraph("is_sth_b", MonitoredVariable("VAR"))
+        pred4.set_timestamp(RelativeTimestamp(0))
+        theorem = pred3
+        theorem.logical_implication(pred4)
+
+        modus_ponenses = graph.find_all_possible_modus_ponens(theorem)
+        self.assertEqual(len(modus_ponenses), 1)
+
+        graph.apply_modus_ponens(modus_ponenses[0])
+        self.assertTrue(is_directed_acyclic_graph(graph.graph))
+
+        # Build correct final graph.
+        correct_graph = pred4
+        correct_graph.logical_and(pred2)
+
+        # graph.visualize()
+        # correct_graph.visualize()
+
+        self.assertEqual(graph, correct_graph)
+
+    def test_apply_modus_ponens_on_single_predicate_2(self):
+        """Tests the case when assumption of theorem is matched by a single path to VAR."""
+        # Create current state graph.
+        pred1 = Call("a_method").convert_to_graph()
+        pred1.set_timestamp(Timestamp(10))
+        pred2 = CalledBy("b_method").convert_to_graph()
+        pred2.set_timestamp(Timestamp(20))
+        pred3 = PredicateGraph("is_sth_c", MonitoredVariable("VAR"))
+        pred3.set_timestamp(Timestamp(30))
+        graph = pred1.get_copy()
+        graph.logical_and(pred2)
+        graph.logical_and(pred3)
+
+        # Create theorem that replace single predicate
+        pred3 = PredicateGraph("is_sth_c", MonitoredVariable("VAR"))
+        pred3.set_timestamp(RelativeTimestamp(0))
+        pred4 = PredicateGraph("is_sth_b", MonitoredVariable("VAR"))
+        pred4.set_timestamp(RelativeTimestamp(0))
+        theorem = pred3
+        theorem.logical_implication(pred4)
+
+        modus_ponenses = graph.find_all_possible_modus_ponens(theorem)
+        self.assertEqual(len(modus_ponenses), 1)
+
+        graph.apply_modus_ponens(modus_ponenses[0])
+        self.assertTrue(is_directed_acyclic_graph(graph.graph))
+
+        # Build correct final graph.
+        correct_graph = pred1.get_copy()
+        correct_graph.logical_and(pred2)
+        pred5 = pred4.get_copy()
+        pred5.set_timestamp(Timestamp(30))
+        correct_graph.logical_and(pred5)
+
+        # graph.visualize()
+        # correct_graph.visualize()
+
+        self.assertEqual(graph, correct_graph)
+
+    def test_apply_modus_ponens_on_single_predicate_3(self):
+        """Tests the case when assumption of theorem is matched by a single path to VAR."""
+        # Create current state graph.
+        pred1 = Call("a_method").convert_to_graph()
+        pred1.set_timestamp(Timestamp(10))
+        pred2 = CalledBy("b_method").convert_to_graph()
+        pred2.set_timestamp(Timestamp(20))
+        pred3 = PredicateGraph("is_sth_c", MonitoredVariable("VAR"))
+        pred3.set_timestamp(Timestamp(30))
+        graph = pred1.get_copy()
+        graph.logical_and(pred2)
+        graph.logical_and(pred3)
+
+        # Create theorem that replace single predicate
+        pred3 = PredicateGraph("is_sth_c", MonitoredVariable("VAR"))
+        pred3.set_timestamp(RelativeTimestamp(0))
+        pred4 = PredicateGraph("is_sth_d", MonitoredVariable("VAR"))
+        pred4.set_timestamp(RelativeTimestamp(0))
+        pred5 = PredicateGraph("is_sth_e", MonitoredVariable("VAR"))
+        pred5.set_timestamp(RelativeTimestamp(0))
+        conclusion = pred4.get_copy()
+        conclusion.logical_and(pred5)
+        theorem = pred3
+        theorem.logical_implication(conclusion)
+
+        modus_ponenses = graph.find_all_possible_modus_ponens(theorem)
+        self.assertEqual(len(modus_ponenses), 1)
+
+        graph.apply_modus_ponens(modus_ponenses[0])
+        self.assertTrue(is_directed_acyclic_graph(graph.graph))
+
+        # Build correct final graph.
+        correct_graph = pred1.get_copy()
+        correct_graph.logical_and(pred2)
+        conclusion_timestamped = conclusion.get_copy()
+        conclusion_timestamped.set_timestamp(Timestamp(30))
+        correct_graph.logical_and(conclusion_timestamped)
+
+        # graph.visualize()
+        # correct_graph.visualize()
+
+        self.assertEqual(graph, correct_graph)
+
+    def test_apply_modus_ponens_on_single_predicate_4(self):
+        """Tests the case when assumption of theorem is matched by a single path to VAR."""
+        # Create current state graph.
+        pred1 = Call("a_method").convert_to_graph()
+        pred1.set_timestamp(Timestamp(10))
+        pred2 = CalledBy("b_method").convert_to_graph()
+        pred2.set_timestamp(Timestamp(20))
+        pred3 = PredicateGraph("is_sth_c", MonitoredVariable("VAR"))
+        pred3.set_timestamp(Timestamp(30))
+        graph = pred1.get_copy()
+        graph.logical_and(pred2)
+        graph.logical_and(pred3)
+
+        # Create theorem that replace single predicate
+        pred3 = PredicateGraph("is_sth_c", MonitoredVariable("VAR"))
+        pred3.set_timestamp(RelativeTimestamp(0))
+        pred4 = PredicateGraph("is_sth_c", MonitoredVariable("VAR"))
+        pred4.set_timestamp(RelativeTimestamp(0))
+        pred5 = PredicateGraph("is_sth_d", MonitoredVariable("VAR"))
+        pred5.set_timestamp(RelativeTimestamp(0))
+        conclusion = pred4.get_copy()
+        conclusion.logical_and(pred5)
+        theorem = pred3
+        theorem.logical_implication(conclusion)
+
+        modus_ponenses = graph.find_all_possible_modus_ponens(theorem)
+        self.assertEqual(len(modus_ponenses), 1)
+
+        graph.apply_modus_ponens(modus_ponenses[0])
+        # graph.visualize()
+
+        self.assertTrue(is_directed_acyclic_graph(graph.graph))
+
+        # Build correct final graph.
+        correct_graph = pred1.get_copy()
+        correct_graph.logical_and(pred2)
+        conclusion_timestamped = conclusion.get_copy()
+        conclusion_timestamped.set_timestamp(Timestamp(30))
+        correct_graph.logical_and(conclusion_timestamped)
+
+        # correct_graph.visualize()
+
+        self.assertEqual(graph, correct_graph)
+
+        # graph.visualize()
+
+        self.assertTrue(is_directed_acyclic_graph(graph.graph))
+
+        # Build correct final graph.
+        correct_graph = pred1.get_copy()
+        correct_graph.logical_and(pred2)
+        conclusion_timestamped = conclusion.get_copy()
+        conclusion_timestamped.set_timestamp(Timestamp(30))
+        correct_graph.logical_and(conclusion_timestamped)
+
+        correct_graph.visualize()
+
+        self.assertEqual(graph, correct_graph)
 
     @staticmethod
     def _generate_sample_execution_graph_1():
