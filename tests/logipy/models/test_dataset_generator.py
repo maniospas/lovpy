@@ -4,7 +4,8 @@ from collections import Counter
 from logipy import config
 from logipy.models.dataset_generator import *
 from logipy.logic.prover import split_into_theorems_and_properties_to_prove
-from logipy.importer.gherkin_importer import import_gherkin_path, import_gherkin_file
+from logipy.importer.gherkin_importer import import_gherkin_path, import_gherkin_file, \
+    convert_gherkin_to_graphs
 from logipy.logic.properties import get_global_properties
 
 from tests.logipy.importer.sample_properties import get_threading_sample_properties
@@ -173,6 +174,8 @@ class TestDatasetGenerator(unittest.TestCase):
             self.assertIsNotNone(s.next_theorem)
             self.assertIsNotNone(s.goal)
 
+        self._test_all_predicates_have_different_timestamps(samples)
+
     def test_non_chronological_dataset(self):
         get_global_properties().clear()
         import_gherkin_file(
@@ -180,7 +183,7 @@ class TestDatasetGenerator(unittest.TestCase):
         properties = get_global_properties()
 
         max_depth = 10
-        total_samples = 5
+        total_samples = 100
         negative_samples_percentage = 0.8
 
         generator = DatasetGenerator(
@@ -190,7 +193,7 @@ class TestDatasetGenerator(unittest.TestCase):
             random_expansion_probability=0.,
             add_new_property_probability=0.2,
             negative_samples_percentage=negative_samples_percentage,
-            verbose=True)
+            verbose=False)
         samples = list(generator)
 
         # Test number of returned samples.
@@ -207,6 +210,8 @@ class TestDatasetGenerator(unittest.TestCase):
             self.assertIsNotNone(s.current_graph)
             self.assertIsNotNone(s.next_theorem)
             self.assertIsNotNone(s.goal)
+
+        self._test_all_predicates_have_different_timestamps(samples)
 
     def test_full_examples_dataset(self):
         # Utilize logipy's import scheme to import all examples.
@@ -242,3 +247,11 @@ class TestDatasetGenerator(unittest.TestCase):
             self.assertIsNotNone(s.current_graph)
             self.assertIsNotNone(s.next_theorem)
             self.assertIsNotNone(s.goal)
+
+    def _test_all_predicates_have_different_timestamps(self, samples):
+        for s in samples:
+            timestamps = set()
+            for p in s.current_graph.get_basic_predicates():
+                t = p.get_most_recent_timestamp()
+                self.assertNotIn(t, timestamps)
+                timestamps.add(t)
