@@ -12,6 +12,11 @@ SCENARIO:
     THEN SHOULD is_counter
 
 SCENARIO:
+    WHEN is_iterated
+    AND is_counter
+    THEN is_counter
+
+SCENARIO:
     WHEN returned by array
     THEN numpy_const
 

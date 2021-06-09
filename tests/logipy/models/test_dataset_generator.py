@@ -248,6 +248,42 @@ class TestDatasetGenerator(unittest.TestCase):
             self.assertIsNotNone(s.next_theorem)
             self.assertIsNotNone(s.goal)
 
+    def test_with_property_to_collapse_predicates(self):
+        rules = """
+            SCENARIO:
+                WHEN returned by __add__
+                THEN NOT is_counter
+            
+            SCENARIO:
+                WHEN returned by range
+                THEN is_iterated
+                AND is_counter
+            
+            SCENARIO:
+                WHEN called by print_counter
+                THEN SHOULD is_counter
+            
+            SCENARIO:
+                WHEN is_iterated
+                AND is_counter
+                THEN is_counter
+        """
+        properties = convert_gherkin_to_graphs(rules)
+
+        max_depth = 20
+        total_samples = 100
+        negative_samples_percentage = 0.8
+
+        generator = DatasetGenerator(
+            properties,
+            max_depth,
+            total_samples,
+            random_expansion_probability=0.,
+            add_new_property_probability=0.2,
+            negative_samples_percentage=negative_samples_percentage,
+            verbose=False)
+        samples = list(generator)
+
     def _test_all_predicates_have_different_timestamps(self, samples):
         for s in samples:
             timestamps = set()
