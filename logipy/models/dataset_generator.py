@@ -171,7 +171,6 @@ class DatasetEntity:
         """Expands current graph by reversely applying a theorem."""
         self.application_sequence.append(reverse_theorem_application)
         next_theorem = reverse_theorem_application.actual_implication
-        next_theorem.switch_implication_parts()
         self.next_theorem = next_theorem
         self.current_graph.apply_modus_ponens(reverse_theorem_application)
         self._shift_current_graph_timestamps()
