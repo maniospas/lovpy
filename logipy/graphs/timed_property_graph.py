@@ -1,5 +1,6 @@
 import itertools
 import logging
+from copy import deepcopy
 
 import networkx
 from networkx.readwrite.graphml import write_graphml
@@ -61,6 +62,17 @@ class TimedPropertyGraph:
         matchings_on_self, _, _, _ = self.find_equivalent_subgraphs(other)
         matchings_on_other, _, _, _ = other.find_equivalent_subgraphs(self)
         return len(matchings_on_self) > 0 and len(matchings_on_other) > 0
+
+    def __deepcopy__(self, memo={}):
+        copy_obj = type(self)()
+        memo[id(self)] = copy_obj
+
+        for k, v in self.__dict__.items():
+            setattr(copy_obj, k, deepcopy(v, memo))
+
+        copy_obj.graph = copy_obj.graph.copy()  # Unfreeze copied graph.
+
+        return copy_obj
 
     def add_constant_property(self, constant_property):
         if not isinstance(constant_property, ConstantProperty):
@@ -136,7 +148,8 @@ class TimedPropertyGraph:
         matching_timestamps = modus_ponens.matching_paths_timestamps
 
         assumption, conclusion = \
-            modus_ponens.implication_graph.get_top_level_implication_subgraphs()
+            modus_ponens.actual_implication.get_top_level_implication_subgraphs()
+        conclusion = deepcopy(conclusion)
         assumption_timestamp = max(matching_timestamps)  # first moment assumption holds
 
         # Remove assumption from the graph.
@@ -1155,6 +1168,17 @@ class PredicateGraph(TimedPropertyGraph):
         self._add_node(self._predicate_node)
         for arg in args:
             self._add_argument(arg)
+
+    def __deepcopy__(self, memo={}):
+        copy_obj = type(self)(self._predicate_node.predicate, *self._predicate_node.arguments)
+        memo[id(self)] = copy_obj
+
+        for k, v in self.__dict__.items():
+            setattr(copy_obj, k, deepcopy(v, memo))
+
+        copy_obj.graph = copy_obj.graph.copy()  # Unfreeze copied graph.
+
+        return copy_obj
 
     def get_copy(self):
         # TODO: Provide a more elegant fix.
