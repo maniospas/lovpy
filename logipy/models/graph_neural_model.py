@@ -411,9 +411,9 @@ def convert_timedpropertygraph_to_stellargraph(graph: TimedPropertyGraph, encode
             out_timestamps = np.array(out_timestamps, dtype="float32")
             if normalization_value > 1.:
                 out_timestamps = out_timestamps / normalization_value
-            np.append(feature, [min(out_timestamps), max(out_timestamps)])
+            feature = np.append(feature, [min(out_timestamps), max(out_timestamps)])
         else:
-            np.append(feature, [0., 0.])
+            feature = np.append(feature, [0., 0.])
 
         node_features.append(feature)
 
