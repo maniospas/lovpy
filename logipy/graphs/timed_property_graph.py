@@ -63,6 +63,12 @@ class TimedPropertyGraph:
         matchings_on_other, _, _, _ = other.find_equivalent_subgraphs(self)
         return len(matchings_on_self) > 0 and len(matchings_on_other) > 0
 
+    def __hash__(self):
+        if networkx.is_frozen(self.graph):
+            return hash(self.graph)
+        else:
+            raise RuntimeError("Cannot hash a non-frozen property graph.")
+
     def __deepcopy__(self, memo={}):
         copy_obj = type(self)()
         memo[id(self)] = copy_obj
@@ -230,6 +236,9 @@ class TimedPropertyGraph:
             possible_modus_ponens.append(new_modus_ponens)
 
         return possible_modus_ponens
+
+    def freeze(self):
+        networkx.freeze(self.graph)
 
     def set_timestamp(self, timestamp):
         """Sets given timestamp, as the timestamp of all edges of the graph.

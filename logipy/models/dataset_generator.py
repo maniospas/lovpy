@@ -3,6 +3,7 @@ import random
 import string
 
 import logipy.logic.prover as prover
+import logipy.logic.properties as logipy_properties
 from logipy.monitor.monitored_predicate import Call, ReturnedBy, CalledBy
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, PredicateNode
 from logipy.graphs.timed_property_graph import (NoPositiveAndNegativePredicatesSimultaneously,
@@ -540,7 +541,7 @@ class DatasetGenerator:
         self.valid_properties_to_prove = \
             prover.negate_conclusion_part_of_properties(properties_to_prove)
         # Also keep the negation of properties to prove, to create negative samples.
-        self.invalid_properties = [prover.convert_implication_to_and(p)
+        self.invalid_properties = [logipy_properties.convert_implication_to_and(p)
                                    for p in properties_to_prove]
 
         self.negative_samples = []  # Contains all possible negative samples so far.

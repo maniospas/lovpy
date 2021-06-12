@@ -1,6 +1,8 @@
 import types
 import warnings
+import inspect
 
+from logipy.exceptions import PropertyNotHoldsException
 import logipy.logic.properties as logipy_properties
 from logipy.logic import prover
 from .monitored_predicate import *
@@ -9,6 +11,7 @@ from .time_source import global_stamp_and_increment
 
 MONITOR_ONLY_MONITORED_PREDICATES = True
 DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED = True
+KEEP_TRACK_OF_LAST_VERIFIED_FRAME = True
 
 _SPECIAL_NAMES = [
     '__abs__', '__add__', '__and__', '__call__', '__cmp__', '__coerce__',
@@ -55,12 +58,18 @@ class LogipyMethod:
 
     def __call__(self, *args, **kwargs):
         """Wrapper method for monitoring the calls on a callable object."""
-        global _property_exception_raised
-
         # A graph to include the state of caller, the state of args and the new steps.
         total_execution_graph = TimedPropertyGraph()
 
-        # Monitor "call" predicate on parent object.
+        total_execution_graph = self.__monitor_call__(total_execution_graph)
+        total_execution_graph = self.__monitor_called_by__(args, kwargs, total_execution_graph)
+        return self.__monitor_returned_by__(args, kwargs, total_execution_graph)
+
+    def __get__(self, instance, cls):
+        return types.MethodType(self, instance) if instance else self
+
+    def __monitor_call__(self, total_execution_graph):
+        """Monitor "call" predicate on parent object."""
         if self.__parent_object is not None and isinstance(self.__parent_object, LogipyPrimitive):
             current_timestamp = Timestamp(global_stamp_and_increment())
             call_predicate = Call(self.__method.__name__)
@@ -68,13 +77,14 @@ class LogipyMethod:
                 call_graph = call_predicate.convert_to_graph()
                 call_graph.set_timestamp(current_timestamp)
                 self.__parent_object.get_execution_graph().logical_and(call_graph)
-                if (not _property_exception_raised
-                        or not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED):
-                    prover.prove_set_of_properties(logipy_properties.get_global_properties(),
-                                                   self.__parent_object.get_execution_graph())
+                _verify_object_when_no_exception(self.__parent_object)
+
             total_execution_graph.logical_and(self.__parent_object.get_execution_graph())
 
-        # Monitor "called by" predicate on arguments passed to current call.
+        return total_execution_graph
+
+    def __monitor_called_by__(self, args, kwargs, total_execution_graph):
+        """Monitor "called by" predicate on arguments passed to current call."""
         args_list = list(args)
         args_list.extend(kwargs.values())
         for arg in args_list:
@@ -86,16 +96,17 @@ class LogipyMethod:
                     # Add the called by predicate to the execution graphs of all arguments.
                     called_by_graph = called_by_predicate.convert_to_graph()
                     called_by_graph.set_timestamp(current_timestamp)
-
                     arg.get_execution_graph().logical_and(called_by_graph)
-                    if (not _property_exception_raised
-                            or not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED):
-                        prover.prove_set_of_properties(logipy_properties.get_global_properties(),
-                                                       arg.get_execution_graph())
+                    _verify_object_when_no_exception(arg)
+
                 total_execution_graph.logical_and(arg.get_execution_graph())
 
+        return total_execution_graph
+
+    def __monitor_returned_by__(self, args, kwargs, total_execution_graph):
+        global _property_exception_raised
+
         # TODO: FIND THE BEST WAY TO DO THE FOLLOWING
-        # Monitor "returned by" predicate.
         try:
             ret = self.__method(*args, **kwargs)
         except Exception as err:
@@ -122,18 +133,13 @@ class LogipyMethod:
             returned_by_graph = returned_by_predicate.convert_to_graph()
             returned_by_graph.set_timestamp(current_timestamp)
             ret.get_execution_graph().logical_and(returned_by_graph)
-            if not _property_exception_raised or \
-                    not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED:
-                prover.prove_set_of_properties(logipy_properties.get_global_properties(),
-                                               ret.get_execution_graph())
+            _verify_object_when_no_exception(ret)
 
         return ret
 
-    def __get__(self, instance, cls):
-        return types.MethodType(self, instance) if instance else self
-
 
 class LogipyPrimitive:
+    """Wrapper for every python object, in order to be monitored by logipy."""
 
     __logipy_id_count = 0  # Counter for each instantiated LogipyPrimitive so far.
 
@@ -154,6 +160,12 @@ class LogipyPrimitive:
             previous_copy.logical_and(self.execution_graph)
             self.execution_graph = previous_copy
 
+        # Initialize a mapping between all properties to prove and the last frame they found
+        # to hold.
+        self.__properties_last_proved_frame = dict.fromkeys(
+            logipy_properties.get_global_properties_to_prove()
+        )
+
         self.__logipy_id = str(LogipyPrimitive.__logipy_id_count)
         LogipyPrimitive.__logipy_id_count += 1  # TODO: Make it thread safe.
 
@@ -171,6 +183,12 @@ class LogipyPrimitive:
 
     def get_execution_graph(self):
         return self.execution_graph
+
+    def __get_property_last_proved_frame__(self, prop):
+        return self.__properties_last_proved_frame.get(prop, None)
+
+    def __update_property_last_proved_frame__(self, prop, frame):
+        self.__properties_last_proved_frame[prop] = frame
 
     def __getattr__(self, method_name):
         # TODO: Rewrite function with a single exit point.
@@ -243,6 +261,46 @@ def logipy_warning(logipy_warning_message):
 def clear_previous_raised_exceptions():
     global _property_exception_raised
     _property_exception_raised = False
+
+
+def _verify_object_when_no_exception(o: LogipyPrimitive):
+    if not _property_exception_raised or not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED:
+        _verify_object(o)
+
+
+def _verify_object(o: LogipyPrimitive):
+    _prove_negative_properties(o)
+    if KEEP_TRACK_OF_LAST_VERIFIED_FRAME:
+        _prove_positive_properties(o)
+
+
+def _prove_negative_properties(o: LogipyPrimitive):
+    for p in logipy_properties.get_negative_properties_to_prove():
+        proved, theorems_applied, intermediate_graphs = prover.prove_property(
+            o.get_execution_graph(),
+            p,
+            logipy_properties.get_global_theorems()
+        )
+
+        if proved:
+            if prover.full_visualization_enabled:
+                prover.visualize_proving_process(intermediate_graphs, theorems_applied, p)
+            positive_property = logipy_properties.get_negative_to_positive_mapping()[p]
+            raise PropertyNotHoldsException(
+                p.get_property_textual_representation(),
+                o.__get_property_last_proved_frame__(positive_property)
+            )
+
+
+def _prove_positive_properties(o: LogipyPrimitive):
+    for p in logipy_properties.get_global_properties_to_prove():
+        proved, _, _ = prover.prove_property(
+            o.get_execution_graph(),
+            p,
+            logipy_properties.get_global_theorems()
+        )
+        if proved:
+            o.__update_property_last_proved_frame__(p, inspect.stack())
 
 
 def _make_primitive_method(method_name):

@@ -5,6 +5,7 @@ import numpy as np
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 
+import logipy.logic.properties
 from logipy.graphs.timed_property_graph import TimedPropertyGraph
 from logipy.graphs.logical_operators import NotOperator
 from . import io
@@ -46,7 +47,7 @@ class PredicatesMap:
     def _build_map(self):
         for prop in self.properties:
             import logipy.logic.prover as prover
-            basic_predicates = prover.convert_implication_to_and(prop).get_basic_predicates()
+            basic_predicates = logipy.logic.properties.convert_implication_to_and(prop).get_basic_predicates()
 
             for pred in basic_predicates:
                 base_text, _ = self._get_base_text(pred)
