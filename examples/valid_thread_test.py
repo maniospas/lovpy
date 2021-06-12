@@ -1,10 +1,9 @@
+"""ERROR EXAMPLE FROM: http://effbot.org/zone/thread-synchronization.htm"""
 import threading
 
-# ERROR EXAMPLE FROM: http://effbot.org/zone/thread-synchronization.htm
-
 lock = threading.Lock()
-
 obj = "ab"
+
 
 def get_first_part():
     lock.acquire()
@@ -14,6 +13,7 @@ def get_first_part():
         lock.release()
     return data
 
+
 def get_second_part():
     lock.acquire()
     try:
@@ -21,6 +21,7 @@ def get_second_part():
     finally:
         lock.release()
     return data
+
 
 def get_both_parts():
     # THIS WILL NOT HANG
@@ -38,6 +39,7 @@ def get_both_parts():
         # lock.release()
     return first, second
 
-#threading.Thread(target=get_first_part).start()
-#threading.Thread(target=get_second_part).start()
+
+# threading.Thread(target=get_first_part).start()
+# threading.Thread(target=get_second_part).start()
 get_both_parts()

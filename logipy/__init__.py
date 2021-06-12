@@ -1,5 +1,4 @@
 import sys
-import logging
 import atexit
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -10,7 +9,6 @@ if os.environ.get("LOGIPY_DISABLE_GPU", 0) == "1":
     tf.config.set_visible_devices([], 'GPU')
 
 from logipy.monitor.wrappers import *
-from logipy.importer.file_converter import cleanup
 from logipy.logic.rules import add_rule
 from logipy.monitor.wrappers import LogipyPrimitive as logipy_obj
 from logipy.monitor.wrappers import logipy_call as logipy_call
@@ -23,16 +21,11 @@ from . import config
 
 LOGGER_NAME = "logipy"
 
-
-logipy.importer.file_converter.convert_path()
-logipy.importer.gherkin_importer.import_gherkin_path()
-# TODO: Uncomment cleanup.
-# atexit.register(cleanup)
-atexit.register(config.teardown_logipy)
-sys.excepthook = logipy.exception_handler.logipy_exception_handler
-
 session_name = os.environ.get("LOGIPY_SESSION_NAME", "")
 config.tearup_logipy(session_name)
+
+atexit.register(config.teardown_logipy)
+sys.excepthook = logipy.exception_handler.logipy_exception_handler
 
 # Choose between neural and deterministic prover.
 if config.is_neural_selector_enabled():

@@ -1,6 +1,5 @@
 import sys
 import re
-from pathlib import Path
 from traceback import StackSummary, FrameSummary, TracebackException, extract_tb
 
 from .exceptions import PropertyNotHoldsException
@@ -69,23 +68,18 @@ def _clean_summary_from_file_modifications(summary: StackSummary):
     clean_summary.append(summary[0])  # The entry point is not currently modified by logipy.
 
     for frame in summary[1:]:
-        path = Path(frame.filename)
-        if path.suffix == ".py":
-            original_filename = str(path.with_suffix(".lpy"))
-            original_lineno = frame.lineno - 1  # 1 line added to the top for monitoring
+        original_lineno = frame.lineno - 1  # 1 line added to the top for monitoring
 
-            # Fixed proved indicator line.
-            name = frame.name
-            proved_label = "<-- LAST CORRECT LINE, line "
-            pos = name.find(proved_label)
-            if pos > -1:
-                proved_lineno = int(name[pos+len(proved_label):]) - 1
-                name = name[:pos+len(proved_label)] + str(proved_lineno)
+        # Fixed proved indicator line.
+        name = frame.name
+        proved_label = "<-- LAST CORRECT LINE, line "
+        pos = name.find(proved_label)
+        if pos > -1:
+            proved_lineno = int(name[pos+len(proved_label):]) - 1
+            name = name[:pos+len(proved_label)] + str(proved_lineno)
 
-            clean_summary.append(FrameSummary(original_filename, original_lineno,
-                                              name, line=frame.line))
-        else:
-            clean_summary.append(frame)
+        clean_summary.append(FrameSummary(frame.filename, original_lineno,
+                                          name, line=frame.line))
 
     return clean_summary
 

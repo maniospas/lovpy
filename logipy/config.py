@@ -8,6 +8,7 @@ from logipy.logic.next_theorem_selectors import set_default_theorem_selector, \
 import logipy.graphs
 import logipy.models
 import logipy.logic.prover
+from . import importer
 from logipy.models.neural_theorem_selector import NeuralNextTheoremSelector
 from logipy.models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
 from logipy.models.io import load_gnn_models
@@ -150,6 +151,7 @@ def tearup_logipy(session_name=""):
     if session_name:
         _logipy_session_name += f"_{session_name}"
 
+    _tearup_importer_module()
     _tearup_graphs_module()
     _tearup_models_module()
 
@@ -157,6 +159,8 @@ def tearup_logipy(session_name=""):
 def teardown_logipy():
     """Frees up resources allocated by logipy's modules."""
     _teardown_models_module()
+    _teardown_graphs_module()
+    _teardown_importer_module()
 
 
 def _tearup_graphs_module():
@@ -192,3 +196,13 @@ def _teardown_models_module():
     remove_scratchfile(get_scratchfile_path(CURRENT_GRAPH_FILENAME))
     remove_scratchfile(get_scratchfile_path(GOAL_GRAPH_FILENAME))
     remove_scratchfile(get_scratchfile_path(NEXT_GRAPH_FILENAME))
+
+
+def _tearup_importer_module():
+    importer.file_converter.logipy_root_path = LOGIPY_ROOT_PATH
+    logipy.importer.file_converter.convert_path()
+    logipy.importer.gherkin_importer.import_gherkin_path()
+
+
+def _teardown_importer_module():
+    importer.file_converter.restore_path()
