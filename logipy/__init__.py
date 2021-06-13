@@ -15,8 +15,8 @@ from logipy.monitor.wrappers import logipy_call as logipy_call
 import logipy.importer.file_converter
 import logipy.importer.gherkin_importer
 import logipy.exception_handler
-
 from . import config
+from .train_model import load_or_train_model
 
 
 LOGGER_NAME = "logipy"

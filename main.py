@@ -1,4 +1,5 @@
 import logipy
+logipy.load_or_train_model()
 from logipy.visualization_strategies import set_full_visualization_scheme
 # from logipy.visualization_strategies import set_proving_process_visualization_enabled
 
