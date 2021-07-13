@@ -28,10 +28,10 @@ config.tearup_logipy(session_name=session_name, temp_dir=temp_dir)
 atexit.register(config.teardown_logipy)
 sys.excepthook = logipy.exception_handler.logipy_exception_handler
 
-# Choose between neural and deterministic prover.
+# Choose between hybrid and deterministic prover.
 if config.is_neural_selector_enabled():
     logger = logging.getLogger(LOGGER_NAME)
-    if not config.set_theorem_selector(config.TheoremSelector.DGCNN):
+    if not config.set_theorem_selector(config.TheoremSelector.HYBRID):
         config.set_theorem_selector(config.TheoremSelector.DETERMINISTIC)
         logger.warning("\tTrain a model by executing train_model.py script.")
         logger.warning("\tFalling back to deterministic theorem prover.")
