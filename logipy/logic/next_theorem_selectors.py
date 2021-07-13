@@ -43,13 +43,9 @@ class BetterNextTheoremSelector(NextTheoremSelector):
             return None
 
 
-def set_default_theorem_selector(theorem_selector: NextTheoremSelector):
+def set_default_theorem_selector(theorem_selector):
     """Sets the default theorem selector to be used by prover."""
     global default_theorem_selector
-
-    if not isinstance(theorem_selector, NextTheoremSelector):
-        raise TypeError("Only subclasses of NextTheoremSelector can be used.")
-
     default_theorem_selector = theorem_selector
 
 

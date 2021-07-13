@@ -50,6 +50,7 @@ class TheoremSelector(Enum):
     DETERMINISTIC = 1
     SIMPLE_NN = 2
     DGCNN = 3
+    HYBRID = 4
 
 
 def get_scratchdir_path():
@@ -123,13 +124,22 @@ def set_theorem_selector(theorem_selector: TheoremSelector):
         logger.info("Setting theorem prover to the simple neural one.")
         set_default_theorem_selector(NeuralNextTheoremSelector())
 
-    elif theorem_selector is TheoremSelector.DGCNN:
+    elif theorem_selector is TheoremSelector.DGCNN or theorem_selector is TheoremSelector.HYBRID:
         selection_model, termination_model, encoder = load_gnn_models()
         if selection_model:
-            logger.info("Setting theorem prover to the graph neural one.")
-            set_default_theorem_selector(GraphNeuralNextTheoremSelector(
-                    selection_model, termination_model, encoder,
-                    export=GRAPH_VISUALIZE_SELECTION_PROCESS))
+            if theorem_selector is TheoremSelector.DGCNN:
+                logger.info("Setting theorem prover to the graph neural one.")
+                set_default_theorem_selector(GraphNeuralNextTheoremSelector(
+                        selection_model, termination_model, encoder,
+                        export=GRAPH_VISUALIZE_SELECTION_PROCESS))
+            else:
+                logger.info("Setting theorem prover to the hybrid one.")
+                selectors = [
+                    BetterNextTheoremSelector(),
+                    GraphNeuralNextTheoremSelector(selection_model, termination_model, encoder,
+                                                   export=GRAPH_VISUALIZE_SELECTION_PROCESS),
+                ]
+                set_default_theorem_selector(selectors)
         else:
             logger.warning("Logipy: No model found under {}".format(
                     str(get_models_dir_path(GRAPH_SELECTION_MODEL_NAME))))

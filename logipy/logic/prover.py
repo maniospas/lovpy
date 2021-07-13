@@ -39,50 +39,51 @@ def prove_property(execution_graph,
                    prove_if_fully_reduced=PROVE_IF_FULLY_REDUCED):
     """Proves that given property holds into given execution graph by utilizing given theorems.
 
-    :return:
-        -proved:
-        -theorems_applied:
-        -intermediate_graphs:
-    """
-    global prover_invocations
+    :param execution_graph: Execution graph into which given property should be proved.
+    :param property_graph: Graph of property to be proved.
+    :param theorems: Premises to be used for proving given property.
+    :param theorem_selector: Defines the method used for choosing next theorem. Can be either
+        an instance of NextTheoremSelector or list of NextTheoremSelector instances.
+        If such a list is provided, all contained theorem selectors are utilized, until
+        one is able to prove given property. Their order into the list defines their order
+        of utilization. If no selector is able to prove property, data from the first one
+        are returned.
+    :param prove_if_fully_reduced: If set to True, a property is considered proved only if
+        execution graph can be converted to its form. If set to False, it is enough for a
+        property to be contained into execution graph to be considered proved.
 
+    :return:
+        -proved: True in case given property has been proved, otherwise False.
+        -theorems_applied: A list containing all theorems applied during proving process.
+            This list is always returned, no matter if proving process was successful or not.
+        -intermediate_graphs: A list containing modified execution graphs, right after each
+            theorem application.
+    """
     if not theorem_selector:
         theorem_selector = get_default_theorem_selector()
 
-    temp_graph = execution_graph.get_copy()  # Modify a separate graph for each property.
-    temp_graph.add_constant_property(NoPositiveAndNegativePredicatesSimultaneously(temp_graph))
+    if not isinstance(theorem_selector, list):
+        theorem_selector = [theorem_selector]
 
-    proved = False
-    theorems_applied = []
-    intermediate_graphs = [temp_graph.get_copy()]
-    while len(theorems_applied) < MAX_PROOF_PATH:
-        possible_theorems = find_possible_theorem_applications(temp_graph, theorems)
-        if not possible_theorems:
-            break
+    all_theorems_applied = []
+    all_intermediate_graphs = []
 
-        next_theorem = theorem_selector.select_next(
-            temp_graph, possible_theorems, property_graph, theorems_applied, prover_invocations)
-        if not next_theorem:
-            break
-        # next_theorem.implication_graph.visualize("Next theorem to apply.")
-        apply_theorem(temp_graph, next_theorem)
-        # temp_graph.visualize("New execution graph.")
-        theorems_applied.append(next_theorem)
-        intermediate_graphs.append(temp_graph.get_copy())
+    for ts in theorem_selector:
+        proved, theorems_applied, intermediate_graphs = _prove_property_with_selector(
+            execution_graph,
+            property_graph,
+            theorems,
+            theorem_selector=ts,
+            prove_if_fully_reduced=prove_if_fully_reduced
+        )
 
-        if prove_if_fully_reduced:
-            # Check after each theorem application if property has been proved.
-            matches = temp_graph.find_subgraph_matches(property_graph)
-            proved = True if (matches and matches[0] == temp_graph) else False
-            if proved:
-                break
+        if proved:
+            return proved, theorems_applied, intermediate_graphs
 
-    if not prove_if_fully_reduced:
-        proved = True if temp_graph.contains_property_graph(property_graph) else False
+        all_theorems_applied.append(theorems_applied)
+        all_intermediate_graphs.append(intermediate_graphs)
 
-    prover_invocations += 1
-
-    return proved, theorems_applied, intermediate_graphs
+    return False, all_theorems_applied[0], all_intermediate_graphs[0]
 
 
 def get_all_possible_modus_ponens(graph, properties):
@@ -129,3 +130,46 @@ def visualize_proving_process(execution_graphs, theorems_applied, proved_propert
 def enable_full_visualization():
     global full_visualization_enabled
     full_visualization_enabled = True
+
+
+def _prove_property_with_selector(execution_graph,
+                                  property_graph,
+                                  theorems,
+                                  theorem_selector,
+                                  prove_if_fully_reduced=PROVE_IF_FULLY_REDUCED):
+    global prover_invocations
+
+    temp_graph = execution_graph.get_copy()  # Modify a separate graph for each property.
+    temp_graph.add_constant_property(NoPositiveAndNegativePredicatesSimultaneously(temp_graph))
+
+    proved = False
+    theorems_applied = []
+    intermediate_graphs = [temp_graph.get_copy()]
+    while len(theorems_applied) < MAX_PROOF_PATH:
+        possible_theorems = find_possible_theorem_applications(temp_graph, theorems)
+        if not possible_theorems:
+            break
+
+        next_theorem = theorem_selector.select_next(
+            temp_graph, possible_theorems, property_graph, theorems_applied, prover_invocations)
+        if not next_theorem:
+            break
+        # next_theorem.implication_graph.visualize("Next theorem to apply.")
+        apply_theorem(temp_graph, next_theorem)
+        # temp_graph.visualize("New execution graph.")
+        theorems_applied.append(next_theorem)
+        intermediate_graphs.append(temp_graph.get_copy())
+
+        if prove_if_fully_reduced:
+            # Check after each theorem application if property has been proved.
+            matches = temp_graph.find_subgraph_matches(property_graph)
+            proved = True if (matches and matches[0] == temp_graph) else False
+            if proved:
+                break
+
+    if not prove_if_fully_reduced:
+        proved = True if temp_graph.contains_property_graph(property_graph) else False
+
+    prover_invocations += 1
+
+    return proved, theorems_applied, intermediate_graphs
