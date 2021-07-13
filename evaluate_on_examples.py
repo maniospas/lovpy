@@ -37,6 +37,12 @@ def evaluate_proving_methods():
     logipy.config.set_theorem_selector(logipy.config.TheoremSelector.DGCNN)
     evaluate_on_examples(valid_script_paths, invalid_script_paths)
 
+    print("-" * 64)
+    print("Evaluating Hybrid prover.")
+    print("-" * 64)
+    logipy.config.set_theorem_selector(logipy.config.TheoremSelector.HYBRID)
+    evaluate_on_examples(valid_script_paths, invalid_script_paths)
+
 
 def evaluate_on_examples(valid_script_paths, invalid_script_paths):
     valid_to_valid = []  # TP

@@ -30,6 +30,11 @@ def evaluate():
         samples.append(s)
 
     print("-" * 80)
+    print("Evaluating hybrid proving system...")
+    print("-" * 80)
+    evaluate_hybrid_selector(samples)
+
+    print("-" * 80)
     print("Evaluating DGCNN proving system...")
     print("-" * 80)
     evaluate_dgcnn_selector(samples)
@@ -48,6 +53,15 @@ def evaluate():
     # print("Evaluating random selection proving system...")
     # print("-" * 80)
     # evaluate_random_selector(samples)
+
+
+def evaluate_hybrid_selector(samples):
+    selection_model, termination_model, encoder = load_gnn_models()
+    gnn_selector = GraphNeuralNextTheoremSelector(selection_model, termination_model, encoder)
+    det_selector = BetterNextTheoremSelector()
+    acc, fallout = evaluate_theorem_selector_on_samples([det_selector, gnn_selector],
+                                                        samples, verbose=True)
+    print("\tproving_acc: {} - proving_fallout: {}".format(round(acc, 4), round(fallout, 4)))
 
 
 def evaluate_dgcnn_selector(samples):

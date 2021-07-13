@@ -25,17 +25,23 @@ def evaluate_theorem_selector_on_samples(theorem_selector, samples, verbose=Fals
         -Accuracy metric.
         -Fallout metric.
     """
+    if not isinstance(theorem_selector, list):
+        theorem_selector = [theorem_selector]
 
     for i, s in enumerate(samples):
         if verbose:
             print("\t{}/{} validating...".format(i, len(samples)), end="\r")
 
-        proved, _, _ = prove_property(
-            s.current_graph,
-            s.goal,
-            s.all_theorems,
-            theorem_selector=theorem_selector
-        )
+        proved = False
+        for ts in theorem_selector:
+            proved, _, _ = prove_property(
+                s.current_graph,
+                s.goal,
+                s.all_theorems,
+                theorem_selector=ts
+            )
+            if proved:
+                break
 
         if i == 0:
             predicted_proved = int(proved)
