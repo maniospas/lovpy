@@ -22,7 +22,8 @@ from .train_model import load_or_train_model
 LOGGER_NAME = "logipy"
 
 session_name = os.environ.get("LOGIPY_SESSION_NAME", "")
-config.tearup_logipy(session_name)
+temp_dir = os.environ.get("LOGIPY_TEMP_DIR", None)
+config.tearup_logipy(session_name=session_name, temp_dir=temp_dir)
 
 atexit.register(config.teardown_logipy)
 sys.excepthook = logipy.exception_handler.logipy_exception_handler

@@ -1,4 +1,5 @@
 import logging
+import tempfile
 from enum import Enum
 from pathlib import Path
 from datetime import datetime
@@ -19,7 +20,6 @@ LOGIPY_ROOT_PATH = Path(__file__).absolute().parent  # Absolute path of logipy's
 LOGGER_NAME = "logipy"
 
 # Attributes controlling graph visualization.
-SCRATCHDIR_PATH = LOGIPY_ROOT_PATH.parent / "_temp/"
 GRAPHVIZ_OUT_FILE = 'temp_graphviz_out.png'
 
 # Attributes controlling models module.
@@ -42,6 +42,7 @@ NEXT_GRAPH_FILENAME = "temp_next.jpg"
 GRAPH_MODEL_TRAIN_OUTPUT_DIR = "train_gnn"
 
 _logipy_session_name = ""  # A name of the session to be appended to the output directories.
+_logipy_temp_dir = Path(tempfile.gettempdir()) / "__logipy_temp__/"
 
 
 class TheoremSelector(Enum):
@@ -51,15 +52,19 @@ class TheoremSelector(Enum):
     DGCNN = 3
 
 
+def get_scratchdir_path():
+    global _logipy_session_name
+    return _logipy_temp_dir / _logipy_session_name
+
+
 def get_scratchfile_path(filename):
     """Returns absolute path of a file with given filename into logipy's scratchdir.
 
     If scratchdir doesn't exist, it is created first.
     """
-    global _logipy_session_name
-    current_instance_scratchdir = SCRATCHDIR_PATH / _logipy_session_name
+    current_instance_scratchdir = get_scratchdir_path()
     if not current_instance_scratchdir.exists():
-        current_instance_scratchdir.mkdir()
+        current_instance_scratchdir.mkdir(parents=True)
     return current_instance_scratchdir / filename
 
 
@@ -68,15 +73,20 @@ def remove_scratchfile(filename):
 
     If removing the file empties scratchdir, scratchdir is also removed.
     """
+    global _logipy_session_name
+
     if filename.is_absolute():
         absolute_scratchfile_path = filename
     else:
-        absolute_scratchfile_path = SCRATCHDIR_PATH / filename
+        absolute_scratchfile_path = get_scratchfile_path(filename)
 
-    if Path(absolute_scratchfile_path).is_file():
+    if absolute_scratchfile_path.is_file():
         absolute_scratchfile_path.unlink()
-    if SCRATCHDIR_PATH.is_dir() and not any(SCRATCHDIR_PATH.iterdir()):
-        SCRATCHDIR_PATH.rmdir()
+    # Remove scratchdir if empty.
+    if get_scratchdir_path() and not any(get_scratchdir_path().iterdir()):
+        get_scratchdir_path().rmdir()
+    if not any(_logipy_temp_dir.iterdir()):
+        _logipy_temp_dir.rmdir()
 
 
 def get_models_dir_path(filename=None):
@@ -143,13 +153,21 @@ def enable_proving_process_visualization():
         current_theorem_selector.export = True
 
 
-def tearup_logipy(session_name=""):
+def tearup_logipy(session_name="", temp_dir=None):
     """Initializes logipy's modules."""
-    # Generate session name.
     global _logipy_session_name
+    global _logipy_temp_dir
+
+    # Generate session name.
     _logipy_session_name = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
     if session_name:
         _logipy_session_name += f"_{session_name}"
+
+    if temp_dir:
+        _logipy_temp_dir = Path(temp_dir).absolute()
+        logging.getLogger(LOGGER_NAME).warning("-"*80)
+        logging.getLogger(LOGGER_NAME).warning(f"Set logipy's temp dir to {str(_logipy_temp_dir)}")
+        logging.getLogger(LOGGER_NAME).warning("-" * 80)
 
     _tearup_importer_module()
     _tearup_graphs_module()
