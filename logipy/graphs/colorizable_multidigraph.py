@@ -97,7 +97,7 @@ class ColorizableMultiDiGraph(networkx.MultiDiGraph):
             # Remove any colorized edge leading towards a fully colorized subDAG.
             for e in successors_edges:
                 if self.is_node_out_colorized(e[1]):
-                    self.remove_edge(root, e[1])
+                    self.remove_edge(root, e[1], key=e[2])
                 self.disconnect_fully_colorized_sub_dag(root=e[1])
 
             # Finally, cleanup orphan nodes.
