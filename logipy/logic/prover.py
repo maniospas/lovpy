@@ -111,13 +111,35 @@ def apply_theorem(graph, theorem_application):
     return graph.apply_modus_ponens(theorem_application)
 
 
-def visualize_proving_process(execution_graphs, theorems_applied, proved_property):
+def visualize_proving_process(execution_graphs, theorems_applied, proved_property,
+                              display_assumption=True):
+    """Visualizes a proving process by displaying a sequence of figures.
+
+    :param execution_graphs: A sequence of TimedPropertyGraph objects with each one containing
+            a single evolution of execution graph through the proving process. List starts
+            with initial execution graph, just before applying any theorem.
+    :param theorems_applied: A sequence of TimedPropertyGraph objects, containing the theorems
+            applied in order to evolve execution graph. theorems_applied[i] should be the
+            theorem used on execution_graphs[i], in order to obtain execution_graphs[i+1].
+    :param proved_property: The property that was finally proved, in the form of a
+            TimedPropertyGraph object.
+    :param display_assumption: If set to True, assumption matching of theorems is displayed
+            onto execution graphs with a different color.
+    """
+    if display_assumption:
+        execution_graphs[0].colorize_subgraph(
+            theorems_applied[0].actual_implication.get_top_level_implication_subgraphs()[0])
     execution_graphs[0].visualize("Initial graph for proving process.")
+    execution_graphs[0].clear_colorization()
 
     # Visualize proving process.
     for i in range(len(theorems_applied)):
         theorems_applied[i].actual_implication.visualize(f"Theorem Applied #{i}")
+        if display_assumption and i < len(theorems_applied)-1:
+            execution_graphs[i+1].colorize_subgraph(
+                theorems_applied[i+1].actual_implication.get_top_level_implication_subgraphs()[0])
         execution_graphs[i+1].visualize(f"Graph after applying theorem #{i}")
+        execution_graphs[i+1].clear_colorization()
 
     # Visualize how the property was found not to hold.
     matching_cases, _, _, _ = execution_graphs[-1].find_equivalent_subgraphs(proved_property)

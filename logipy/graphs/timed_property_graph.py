@@ -647,6 +647,24 @@ class TimedPropertyGraph:
             self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME] = \
                 old_timestamp.get_shifted_timestamp(shift)
 
+    def colorize_subgraph(self, subgraph):
+        """Colorizes given subgraph in current graph.
+
+        If multiple occurrences are found, colorizes the first one.
+
+        :raises RuntimeError: When given subgraph is not actually a subgraph of current graph.
+        """
+
+        matching_cases, _, _, _ = self.find_equivalent_subgraphs(subgraph)
+        if matching_cases:
+            for path in matching_cases[0]:
+                self.graph.colorize_path(path)
+        else:
+            raise RuntimeError("Given graph is not a subgraph of current one.")
+
+    def clear_colorization(self):
+        self.graph.clear_colorization()
+
     def _get_top_level_implication_edges(self):
         assumption_edge = None
         conclusion_edge = None
