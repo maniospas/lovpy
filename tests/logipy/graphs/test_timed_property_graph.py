@@ -399,6 +399,36 @@ class TestTimedPropertyGraph(unittest.TestCase):
 
         self.assertNotEqual(graph1, graph2)
 
+    def test_insert(self):
+        # Build predicates.
+        p = PredicateGraph("P", MonitoredVariable("VAR"))
+        p.set_timestamp(Timestamp(2))
+        q = PredicateGraph("Q", MonitoredVariable("VAR"))
+        q.set_timestamp(Timestamp(5))
+        r = PredicateGraph("R", MonitoredVariable("VAR"))
+        r.set_timestamp(Timestamp(31))
+
+        # Build base graph.
+        graph = deepcopy(p)
+        graph.logical_and(q)
+        graph.logical_and(r)
+        # graph.visualize(title="Base Graph")
+
+        # Build insertion graph.
+        new_q = deepcopy(q)
+        new_q.set_timestamp(Timestamp(15))
+        # new_q.visualize(title="Inserted Graph")
+
+        self.assertFalse(graph.find_equivalent_subgraphs(new_q)[0])
+
+        final = deepcopy(graph)
+        n = list(final.graph.in_edges(q.get_root_node()))
+        final.insert(new_q, n[0][0])
+        # final.visualize(title="Final Graph")
+
+        self.assertTrue(final.find_equivalent_subgraphs(new_q)[0])
+        self.assertTrue(final.find_equivalent_subgraphs(graph)[0])
+
     @staticmethod
     def _generate_sample_execution_graph_1():
         predicates = TestTimedPropertyGraph._generate_sample_execution_graph_1_predicates()

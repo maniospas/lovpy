@@ -5,7 +5,7 @@ from copy import deepcopy
 import networkx
 from networkx.readwrite.graphml import write_graphml
 from networkx.algorithms.simple_paths import all_simple_edge_paths
-from networkx.algorithms.dag import topological_sort
+from networkx.algorithms.dag import topological_sort, descendants
 from networkx.drawing.nx_agraph import to_agraph
 from networkx.exception import NodeNotFound
 from matplotlib import pyplot as plt
@@ -139,6 +139,40 @@ class TimedPropertyGraph:
         self._add_edge(impl_node, property_graph.get_root_node(),
                        {TIMESTAMP_PROPERTY_NAME: conclusion_timestamp,
                        IMPLICATION_PROPERTY_NAME: CONCLUSION_GRAPH})
+
+    def insert(self, graph, n):
+        """Inserts given graph at specified node position.
+
+        :param graph: TimedPropertyGraph to insert into current graph.
+        :param n: Node of current graph where inserted graph will be placed.
+        """
+        # Add graph as an unconnected component.
+        for edge in graph.get_graph().edges(data=TIMESTAMP_PROPERTY_NAME):
+            self._add_edge(edge[0], edge[1], {TIMESTAMP_PROPERTY_NAME: edge[2]},
+                           update_if_exists=True)
+
+        # Intervene an AND node to connect the inserted unconnected component.
+        if n:
+            and_node = AndOperator(n, graph.get_root_node())
+
+            # Move all incoming edges from target node to the new AND node.
+            predecessor_edges = list(self.graph.in_edges(n, keys=True))
+            for p_edge in predecessor_edges:
+                t = self.graph.edges[p_edge[0], p_edge[1], p_edge[2]][TIMESTAMP_PROPERTY_NAME]
+                self.graph.remove_edge(p_edge[0], p_edge[1], key=p_edge[2])
+                self._add_edge(p_edge[0], and_node, {TIMESTAMP_PROPERTY_NAME: t})
+
+            # Connect the new AND node with target node and root of unconnected component.
+            old_part_timestamp = self._find_subgraph_most_recent_timestamp(n)
+            new_part_timestamp = graph.get_most_recent_timestamp()
+            self._add_edge(and_node, n, {TIMESTAMP_PROPERTY_NAME: old_part_timestamp})
+            self._add_edge(and_node, graph.get_root_node(),
+                           {TIMESTAMP_PROPERTY_NAME: new_part_timestamp})
+
+            self._fix_upper_timestamps(and_node)
+            self._fix_orphan_logical_operators()
+
+        self._apply_all_constant_properties()
 
     def apply_modus_ponens(self, modus_ponens):
         """Applies given modus ponens operation on current graph.
@@ -519,6 +553,7 @@ class TimedPropertyGraph:
         return matching_cases, matched_paths, original_timestamps, matching_cases_timestamps
 
     def find_subgraph_matches(self, other):
+        """Returns all matching cases of given graph, with matching timestamps."""
         subgraph_matches = []
 
         _, matched_paths, _, matching_cases_timestamps = self.find_equivalent_subgraphs(other)
@@ -797,9 +832,12 @@ class TimedPropertyGraph:
             break
         return last_common_node
 
-    def _find_subgraph_most_recent_timestamp(self, source):
-        return max([self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME]
-                    for e in self.graph.edges])
+    def _find_subgraph_most_recent_timestamp(self, source=None):
+        if source:
+            edges = self.graph.edges(descendants(self.graph, source), keys=True)
+        else:
+            edges = self.graph.edges(keys=True)
+        return max([self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME] for e in edges])
 
     def _get_assumption_conclusion_edges_timestamps(self):
         """Returns the timestamps of top-level edges to assumption, conclusion subgraphs."""
@@ -1035,6 +1073,24 @@ class TimedPropertyGraph:
         assumption.logical_implication(conclusion)
 
         return assumption
+
+    def _fix_upper_timestamps(self, n):
+        """Propagates newest timestamp of out edges to upper edges of given node.
+
+        :param n: Node from which will start propagating newest timestamp upwards.
+        """
+        in_edges = list(self.graph.in_edges(n, data=TIMESTAMP_PROPERTY_NAME, keys=True))
+
+        if len(in_edges) > 1:
+            raise NotImplementedError(
+                    "Fixing of upper timestamps only works for single in edge nodes.")
+        elif len(in_edges) == 1:
+            max_out_timestamp = max(
+                    [e[2] for e in self.graph.edges(n, data=TIMESTAMP_PROPERTY_NAME)])
+            e = in_edges[0]
+            if max_out_timestamp > e[3]:
+                self.graph.edges[e[0], e[1], e[2]][TIMESTAMP_PROPERTY_NAME] = max_out_timestamp
+                self._fix_upper_timestamps(e[0])
 
     # def find_time_matching_paths_from_node_to_root(self, start_node, other_graph,
     #                                                other_start_node):
