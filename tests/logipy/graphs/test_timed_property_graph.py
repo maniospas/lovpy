@@ -399,6 +399,37 @@ class TestTimedPropertyGraph(unittest.TestCase):
 
         self.assertNotEqual(graph1, graph2)
 
+    def test_find_subgraph_matches(self):
+        # Build timed graph.
+        p1 = PredicateGraph("P", MonitoredVariable("VAR"))
+        p1.set_timestamp(Timestamp(2))
+        p2 = PredicateGraph("P", MonitoredVariable("VAR"))
+        p2.set_timestamp(Timestamp(4))
+        q = PredicateGraph("Q", MonitoredVariable("VAR"))
+        q.set_timestamp(Timestamp(11))
+        graph = deepcopy(p1)
+        graph.logical_and(p2)
+        graph.logical_and(q)
+        # graph.visualize("Base Graph")
+
+        # Build abstract timed graph.
+        pa = PredicateGraph("P", MonitoredVariable("VAR"))
+        pa.set_timestamp(LesserThanRelativeTimestamp(-1))
+        qa = PredicateGraph("Q", MonitoredVariable("VAR"))
+        qa.set_timestamp(RelativeTimestamp(0))
+        abstract_graph = deepcopy(pa)
+        abstract_graph.logical_and(qa)
+        # abstract_graph.visualize("Abstract Graph")
+
+        matching_subgraphs = graph.find_subgraph_matches(abstract_graph)
+        self.assertEqual(len(matching_subgraphs), 2)
+
+        # for i, sg in enumerate(matching_subgraphs):
+        #     graph.colorize_subgraph(sg)
+        #     graph.visualize(f"Matching #{i}")
+        #     sg.visualize(f"Matched #{i}")
+        #     graph.clear_colorization()
+
     def test_insert(self):
         # Build predicates.
         p = PredicateGraph("P", MonitoredVariable("VAR"))
