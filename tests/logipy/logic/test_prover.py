@@ -1,9 +1,11 @@
 import unittest
+from copy import deepcopy
 
 from tests.logipy.importer.sample_properties import get_threading_sample_properties
 from logipy.monitor.monitored_predicate import Call, ReturnedBy
 from logipy.graphs.timestamps import Timestamp
 from logipy.logic.prover import *
+from logipy.logic.properties import split_into_theorems_and_properties_to_prove
 
 
 class TestProver(unittest.TestCase):
@@ -95,5 +97,71 @@ class TestProver(unittest.TestCase):
         self.assertRaises(PropertyNotHoldsException, prove_set_of_properties,
                           properties, total_graph)
 
+    def test_prove_property_with_provable_property(self):
+        call_acquire = Call("acquire").convert_to_graph()
+        call_acquire.set_timestamp(Timestamp(4))
 
+        call_release = Call("release").convert_to_graph()
+        call_release.set_timestamp(Timestamp(11))
 
+        call_acquire2 = Call("acquire").convert_to_graph()
+        call_acquire2.set_timestamp(Timestamp(127))
+
+        call_release2 = Call("release").convert_to_graph()
+        call_release2.set_timestamp(Timestamp(229))
+
+        call_acquire3 = Call("acquire").convert_to_graph()
+        call_acquire3.set_timestamp(Timestamp(310))
+
+        total_graph = deepcopy(call_acquire)
+        total_graph.logical_and(call_release)
+        total_graph.logical_and(call_acquire2)
+        total_graph.logical_and(call_release2)
+        total_graph.logical_and(call_acquire3)
+        # total_graph.visualize("Base Graph")
+
+        theorems, properties_to_prove = split_into_theorems_and_properties_to_prove(
+            get_threading_sample_properties())
+        # for i, t in enumerate(theorems):
+        #     t.visualize(f"Theorem #{i+1}")
+        # for i, p in enumerate(properties_to_prove):
+        #     p.visualize(f"Property #{i+1}")
+
+        proved, theorems, intermediate = prove_property(total_graph, properties_to_prove[0],
+                                                        theorems)
+        self.assertTrue(proved)
+        
+        # visualize_proving_process(intermediate, theorems, properties_to_prove[0],
+        #                           display_assumption=False)
+
+    def test_find_possible_theorem_applications(self):
+        call_acquire = Call("acquire").convert_to_graph()
+        call_acquire.set_timestamp(Timestamp(4))
+
+        call_release = Call("release").convert_to_graph()
+        call_release.set_timestamp(Timestamp(11))
+
+        call_acquire2 = Call("acquire").convert_to_graph()
+        call_acquire2.set_timestamp(Timestamp(127))
+
+        call_release2 = Call("release").convert_to_graph()
+        call_release2.set_timestamp(Timestamp(229))
+
+        call_acquire3 = Call("acquire").convert_to_graph()
+        call_acquire3.set_timestamp(Timestamp(310))
+
+        total_graph = deepcopy(call_acquire)
+        total_graph.logical_and(call_release)
+        total_graph.logical_and(call_acquire2)
+        total_graph.logical_and(call_release2)
+        total_graph.logical_and(call_acquire3)
+        # total_graph.visualize("Base Graph")
+
+        theorems, properties_to_prove = split_into_theorems_and_properties_to_prove(
+            get_threading_sample_properties())
+
+        next_theorems = find_possible_theorem_applications(total_graph, theorems)
+        # for i, t in enumerate(next_theorems):
+        #     t.actual_implication.visualize(f"Theorem Application #{i+1}")
+
+        self.assertEqual(len(next_theorems), 3)
