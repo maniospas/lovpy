@@ -131,8 +131,7 @@ def convert_property_graph_to_matrix(property_graph, predicates_map):
         predicates_timestamp = []
         max_timestamp = property_graph.get_most_recent_timestamp()
         # Clean predicates from the ones not belonging in any properties.
-        for i in range(len(predicates)):
-            p = predicates[i]
+        for i, p in enumerate(predicates):
             p_id = predicates_map[p]
             if p_id > 0:
                 predicates_id.append(p_id)
