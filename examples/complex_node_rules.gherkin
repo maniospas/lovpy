@@ -1,0 +1,32 @@
+SCENARIO:
+    WHEN call perform_maintainance
+    THEN performing_maintainance
+
+SCENARIO:
+    WHEN call checkpoint
+    THEN checkpoint_reached
+
+SCENARIO:
+    GIVEN performing_maintainance
+    AND checkpoint_reached
+    WHEN low_resources
+    THEN NOT able_to_report
+
+SCENARIO:
+    GIVEN performing_maintainance
+    WHEN checkpoint_reached
+    THEN able_to_report
+
+SCENARIO:
+    GIVEN call receive_big_data
+    WHEN call request_data_processing
+    THEN low_resources
+
+SCENARIO:
+    GIVEN low_resources
+    WHEN call offload
+    THEN NOT low_resources
+
+SCENARIO:
+    WHEN call visualize
+    THEN SHOULD able_to_report

@@ -6,6 +6,7 @@ from logipy.monitor.monitored_predicate import Call, ReturnedBy
 from logipy.graphs.timestamps import Timestamp
 from logipy.logic.prover import *
 from logipy.logic.properties import split_into_theorems_and_properties_to_prove
+from logipy.importer.gherkin_importer import convert_gherkin_to_graphs
 
 
 class TestProver(unittest.TestCase):
@@ -165,3 +166,88 @@ class TestProver(unittest.TestCase):
         #     t.actual_implication.visualize(f"Theorem Application #{i+1}")
 
         self.assertEqual(len(next_theorems), 3)
+
+    def test_prover_with_non_chronological_theorems(self):
+        gherkin = """
+            SCENARIO:
+                WHEN call perform_maintainance
+                THEN performing_maintainance
+            
+            SCENARIO:
+                WHEN call checkpoint
+                THEN checkpoint_reached
+            
+            SCENARIO:
+                GIVEN performing_maintainance
+                AND checkpoint_reached
+                WHEN low_resources
+                THEN NOT able_to_report
+            
+            SCENARIO:
+                GIVEN performing_maintainance
+                WHEN checkpoint_reached
+                THEN able_to_report
+            
+            SCENARIO:
+                GIVEN call receive_big_data
+                WHEN call request_heavy_processing
+                THEN low_resources
+            
+            SCENARIO:
+                GIVEN low_resources
+                WHEN call offload
+                THEN NOT low_resources
+            
+            SCENARIO:
+                WHEN call visualize
+                THEN SHOULD able_to_report
+        """
+        graphs = convert_gherkin_to_graphs(gherkin)
+
+        theorems, properties_to_prove = split_into_theorems_and_properties_to_prove(graphs)
+
+        for i, t in enumerate(theorems):
+            t.visualize(f"Theorem #{i+1}")
+        for i, p in enumerate(properties_to_prove):
+            p.visualize(f"Property #{i+1}")
+
+        call_maint = Call("perform_maintainance").convert_to_graph()
+        call_maint.set_timestamp(Timestamp(3))
+        call_rec_big_data = Call("receive_big_data").convert_to_graph()
+        call_rec_big_data.set_timestamp(Timestamp(6))
+        call_checkpoint = Call("checkpoint").convert_to_graph()
+        call_checkpoint.set_timestamp(Timestamp(9))
+        call_proc = Call("request_heavy_processing").convert_to_graph()
+        call_proc.set_timestamp(Timestamp(12))
+        call_vis = Call("visualize").convert_to_graph()
+        call_vis.set_timestamp(Timestamp(15))
+        call_offload = Call("offload").convert_to_graph()
+        call_offload.set_timestamp(Timestamp(20))
+        base_graph = deepcopy(call_maint)
+        base_graph.logical_and(call_rec_big_data)
+        base_graph.logical_and(call_checkpoint)
+        base_graph.logical_and(call_proc)
+        base_graph.logical_and(call_vis)
+        # base_graph.logical_and(call_offload)
+        # base_graph.visualize("Base Graph")
+
+        proved, theorems, intermediate = prove_property(base_graph, properties_to_prove[0],
+                                                        theorems)
+        # self.assertTrue(proved)
+
+        # visualize_proving_process(intermediate, theorems, properties_to_prove[0],
+        #                           display_assumption=False)
+
+        # # Manually apply theorems in correct order.
+        # theorem_application_sequence = [theorems[0], theorems[1], theorems[4],
+        #                                 theorems[2]]
+        # for i, t in enumerate(theorem_application_sequence):
+        #     modus_ponenses = base_graph.find_all_possible_modus_ponens(t)
+        #     # base_graph.colorize_subgraph(
+        #     #     modus_ponenses[0].actual_implication.get_top_level_implication_subgraphs()[0])
+        #     modus_ponenses[0].actual_implication.visualize(f"Theorem Application #{i+1}")
+        #     base_graph.visualize(f"Graph before applying theorem #{i + 1}", show_colorization=False)
+        #     base_graph.clear_colorization()
+        #     base_graph.apply_modus_ponens(modus_ponenses[0])
+        #
+        # base_graph.visualize("Final graph")
