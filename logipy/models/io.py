@@ -168,18 +168,27 @@ def visualize_three_graphs(current_graph, goal_graph, next_graph,
 
     # Export to disk temp jpg images of the three graphs.
     a_graph1.layout("dot")
+    a_graph1.graph_attr.update(dpi=300.0)
+    a_graph1.graph_attr.update(size=4)
+    a_graph1.graph_attr.update(bgcolor="transparent")
     a_graph1.draw(current_graph_path)
     a_graph2.layout("dot")
+    a_graph2.graph_attr.update(dpi=300.0)
+    a_graph2.graph_attr.update(size=4)
+    a_graph2.graph_attr.update(bgcolor="transparent")
     a_graph2.draw(goal_graph_path)
     if next_graph:
         a_graph3.layout("dot")
+        a_graph3.graph_attr.update(dpi=300.0)
+        a_graph3.graph_attr.update(size=4)
+        a_graph3.graph_attr.update(bgcolor="transparent")
         a_graph3.draw(next_graph_path)
 
     # Plot the three graph images side by side.
-    f, axarr = plt.subplots(1, 3, num=None, figsize=(54, 18), dpi=80,
+    f, axarr = plt.subplots(1, 3, num=None, figsize=(12, 4), dpi=300,
                             facecolor='w', edgecolor='w')
     f.tight_layout()
-    f.suptitle(title, fontsize=40, fontweight='bold')
+    f.suptitle(title, fontsize=15, fontweight='bold')
     axarr[0].imshow(mpimage.imread(current_graph_path))
     axarr[1].imshow(mpimage.imread(goal_graph_path))
     if next_graph:

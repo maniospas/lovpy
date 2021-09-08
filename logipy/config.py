@@ -35,9 +35,9 @@ GRAPH_ENCODER_NAME = "graph_nodes_encoder"
 GRAPH_SELECTOR_EXPORT_DIR = "dgcnn_selector"
 GRAPH_VISUALIZE_SELECTION_PROCESS = False
 # Constants for sample visualization.
-CURRENT_GRAPH_FILENAME = "temp_current.jpg"
-GOAL_GRAPH_FILENAME = "temp_goal.jpg"
-NEXT_GRAPH_FILENAME = "temp_next.jpg"
+CURRENT_GRAPH_FILENAME = "temp_current.png"
+GOAL_GRAPH_FILENAME = "temp_goal.png"
+NEXT_GRAPH_FILENAME = "temp_next.png"
 # Constants for training samples export.
 GRAPH_MODEL_TRAIN_OUTPUT_DIR = "train_gnn"
 

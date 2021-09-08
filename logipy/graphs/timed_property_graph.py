@@ -427,6 +427,7 @@ class TimedPropertyGraph:
         prop_graph = self.get_copy()
         prop_graph.graph.graph['label'] = title
         prop_graph.graph.graph['labelloc'] = 't'
+        prop_graph.graph.graph['fontname'] = 'Segoe UI'
 
         for e in prop_graph.graph.edges:
             # Set label text of each edge.
@@ -436,6 +437,7 @@ class TimedPropertyGraph:
             prop_graph.graph.edges[e[0], e[1], e[2]]['color'] = \
                 'red' if prop_graph.graph.is_edge_colorized(e[0], e[1], e[2]) else 'black'
             prop_graph.graph.edges[e[0], e[1], e[2]]['fontcolor'] = 'red'
+            prop_graph.graph.edges[e[0], e[1], e[2]]['fontname'] = 'Segoe UI'
         for n in prop_graph.graph.nodes:
             # Set label of each node.
             prop_graph.graph.nodes[n]['label'] = \
@@ -453,15 +455,18 @@ class TimedPropertyGraph:
             prop_graph.graph.nodes[n]['color'] = node_color
             prop_graph.graph.nodes[n]['fillcolor'] = node_color
             prop_graph.graph.nodes[n]['style'] = 'filled'
+            prop_graph.graph.nodes[n]['fontname'] = 'Segoe UI'
 
         return to_agraph(prop_graph.graph)
 
     def visualize(self, title="", show_colorization=False, export_path=None):
-        plt.figure(num=None, figsize=(18, 18), dpi=80, facecolor='w', edgecolor='w')
+        plt.figure(num=None, figsize=(4, 4), dpi=300, facecolor='w', edgecolor='w')
         plt.axis('off')
         plt.tight_layout()
         a_graph = self.to_agraph(title, show_colorization)
         a_graph.layout('dot')
+        a_graph.graph_attr.update(dpi=300)
+        a_graph.graph_attr.update(size=4)
         path = graphviz_out_scratchfile_path
         a_graph.draw(path)
         plt.imshow(mpimage.imread(path))
