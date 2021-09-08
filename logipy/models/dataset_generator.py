@@ -29,6 +29,7 @@ class DatasetEntity:
         self.current_validity_intervals = []       # Intervals during which current predicates hold.
         self.timesource = TimeSource()             # A local timesource for building exec graph.
         self.suppressed_predicates = set()
+        self.shifts_history = []                   # List of performed timestamp shifts.
 
         # Attributes referring to the property that should be finally proved.
         self.goal = None                   # Property to finally be proved.
@@ -52,6 +53,7 @@ class DatasetEntity:
         new_entity.current_validity_intervals = self.current_validity_intervals.copy()
         new_entity.timesource = copy(self.timesource)
         new_entity.suppressed_predicates = self.suppressed_predicates
+        new_entity.shifts_history = copy(self.shifts_history)
 
         # Attributes referring to the property that should be finally proved.
         new_entity.goal = self.goal.get_copy()
@@ -92,7 +94,7 @@ class DatasetEntity:
         self.current_graph.logical_and(property_instance)
 
         self._update_timesource()
-        self._shift_current_graph_timestamps()
+        self.shift_current_graph_timestamps()
         non_monitored_predicates, non_monitored_intervals = \
             get_non_monitored_predicates(self.goal_predicates, self.goal_validity_intervals)
         self._update_suppressed_predicates(non_monitored_predicates, non_monitored_intervals)
@@ -115,7 +117,7 @@ class DatasetEntity:
         self._update_suppressed_predicates(
             [instance], [[instance.get_most_recent_timestamp().get_absolute_value(), "inf"]]
         )
-        self._shift_current_graph_timestamps()
+        self.shift_current_graph_timestamps()
         self._update_timesource()
 
     def contains_property_to_prove(self):
@@ -174,7 +176,7 @@ class DatasetEntity:
         next_theorem = reverse_theorem_application.actual_implication
         self.next_theorem = next_theorem
         self.current_graph.apply_modus_ponens(reverse_theorem_application)
-        self._shift_current_graph_timestamps()
+        self.shift_current_graph_timestamps()
         self._update_timesource()
 
         basic_predicates = self.current_graph.get_basic_predicates()
@@ -208,7 +210,30 @@ class DatasetEntity:
         """Returns True if proving process of goal into current graph should terminate."""
         return not self.is_provable or not self.application_sequence
 
-    def visualize(self, title="Sample", export_path=None):
+    def shift_current_graph_timestamps(self, shift=None):
+        if not shift:
+            paths = self.current_graph.get_all_paths()
+            paths.sort(key=lambda path: path.timestamp)
+            min_shift = 0
+            if paths[0].timestamp.get_absolute_value() < 0:
+                min_shift = -paths[0].timestamp.get_absolute_value()
+
+            shift = random.randint(min_shift, min_shift + 10)
+
+        self.current_graph.shift_graph_timestamps(shift)
+        if self.next_theorem:
+            self.next_theorem.shift_graph_timestamps(shift)
+
+        # for p in paths:
+        #     self.current_graph.update_path_timestamp(
+        #         p.path, Timestamp(p.timestamp.get_absolute_value()+shift))
+        for sup in self.suppressed_predicates:
+            sup.suppressed_at += shift
+
+        self._update_timesource()
+        self.shifts_history.append(shift)
+
+    def visualize(self, title="Sample", export_path=None, visualize_next_assumption=True):
         """Visualizes sample in a single figure.
 
         Figure is consisted of three subplots:
@@ -219,6 +244,8 @@ class DatasetEntity:
         :param str title: A supertitle for the whole figure.
         :param Path export_path: If this argument is given, then instead of displaying the
                 sample figure on screen, it is exported to pointed location.
+        :param bool visualize_next_assumption: When set to True, visualizes assumption part
+                of next theorem into current graph.
         """
         provable_text = "Provable" if self.is_provable else "Not Provable"
         goal_title = f"Goal Property - {provable_text}"
@@ -231,7 +258,8 @@ class DatasetEntity:
             export_path=export_path,
             goal_title=goal_title,
             next_title=next_title,
-            visualize_next_assumption_in_current=bool(self.next_theorem)
+            visualize_next_assumption_in_current=(bool(self.next_theorem) and
+                                                  visualize_next_assumption)
         )
 
     # def add_properties_of_theorem(self, theorem):
@@ -418,27 +446,6 @@ class DatasetEntity:
         for i in range(shift):
             self.timesource.stamp_and_increment()
 
-    def _shift_current_graph_timestamps(self):
-        paths = self.current_graph.get_all_paths()
-        paths.sort(key=lambda path: path.timestamp)
-        min_shift = 0
-        if paths[0].timestamp.get_absolute_value() < 0:
-            min_shift = -paths[0].timestamp.get_absolute_value()
-
-        shift = random.randint(min_shift, min_shift + 10)
-
-        self.current_graph.shift_graph_timestamps(shift)
-        if self.next_theorem:
-            self.next_theorem.shift_graph_timestamps(shift)
-
-        # for p in paths:
-        #     self.current_graph.update_path_timestamp(
-        #         p.path, Timestamp(p.timestamp.get_absolute_value()+shift))
-        for sup in self.suppressed_predicates:
-            sup.suppressed_at += shift
-
-        self._update_timesource()
-
     def _is_suppressed_predicate_still_suppressible(self, suppressed_predicate):
         """Checks whether given suppressed predicate will be suppressed again if added to graph.
 
@@ -519,6 +526,28 @@ class SuppressedPredicateEqualGrabber:
         return False
 
 
+class EntitiesSequenceVisualizer:
+    """Visualizer of evolutions of an entity that have been individually shifted in time."""
+    def __init__(self):
+        self.entities = []
+        self.entities_total_shift = []
+        self.max_total_shift = 0
+        self.entities_title = []
+
+    def add(self, entity: DatasetEntity, title=""):
+        self.entities.append(copy(entity))
+        total_shift = sum(entity.shifts_history)
+        self.entities_total_shift.append(total_shift)
+        self.max_total_shift = max(self.max_total_shift, total_shift)
+        self.entities_title.append(title)
+
+    def visualize(self):
+        for e, total_shift, title in zip(self.entities, self.entities_total_shift,
+                                         self.entities_title):
+            e.shift_current_graph_timestamps(self.max_total_shift - total_shift)
+            e.visualize(title=title, visualize_next_assumption=False)
+
+
 class DatasetGenerator:
 
     def __init__(self, properties, max_depth, total_samples,
@@ -584,6 +613,7 @@ class DatasetGenerator:
     def generate_sample(self, depth):
         """Generates a training sample with given depth."""
         sample = DatasetEntity(self.theorems)
+        visualizer = EntitiesSequenceVisualizer()
 
         no_further_expansion_possible = False
 
@@ -593,7 +623,7 @@ class DatasetGenerator:
             if random_expansion:
                 sample.expand_with_random_predicates()
                 if self.verbose:
-                    sample.current_graph.visualize(f"#{i+1} Random expanded.")
+                    visualizer.add(sample, title=f"#{i+1} Random expanded.")
             elif not no_further_expansion_possible:
                 if sample.contains_property_to_prove():
                     added_suppressed_predicate, no_further_expansion_possible = \
@@ -602,18 +632,22 @@ class DatasetGenerator:
                         continue
                     if self.verbose:
                         if added_suppressed_predicate:
-                            sample.current_graph.visualize(
-                                    f"#{i + 1} Expansions by suppressed predicate")
+                            visualizer.add(
+                                sample, title=f"#{i+1} Expansions by suppressed predicate")
                         else:
-                            sample.current_graph.visualize(f"#{i + 1} Reverse theorem expansion.")
+                            visualizer.add(sample, title=f"#{i+1} Reverse theorem expansion.")
                 else:
                     add_valid_property = bool(random.randint(0, 1))
                     self._add_property_to_sample(sample, add_valid_property)
                     if self.verbose:
                         if add_valid_property:
-                            sample.current_graph.visualize(f"#{i + 1} Added property to prove.")
+                            visualizer.add(sample, title=f"#{i+1} Added property to prove.")
                         else:
-                            sample.current_graph.visualize(f"#{i + 1} Added negation of property.")
+                            visualizer.add(sample, title=f"#{i+1} Added negation of property.")
+
+        if self.verbose:
+            visualizer.visualize()
+
         return sample
 
     def _add_property_to_sample(self, sample: DatasetEntity, add_valid_property: bool):
