@@ -15,6 +15,8 @@ from logipy.models.graph_neural_theorem_selector import GraphNeuralNextTheoremSe
 from logipy.models.io import load_gnn_models
 
 
+VERSION = "0.0.1"
+
 LOGIPY_ROOT_PATH = Path(__file__).absolute().parent  # Absolute path of logipy's installation.
 
 LOGGER_NAME = "logipy"

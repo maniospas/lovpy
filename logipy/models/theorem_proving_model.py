@@ -10,12 +10,9 @@ from logipy.graphs.timed_property_graph import TimedPropertyGraph
 from logipy.graphs.logical_operators import NotOperator
 from . import io
 from .dataset_generator import DatasetGenerator
+from .train_config import TrainConfiguration
 
 
-DATASET_SIZE = 10
-MAX_DEPTH = 12
-EPOCHS = 10
-BATCH_SIZE = 10
 PREDICATES_NUM = 10
 
 
@@ -47,7 +44,8 @@ class PredicatesMap:
     def _build_map(self):
         for prop in self.properties:
             import logipy.logic.prover as prover
-            basic_predicates = logipy.logic.properties.convert_implication_to_and(prop).get_basic_predicates()
+            basic_predicates = logipy.logic.properties.convert_implication_to_and(
+                prop).get_basic_predicates()
 
             for pred in basic_predicates:
                 base_text, _ = self._get_base_text(pred)
@@ -72,11 +70,18 @@ class PredicatesMap:
         return pred_name, is_negated
 
 
-def train_theorem_proving_model(properties):
-    data, outputs, predicates_map = create_dataset(properties)
+def train_theorem_proving_model(properties, config: TrainConfiguration):
+    print("-" * 80)
+    print("Active Training Configuration")
+    config.print()
+    print("-" * 80)
+    print("Training a DGCNN model.")
+    print("-" * 80)
+
+    data, outputs, predicates_map = create_dataset(properties, config)
     model = create_dense_model(predicates_map)
 
-    model.fit(x=data, y=outputs, epochs=EPOCHS, batch_size=1)
+    model.fit(x=data, y=outputs, epochs=config.epochs, batch_size=config.batch_size)
 
     model.save(io.main_model_path)
     json.dump(predicates_map.map, io.predicates_map_path.open('w'))
@@ -95,8 +100,8 @@ def create_dense_model(predicates_map):
     return model
 
 
-def create_dataset(properties):
-    generator = DatasetGenerator(properties, MAX_DEPTH, DATASET_SIZE)
+def create_dataset(properties, train_config: TrainConfiguration):
+    generator = DatasetGenerator(properties, train_config.max_depth, train_config.dataset_size)
     samples = list(generator)
     for i, sample in enumerate(samples[:5]):
         sample.visualize(f"Sample #{i+1}")

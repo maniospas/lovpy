@@ -2,7 +2,7 @@ import sys
 
 from tensorflow.keras.utils import plot_model
 
-# from logipy.models.theorem_proving_model import train_theorem_proving_model
+from logipy.models.theorem_proving_model import train_theorem_proving_model
 from logipy.models.graph_neural_model import train_gnn_theorem_proving_models
 from logipy.models.io import save_gnn_models
 from logipy.logic.properties import get_global_properties
@@ -28,6 +28,7 @@ SYSTEM_COMPARISON_TO_DETERMINISTIC_AFTER_TRAIN = True
 
 
 class MultiLogger(object):
+    """Logger that enables simultaneous logging to file and stdout."""
     def __init__(self, filepath):
         self.terminal = sys.stdout
         self.log = filepath.open("w")
@@ -58,13 +59,31 @@ def load_or_train_model():
             raise RuntimeWarning("Failed to load neural model after training.")
 
 
-def train_models():
-    # Output train log to file.
+def train_models(arch=None):
+    # Export train log to file and to stdout simultaneously.
     old_stdout = sys.stdout
     sys.stdout = MultiLogger(get_scratchfile_path("out.txt"))
 
     properties = get_global_properties()
-    train_config = TrainConfiguration(
+    train_config = generate_config()
+
+    if arch == "simple":
+        # Train Simple NN model.
+        train_theorem_proving_model(properties, train_config)
+    elif arch == "gnn":
+        # Train GNN model.
+        train_gnn_model(properties, train_config)
+    else:
+        # Train everything.
+        train_theorem_proving_model(properties, train_config)
+        train_gnn_model(properties, train_config)
+
+    sys.stdout.close()
+    sys.stdout = old_stdout
+
+
+def generate_config():
+    return TrainConfiguration(
         DATASET_SIZE,
         MAX_DEPTH,
         EPOCHS,
@@ -80,15 +99,6 @@ def train_models():
         (get_scratchfile_path(GRAPH_MODEL_TRAIN_OUTPUT_DIR) / MODELS_DIR) / "selection_models",
         (get_scratchfile_path(GRAPH_MODEL_TRAIN_OUTPUT_DIR) / MODELS_DIR) / "termination_models"
     )
-
-    # Train Simple NN model.
-    # train_theorem_proving_model(properties)
-
-    # Train GNN model.
-    train_gnn_model(properties, train_config)
-
-    sys.stdout.close()
-    sys.stdout = old_stdout
 
 
 def train_gnn_model(properties, train_config):
