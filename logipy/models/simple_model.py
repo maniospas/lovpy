@@ -5,6 +5,7 @@ import numpy as np
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import plot_model
+from tensorflow.keras.metrics import AUC
 
 import logipy.logic.properties
 from logipy.graphs.timed_property_graph import TimedPropertyGraph
@@ -127,7 +128,7 @@ def create_dense_model(predicates_map):
     model.add(Dense(dim, input_dim=dim, activation="relu"))
     model.add(Dense(dim, activation="relu"))
     model.add(Dense(1))
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["acc", AUC()])
     print(model.summary())
     return model
 
