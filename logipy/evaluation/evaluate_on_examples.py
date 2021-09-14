@@ -6,8 +6,8 @@ from logipy.exceptions import PropertyNotHoldsException
 from logipy.monitor.wrappers import clear_previous_raised_exceptions
 
 
-EXAMPLES_DIR = "./examples"
-LONGEST_ESTIMATED_SCRIPT_RUNTIME = 60.  # 60 seconds
+EXAMPLES_DIR = "../../examples"
+LONGEST_ESTIMATED_SCRIPT_RUNTIME = 120.  # 120 seconds
 
 
 def evaluate_proving_methods():

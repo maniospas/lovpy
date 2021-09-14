@@ -2,11 +2,11 @@ from logipy.logic.properties import get_global_properties
 from logipy.models.dataset_generator import DatasetGenerator
 from logipy.models.gnn_model import GNNModel
 from logipy.models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
-from logipy.models.evaluation import evaluate_theorem_selector_on_samples
+from logipy.evaluation.evaluation import evaluate_theorem_selector_on_samples
 from logipy.logic.next_theorem_selectors import BetterNextTheoremSelector
 
 
-DATASET_SIZE = 100
+DATASET_SIZE = 1000
 MAX_DEPTH = 20
 RANDOM_EXPANSION_PROBABILITY = 0.
 NEGATIVE_SAMPLES_PERCENTAGE = 0.

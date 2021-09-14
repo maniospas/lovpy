@@ -17,7 +17,7 @@ from tensorflow.keras.models import load_model
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, TIMESTAMP_PROPERTY_NAME
 # from .callbacks import ModelEvaluationOnTheoremProvingCallback
 from .train_config import TrainConfiguration
-from .evaluation import evaluate_theorem_selector_on_samples
+from logipy.evaluation.evaluation import evaluate_theorem_selector_on_samples
 from .theorem_proving_model import TheoremProvingModel
 from .io import save_gnn_models, load_gnn_models
 
