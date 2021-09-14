@@ -1,6 +1,6 @@
 from logipy.logic.properties import get_global_properties
 from logipy.models.dataset_generator import DatasetGenerator
-from logipy.models.io import load_gnn_models
+from logipy.models.gnn_model import GNNModel
 from logipy.models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
 from logipy.models.evaluation import evaluate_theorem_selector_on_samples
 from logipy.logic.next_theorem_selectors import BetterNextTheoremSelector
@@ -56,8 +56,7 @@ def evaluate():
 
 
 def evaluate_hybrid_selector(samples):
-    selection_model, termination_model, encoder = load_gnn_models()
-    gnn_selector = GraphNeuralNextTheoremSelector(selection_model, termination_model, encoder)
+    gnn_selector = GraphNeuralNextTheoremSelector(GNNModel.load())
     det_selector = BetterNextTheoremSelector()
     acc, fallout = evaluate_theorem_selector_on_samples([det_selector, gnn_selector],
                                                         samples, verbose=True)
@@ -65,8 +64,7 @@ def evaluate_hybrid_selector(samples):
 
 
 def evaluate_dgcnn_selector(samples):
-    selection_model, termination_model, encoder = load_gnn_models()
-    gnn_selector = GraphNeuralNextTheoremSelector(selection_model, termination_model, encoder)
+    gnn_selector = GraphNeuralNextTheoremSelector(GNNModel.load())
     acc, fallout = evaluate_theorem_selector_on_samples(gnn_selector, samples, verbose=True)
     print("\tproving_acc: {} - proving_fallout: {}".format(round(acc, 4), round(fallout, 4)))
 

@@ -1,6 +1,6 @@
 from sys import argv
 
-from .train_model import train_models
+from logipy.models.train_model import train_models
 from .config import VERSION
 
 

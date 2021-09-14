@@ -12,7 +12,7 @@ import logipy.logic.prover
 from . import importer
 from logipy.models.neural_theorem_selector import NeuralNextTheoremSelector
 from logipy.models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
-from logipy.models.io import load_gnn_models
+from logipy.models.gnn_model import GNNModel
 
 
 VERSION = "0.0.1"
@@ -127,19 +127,18 @@ def set_theorem_selector(theorem_selector: TheoremSelector):
         set_default_theorem_selector(NeuralNextTheoremSelector())
 
     elif theorem_selector is TheoremSelector.DGCNN or theorem_selector is TheoremSelector.HYBRID:
-        selection_model, termination_model, encoder = load_gnn_models()
-        if selection_model:
+        gnn_model = GNNModel.load()
+        if gnn_model:
             if theorem_selector is TheoremSelector.DGCNN:
                 logger.info("Setting theorem prover to the graph neural one.")
                 set_default_theorem_selector(GraphNeuralNextTheoremSelector(
-                        selection_model, termination_model, encoder,
-                        export=GRAPH_VISUALIZE_SELECTION_PROCESS))
+                    gnn_model, export=GRAPH_VISUALIZE_SELECTION_PROCESS))
             else:
                 logger.info("Setting theorem prover to the hybrid one.")
                 selectors = [
                     BetterNextTheoremSelector(),
-                    GraphNeuralNextTheoremSelector(selection_model, termination_model, encoder,
-                                                   export=GRAPH_VISUALIZE_SELECTION_PROCESS),
+                    GraphNeuralNextTheoremSelector(gnn_model,
+                                                   export=GRAPH_VISUALIZE_SELECTION_PROCESS)
                 ]
                 set_default_theorem_selector(selectors)
         else:

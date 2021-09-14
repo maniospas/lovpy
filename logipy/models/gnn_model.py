@@ -9,17 +9,114 @@ from tensorflow.keras import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.layers import Dense, Conv1D, MaxPool1D, Flatten, Concatenate
-from tensorflow.keras.utils import Sequence
+from tensorflow.keras.utils import Sequence, plot_model
 from tensorflow.keras.metrics import AUC
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.models import load_model
 
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, TIMESTAMP_PROPERTY_NAME
-from .dataset_generator import DatasetGenerator
 # from .callbacks import ModelEvaluationOnTheoremProvingCallback
-from .io import export_generated_samples, export_theorems_and_properties
 from .train_config import TrainConfiguration
 from .evaluation import evaluate_theorem_selector_on_samples
+from .theorem_proving_model import TheoremProvingModel
+from .io import save_gnn_models, load_gnn_models
+
+
+class GNNModel(TheoremProvingModel):
+    """An end-to-end GNN-based model for theorem proving process."""
+
+    def __init__(self, name, path,
+                 next_theorem_model=None,
+                 proving_termination_model=None,
+                 nodes_encoder=None):
+        super().__init__(name, path)
+        self.next_theorem_model = next_theorem_model
+        self.proving_termination_model = proving_termination_model
+        self.nodes_encoder = nodes_encoder
+
+    def train_core(self, dataset, properties, config: TrainConfiguration):
+        self.nodes_encoder = create_nodes_encoder(properties)
+
+        # Split train and test data.
+        i_train, i_test = train_test_split(list(range(len(dataset))),
+                                           test_size=config.test_size)
+
+        # print(f"Training next theorem selection model...")
+        # print("-" * 80)
+        self.next_theorem_model = train_next_theorem_selection_model(dataset, self.nodes_encoder,
+                                                                     i_train, i_test, config)
+
+        # print("-" * 80)
+        # print(f"Training proving process termination model...")
+        # print("-" * 80)
+        # self.proving_termination_model = train_proving_termination_model(
+        #     graph_samples, nodes_encoder, i_train, i_test, config)
+        # proving_termination_model = None
+
+        if config.system_evaluation_after_train:
+            _evaluate_model(
+                self,
+                [dataset[i] for i in i_train],
+                [dataset[i] for i in i_test],
+                config
+            )
+
+    def predict(self,
+                current: TimedPropertyGraph,
+                theorem_applications: list,
+                goal: TimedPropertyGraph):
+        current_graph, norm = convert_timedpropertygraph_to_stellargraph(current,
+                                                                         self.nodes_encoder)
+        goal_graph, _ = convert_timedpropertygraph_to_stellargraph(goal, self.nodes_encoder)
+
+        current_generator, goal_generator, next_generator = create_padded_generators(
+            [current_graph] * len(theorem_applications),
+            [goal_graph] * len(theorem_applications),
+            [convert_timedpropertygraph_to_stellargraph(t_app.actual_implication,
+                                                        self.nodes_encoder, norm)[0]
+             for t_app in theorem_applications]
+        )
+
+        inference_generator = ProvingModelSamplesGenerator(
+            current_generator, goal_generator, next_generator)
+
+        return self.next_theorem_model.predict(inference_generator)
+
+    def save(self):
+        save_gnn_models(self.next_theorem_model, self.proving_termination_model, self.nodes_encoder)
+
+        # Save GNN model also in scratchdir, for easy retrieval.
+        # save_gnn_models(
+        #     next_theorem_model,
+        #     proving_termination_model,
+        #     encoder,
+        #     scratch_model_out_base / GRAPH_SELECTION_MODEL_NAME,
+        #     scratch_model_out_base / GRAPH_TERMINATION_MODEL_NAME,
+        #     scratch_model_out_base / GRAPH_ENCODER_NAME
+        # )
+
+    def plot(self, folder):
+        plot_model(
+            self.next_theorem_model,
+            to_file=folder / f"{self.name}.png",
+            show_shapes=True,
+            show_layer_names=True
+        )
+
+        # plot_model(
+        #     proving_termination_model,
+        #     to_file=scratch_model_out_base / "dgcnn_termination_model.png",
+        #     show_shapes=True,
+        #     show_layer_names=True
+        # )
+
+    @staticmethod
+    def load(path=None):
+        next_model, term_model, encoder = load_gnn_models()
+        return GNNModel("GNN Model", path,
+                        next_theorem_model=next_model,
+                        proving_termination_model=term_model,
+                        nodes_encoder=encoder)
 
 
 class ProvingModelSamplesGenerator(Sequence):
@@ -70,62 +167,6 @@ class ProvingModelSamplesGenerator(Sequence):
             return [x1[0], x2[0], x3[0]], x1[1]
         else:
             return [x1[0], x2[0]], x1[1]
-
-
-def train_gnn_theorem_proving_models(properties, config: TrainConfiguration):
-    """Trains two end-to-end GNN-based models for theorem proving process."""
-    print("-" * 80)
-    print("Active Training Configuration")
-    config.print()
-    print("-" * 80)
-    print("Training a DGCNN model.")
-    print("-" * 80)
-
-    generator = DatasetGenerator(properties, config.max_depth, config.dataset_size,
-                                 random_expansion_probability=config.random_expansion_probability,
-                                 negative_samples_percentage=config.negative_samples_percentage)
-    nodes_encoder = create_nodes_encoder(properties)
-
-    if config.export_properties:
-        print(f"\tExporting theorems and properties...")
-        export_theorems_and_properties(generator.theorems, generator.valid_properties_to_prove)
-
-    print(f"\tGenerating {config.dataset_size} samples...")
-    graph_samples = []
-    for i, s in enumerate(generator):
-        if (i % 10) == 0 or i == config.dataset_size - 1:
-            print(f"\t\tGenerated {i}/{config.dataset_size}...", end="\r")
-        graph_samples.append(s)
-    if config.export_samples:
-        print(f"\tExporting samples...")
-        export_generated_samples(graph_samples, min(config.dataset_size, config.samples_to_export))
-
-    # Split train and test data.
-    i_train, i_test = train_test_split(list(range(len(graph_samples))), test_size=config.test_size)
-
-    print("-" * 80)
-    print(f"Training next theorem selection model...")
-    print("-" * 80)
-    next_theorem_model = train_next_theorem_selection_model(graph_samples, nodes_encoder,
-                                                            i_train, i_test, config)
-
-    # print("-" * 80)
-    # print(f"Training proving process termination model...")
-    # print("-" * 80)
-    # proving_termination_model = train_proving_termination_model(graph_samples, nodes_encoder,
-    #                                                             i_train, i_test, config)
-    proving_termination_model = None
-
-    if config.system_evaluation_after_train:
-        _evaluate_model(
-            next_theorem_model,
-            nodes_encoder,
-            [graph_samples[i] for i in i_train],
-            [graph_samples[i] for i in i_test],
-            config
-        )
-
-    return next_theorem_model, proving_termination_model, nodes_encoder
 
 
 def train_next_theorem_selection_model(graph_samples, nodes_encoder, i_train, i_test,
@@ -442,12 +483,12 @@ def _get_timestamp_numerical_value(timestamp):
         return timestamp.get_relative_value()
 
 
-def _evaluate_model(model, encoder, train_samples, validation_samples, config: TrainConfiguration):
+def _evaluate_model(model: GNNModel, train_samples, validation_samples, config: TrainConfiguration):
     print("-" * 80)
     print("Evaluating DGCNN proving system on synthetic theorems of samples...")
     print("-" * 80)
     from .graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
-    theorem_selector = GraphNeuralNextTheoremSelector(model, None, encoder)
+    theorem_selector = GraphNeuralNextTheoremSelector(model)
     _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples)
 
     if config.system_comparison_to_deterministic_after_train:
