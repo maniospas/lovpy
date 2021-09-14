@@ -41,6 +41,7 @@ CURRENT_GRAPH_FILENAME = "temp_current.png"
 GOAL_GRAPH_FILENAME = "temp_goal.png"
 NEXT_GRAPH_FILENAME = "temp_next.png"
 # Constants for training samples export.
+SIMPLE_MODEL_TRAIN_OUTPUT_DIR = "train_simple"
 GRAPH_MODEL_TRAIN_OUTPUT_DIR = "train_gnn"
 
 _logipy_session_name = ""  # A name of the session to be appended to the output directories.

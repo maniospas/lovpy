@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import train_test_split
 from stellargraph.layer import DeepGraphCNN
 from stellargraph.mapper import PaddedGraphGenerator
 from stellargraph import StellarGraph
@@ -17,7 +16,6 @@ from tensorflow.keras.models import load_model
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, TIMESTAMP_PROPERTY_NAME
 # from .callbacks import ModelEvaluationOnTheoremProvingCallback
 from .train_config import TrainConfiguration
-from logipy.evaluation.evaluation import evaluate_theorem_selector_on_samples
 from .theorem_proving_model import TheoremProvingModel
 from .io import save_gnn_models, load_gnn_models
 
@@ -34,17 +32,13 @@ class GNNModel(TheoremProvingModel):
         self.proving_termination_model = proving_termination_model
         self.nodes_encoder = nodes_encoder
 
-    def train_core(self, dataset, properties, config: TrainConfiguration):
+    def train_core(self, dataset, properties, i_train, i_val, config: TrainConfiguration):
         self.nodes_encoder = create_nodes_encoder(properties)
-
-        # Split train and test data.
-        i_train, i_test = train_test_split(list(range(len(dataset))),
-                                           test_size=config.test_size)
 
         # print(f"Training next theorem selection model...")
         # print("-" * 80)
         self.next_theorem_model = train_next_theorem_selection_model(dataset, self.nodes_encoder,
-                                                                     i_train, i_test, config)
+                                                                     i_train, i_val, config)
 
         # print("-" * 80)
         # print(f"Training proving process termination model...")
@@ -52,14 +46,6 @@ class GNNModel(TheoremProvingModel):
         # self.proving_termination_model = train_proving_termination_model(
         #     graph_samples, nodes_encoder, i_train, i_test, config)
         # proving_termination_model = None
-
-        if config.system_evaluation_after_train:
-            _evaluate_model(
-                self,
-                [dataset[i] for i in i_train],
-                [dataset[i] for i in i_test],
-                config
-            )
 
     def predict(self,
                 current: TimedPropertyGraph,
@@ -481,32 +467,3 @@ def _get_timestamp_numerical_value(timestamp):
         return timestamp.get_absolute_value()
     else:
         return timestamp.get_relative_value()
-
-
-def _evaluate_model(model: GNNModel, train_samples, validation_samples, config: TrainConfiguration):
-    print("-" * 80)
-    print("Evaluating DGCNN proving system on synthetic theorems of samples...")
-    print("-" * 80)
-    from .graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
-    theorem_selector = GraphNeuralNextTheoremSelector(model)
-    _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples)
-
-    if config.system_comparison_to_deterministic_after_train:
-        print("-" * 80)
-        print("Evaluating deterministic proving system on synthetic theorems of samples...")
-        print("-" * 80)
-        from logipy.logic.next_theorem_selectors import BetterNextTheoremSelector
-        theorem_selector = BetterNextTheoremSelector()
-        _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples)
-
-
-def _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples):
-    acc, fallout = evaluate_theorem_selector_on_samples(
-        theorem_selector, train_samples, verbose=True)
-    print("\tTesting dataset:  proving_acc: {} - proving_fallout: {}".format(
-        round(acc, 4), round(fallout, 4)))
-
-    val_acc, val_fallout = evaluate_theorem_selector_on_samples(
-        theorem_selector, validation_samples, verbose=True)
-    print("\tValidation dataset: val_proving_acc: {} - val_proving_fallout: {}".format(
-        round(val_acc, 4), round(val_fallout, 4)))

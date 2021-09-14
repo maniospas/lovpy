@@ -7,7 +7,7 @@ class TheoremProvingModel:
         self.name = name
         self.path = path
 
-    def train(self, dataset, properties, config: TrainConfiguration):
+    def train(self, dataset, properties, i_train, i_val, config: TrainConfiguration):
         print("-" * 80)
         print("Active Training Configuration")
         config.print()
@@ -15,9 +15,9 @@ class TheoremProvingModel:
         print(f"Training {self.name}.")
         print("-" * 80)
 
-        self.train_core(dataset, properties, config)
+        self.train_core(dataset, properties, i_train, i_val, config)
 
-    def train_core(self, dataset, properties, config: TrainConfiguration):
+    def train_core(self, dataset, properties, i_train, i_val, config: TrainConfiguration):
         raise NotImplementedError
 
     def predict(self,

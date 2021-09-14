@@ -1,14 +1,19 @@
 import sys
 
+from sklearn.model_selection import train_test_split
+
 from logipy.logic.properties import get_global_properties
 from logipy.config import get_scratchfile_path, GRAPH_MODEL_TRAIN_OUTPUT_DIR, MODELS_DIR, \
-    GRAPH_SELECTION_MODEL_NAME, GRAPH_TERMINATION_MODEL_NAME, GRAPH_ENCODER_NAME, MAIN_MODEL_NAME, \
-    set_theorem_selector, TheoremSelector
+    GRAPH_SELECTION_MODEL_NAME, MAIN_MODEL_NAME, \
+    SIMPLE_MODEL_TRAIN_OUTPUT_DIR, set_theorem_selector, TheoremSelector
+from logipy.evaluation.evaluation import evaluate_theorem_selector_on_samples
 from .train_config import TrainConfiguration
+from .theorem_proving_model import TheoremProvingModel
 from .gnn_model import GNNModel
 from .simple_model import SimpleModel
 from .dataset_generator import DatasetGenerator
 from .io import export_generated_samples, export_theorems_and_properties
+from .neural_theorem_selector import NeuralNextTheoremSelector
 
 
 DATASET_SIZE = 100
@@ -64,38 +69,68 @@ def train_models(arch=None):
     sys.stdout = MultiLogger(get_scratchfile_path("out.txt"))
 
     properties = get_global_properties()
-    train_config = generate_config()
 
-    models = []  # All models to be trained.
+    models = []   # All models to be trained.
+    configs = []  # Configs corresponding to trained models.
 
     if arch == "simple":
         # Train Simple NN model.
         models.append(SimpleModel("Simple Model", MODELS_DIR + "/" + MAIN_MODEL_NAME))
+        configs.append(generate_simple_config())
     elif arch == "gnn":
         # Train GNN model.
         models.append(GNNModel("GNN Model", MODELS_DIR + "/" + GRAPH_SELECTION_MODEL_NAME))
+        configs.append(generate_gnn_config())
     else:
         # Train everything.
         models.append(SimpleModel("Simple Model", MODELS_DIR + "/" + MAIN_MODEL_NAME))
+        configs.append(generate_simple_config())
         models.append(GNNModel("GNN Model", MODELS_DIR + "/" + GRAPH_SELECTION_MODEL_NAME))
+        configs.append(generate_gnn_config())
 
-    dataset = generate_dataset(properties, train_config)
+    dataset = generate_dataset(properties, configs[0])
+    # Split train and validation data.
+    i_train, i_val = train_test_split(list(range(len(dataset))),
+                                      test_size=configs[0].test_size)
 
-    for m in models:
-        m.train(dataset, properties, train_config)
+    for m, conf in zip(models, configs):
+        m.train(dataset, properties, i_train, i_val, conf)
         m.save()
+        m.plot(conf.selection_models_dir)
 
-        training_folder = (get_scratchfile_path(f"train_{m.name.lower().replace(' ', '_')}")
-                           / MODELS_DIR)
-        if not training_folder.exists():
-            training_folder.mkdir(parents=True)
-        m.plot(training_folder)
+    for m, conf in zip(models, configs):
+        if conf.system_evaluation_after_train:
+            _evaluate_model(
+                m,
+                [dataset[i] for i in i_train],
+                [dataset[i] for i in i_val],
+                conf
+            )
 
     sys.stdout.close()
     sys.stdout = old_stdout
 
 
-def generate_config():
+def generate_simple_config():
+    return TrainConfiguration(
+        DATASET_SIZE,
+        MAX_DEPTH,
+        EPOCHS,
+        BATCH_SIZE,
+        TEST_SIZE,
+        EXPORT_SAMPLES,
+        SAMPLES_TO_EXPORT,
+        EXPORT_PROPERTIES,
+        SYSTEM_EVALUATION_AFTER_TRAIN,
+        False,
+        RANDOM_EXPANSION_PROBABILITY,
+        NEGATIVE_SAMPLES_PERCENTAGE,
+        (get_scratchfile_path(SIMPLE_MODEL_TRAIN_OUTPUT_DIR) / MODELS_DIR) / "selection_models",
+        (get_scratchfile_path(SIMPLE_MODEL_TRAIN_OUTPUT_DIR) / MODELS_DIR) / "termination_models"
+    )
+
+
+def generate_gnn_config():
     return TrainConfiguration(
         DATASET_SIZE,
         MAX_DEPTH,
@@ -138,6 +173,44 @@ def generate_dataset(properties, config: TrainConfiguration):
         export_generated_samples(graph_samples, min(config.dataset_size, config.samples_to_export))
 
     return graph_samples
+
+
+def _evaluate_model(model: TheoremProvingModel,
+                    train_samples,
+                    validation_samples,
+                    config: TrainConfiguration):
+    print("-" * 80)
+    print(f"Evaluating {model.name.lower()} on proving synthetic samples...")
+    print("-" * 80)
+    theorem_selector = NeuralNextTheoremSelector(model)
+    _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples)
+
+    if config.system_comparison_to_deterministic_after_train:
+        print("-" * 80)
+        print("Evaluating deterministic selector on proving synthetic samples...")
+        print("-" * 80)
+        from logipy.logic.next_theorem_selectors import BetterNextTheoremSelector
+        theorem_selector = BetterNextTheoremSelector()
+        _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples)
+
+    print("-" * 80)
+    print(f"Evaluating {model.name.lower()}+deterministic selector on proving synthetic samples...")
+    print("-" * 80)
+    from logipy.logic.next_theorem_selectors import BetterNextTheoremSelector
+    theorem_selector = [BetterNextTheoremSelector(), NeuralNextTheoremSelector(model)]
+    _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples)
+
+
+def _evaluate_theorem_selector(theorem_selector, train_samples, validation_samples):
+    acc, fallout = evaluate_theorem_selector_on_samples(
+        theorem_selector, train_samples, verbose=True)
+    print("\tTesting dataset:  proving_acc: {} - proving_fallout: {}".format(
+        round(acc, 4), round(fallout, 4)))
+
+    val_acc, val_fallout = evaluate_theorem_selector_on_samples(
+        theorem_selector, validation_samples, verbose=True)
+    print("\tValidation dataset: val_proving_acc: {} - val_proving_fallout: {}".format(
+        round(val_acc, 4), round(val_fallout, 4)))
 
 
 if __name__ == "__main__":

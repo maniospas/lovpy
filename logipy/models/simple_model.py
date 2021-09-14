@@ -7,6 +7,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.metrics import AUC
 from tensorflow.keras.losses import MeanSquaredError
+from tensorflow.keras.callbacks import ModelCheckpoint
 
 import logipy.logic.properties
 from logipy.graphs.timed_property_graph import TimedPropertyGraph
@@ -27,10 +28,40 @@ class SimpleModel(TheoremProvingModel):
         self.model = model
         self.predicates_map = predicates_map
 
-    def train_core(self, dataset, properties, config: TrainConfiguration):
-        data, outputs, self.predicates_map = create_training_data(properties, dataset, config)
+    def train_core(self, dataset, properties, i_train, i_val, config: TrainConfiguration):
+        data, outputs, self.predicates_map = create_training_data(properties, dataset)
+
+        train_data = data[i_train]
+        train_outputs = outputs[i_train]
+        val_data = data[i_val]
+        val_outputs = outputs[i_val]
+
         self.model = create_dense_model(self.predicates_map)
-        self.model.fit(x=data, y=outputs, epochs=config.epochs, batch_size=config.batch_size)
+
+        model_filename = ("selection_model"
+                          + "-epoch_{epoch:02d}"
+                          + "-val_acc_{val_acc:.2f}"
+                          + "-val_auc_{val_auc:.2f}")
+        model_checkpoint_cb = ModelCheckpoint(
+            filepath=config.selection_models_dir / model_filename,
+        )
+        best_model_path = config.selection_models_dir / "_best_selection_model"
+        best_model_cb = ModelCheckpoint(
+            filepath=best_model_path,
+            monitor="val_loss",
+            mode="min",
+            save_best_only=True
+        )
+
+        self.model.fit(x=train_data,
+                       y=train_outputs,
+                       validation_data=(val_data, val_outputs),
+                       epochs=config.epochs,
+                       batch_size=config.batch_size,
+                       callbacks=[model_checkpoint_cb, best_model_cb])
+
+        # Finally, the best model is retained.
+        self.model = load_model(best_model_path)
 
     def predict(self,
                 current: TimedPropertyGraph,
@@ -60,7 +91,8 @@ class SimpleModel(TheoremProvingModel):
         )
 
     @staticmethod
-    def load(path):
+    def load(path=None):
+        # TODO: Implement loading from different paths.
         mlp = load_model(io.main_model_path)
         predicates_map = PredicatesMap(pred_map=json.load(io.predicates_map_path.open('r')))
         if mlp and predicates_map:
@@ -134,7 +166,7 @@ def create_dense_model(predicates_map):
     return model
 
 
-def create_training_data(properties, samples, train_config: TrainConfiguration):
+def create_training_data(properties, samples):
     predicates_map = PredicatesMap(properties)
 
     data = np.zeros((len(samples), PREDICATES_NUM*3*(len(predicates_map)+1)))
