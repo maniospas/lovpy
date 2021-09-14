@@ -314,7 +314,7 @@ def create_gnn_model(current_generator: PaddedGraphGenerator, goal_generator: Pa
     model.compile(
         optimizer=Adam(learning_rate=0.001),
         loss=MeanSquaredError(),
-        metrics=["acc", AUC()]
+        metrics=["acc", AUC(name="auc")]
     )
     return model
 

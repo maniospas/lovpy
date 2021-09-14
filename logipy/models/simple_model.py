@@ -6,6 +6,7 @@ from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.metrics import AUC
+from tensorflow.keras.losses import MeanSquaredError
 
 import logipy.logic.properties
 from logipy.graphs.timed_property_graph import TimedPropertyGraph
@@ -127,8 +128,8 @@ def create_dense_model(predicates_map):
     model = Sequential()
     model.add(Dense(dim, input_dim=dim, activation="relu"))
     model.add(Dense(dim, activation="relu"))
-    model.add(Dense(1))
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["acc", AUC()])
+    model.add(Dense(1, activation="sigmoid"))
+    model.compile(loss=MeanSquaredError(), optimizer="adam", metrics=["acc", AUC(name="auc")])
     print(model.summary())
     return model
 
@@ -156,7 +157,8 @@ def convert_sample_to_data(sample, predicates_map):
     return input_data, output_data
 
 
-def convert_property_graph_to_matrix(property_graph, predicates_map):
+def convert_property_graph_to_matrix(property_graph: TimedPropertyGraph, predicates_map):
+    """Converts a TimedPropertyGraph to a 2-D tensor."""
     data = np.zeros((PREDICATES_NUM, len(predicates_map) + 1))
     if property_graph:
         predicates = property_graph.get_basic_predicates()
@@ -172,15 +174,12 @@ def convert_property_graph_to_matrix(property_graph, predicates_map):
         # Sample predicates sequence to get at most PREDICATES_NUM predicates.
         if len(predicates_id) > PREDICATES_NUM:
             indexes_to_keep = set(random.sample(list(range(0, len(predicates_id))), PREDICATES_NUM))
-            predicates_id = [p_id for p_id in predicates_id if p_id in indexes_to_keep]
+            predicates_id = [predicates_id[i] for i in indexes_to_keep]
             predicates_timestamp = [p_t for p_t in predicates_timestamp
                                     if p_t in predicates_timestamp]
 
         for i in range(len(predicates_id)):
-            try:
-                data[i, predicates_id[i]] = 1
-            except Exception:
-                print("i")
+            data[i, predicates_id[i]] = 1
             if max_timestamp._value > 0:
                 data[i, -1] = \
                     float(predicates_timestamp[i]._value) / float(abs(max_timestamp._value))
