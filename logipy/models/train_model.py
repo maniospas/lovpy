@@ -89,9 +89,10 @@ def train_models(arch=None):
         configs.append(generate_gnn_config())
 
     dataset = generate_dataset(properties, configs[0])
-    # Split train and validation data.
-    i_train, i_val = train_test_split(list(range(len(dataset))),
-                                      test_size=configs[0].test_size)
+    # Split train and test data.
+    i_train, i_test = train_test_split(list(range(len(dataset))),
+                                       test_size=configs[0].test_size,
+                                       stratify=[int(s.is_next_theorem_correct()) for s in dataset])
 
     for m, conf in zip(models, configs):
         m.train(dataset, properties, i_train, i_val, conf)
