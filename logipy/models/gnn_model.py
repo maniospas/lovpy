@@ -12,6 +12,7 @@ from tensorflow.keras.utils import Sequence, plot_model
 from tensorflow.keras.metrics import AUC
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.models import load_model
+from tensorflow.keras import backend
 
 from logipy.graphs.timed_property_graph import TimedPropertyGraph, TIMESTAMP_PROPERTY_NAME
 # from .callbacks import ModelEvaluationOnTheoremProvingCallback
@@ -66,7 +67,11 @@ class GNNModel(TheoremProvingModel):
         inference_generator = ProvingModelSamplesGenerator(
             current_generator, goal_generator, next_generator)
 
-        return self.next_theorem_model.predict(inference_generator)
+        scores = self.next_theorem_model.predict(inference_generator)
+
+        backend.clear_session()
+
+        return scores
 
     def save(self):
         save_gnn_models(self.next_theorem_model, self.proving_termination_model, self.nodes_encoder)

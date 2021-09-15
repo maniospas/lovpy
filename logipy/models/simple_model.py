@@ -8,6 +8,7 @@ from tensorflow.keras.utils import plot_model
 from tensorflow.keras.metrics import AUC
 from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras import backend
 
 import logipy.logic.properties
 from logipy.graphs.timed_property_graph import TimedPropertyGraph
@@ -75,6 +76,8 @@ class SimpleModel(TheoremProvingModel):
 
             score = self.model(data)[0]
             scores.append(score)
+
+        backend.clear_session()
 
         return np.array(scores)
 
