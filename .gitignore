@@ -1,8 +1,6 @@
 venv/
-__pycache__/
-.idea/
-_temp/
-
 dist/
 logipy.egg-info/
-__logipy_temp__/
+.idea/
+__pycache__/
+__*/
