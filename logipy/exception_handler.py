@@ -18,6 +18,28 @@ def logipy_exception_handler(ex_type, value, tb):
 
     exception_stack_summary = _clean_summary_from_monitor_calls(exception_stack_summary)
     exception_stack_summary = _clean_summary_from_file_modifications(exception_stack_summary)
+    exception_stack_summary = _clean_summary_from_initial_runpy(exception_stack_summary)
+
+    # Rebuild TracebackException to contain the updated stacktrace.
+    tb_ex = TracebackException(ex_type, value, tb)
+    tb_ex.stack = exception_stack_summary
+
+    for line in tb_ex.format():
+        print(line, file=file, end="")
+
+
+def logipy_dev_exception_handler(ex_type, value, tb):
+    """Exception handler that doesn't hide logipy's internal errors, used for dev purposes."""
+    file = sys.stderr
+
+    exception_stack_summary = extract_tb(tb)
+
+    if ex_type is PropertyNotHoldsException and value.last_proved_stacktrace:
+        exception_stack_summary = _add_last_proved_info_to_stack_summary(
+            exception_stack_summary, value.last_proved_stacktrace)
+
+    exception_stack_summary = _clean_summary_from_monitor_calls(exception_stack_summary)
+    exception_stack_summary = _clean_summary_from_file_modifications(exception_stack_summary)
 
     # Rebuild TracebackException to contain the updated stacktrace.
     tb_ex = TracebackException(ex_type, value, tb)
@@ -47,12 +69,12 @@ def _clean_summary_from_monitor_calls(summary: StackSummary):
 
         # Remove all wrapper calls to logipy_call().
         if line:
-            matches = re.match("^(.*)logipy_call[(](.*),[)](.*)", line)
+            matches = re.match("^(.*)logipy_call[(](.*)[)](.*)", line)
             if matches:
-                call_parts = matches.groups()[1].split(sep=", ")
+                call_parts = matches.groups()[1].split(sep=",")
                 function_call = call_parts.pop(0)
                 if call_parts:
-                    function_call = "{}({})".format(function_call, ", ".join(matches))
+                    function_call = "{}({})".format(function_call, ", ".join(call_parts))
                 else:
                     function_call = "{}()".format(function_call)
                 line = "".join([matches.groups()[0], function_call, matches.groups()[2]])
@@ -80,6 +102,21 @@ def _clean_summary_from_file_modifications(summary: StackSummary):
 
         clean_summary.append(FrameSummary(frame.filename, original_lineno,
                                           name, line=frame.line))
+
+    return clean_summary
+
+
+def _clean_summary_from_initial_runpy(summary: StackSummary):
+    clean_summary = StackSummary()
+
+    found_non_runpy = False
+
+    for frame in summary:
+        if frame.filename.endswith("runpy.py") and not found_non_runpy:
+            continue
+        else:
+            found_non_runpy = True
+            clean_summary.append(frame)
 
     return clean_summary
 
