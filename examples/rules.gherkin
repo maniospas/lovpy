@@ -27,6 +27,20 @@ SCENARIO:
     AND NOT numpy_const
 
 SCENARIO:
+    WHEN NOT numpy_const
+    AND numpy_added
+    THEN NOT numpy_const
+
+SCENARIO:
+    WHEN called by print_const
+    THEN SHOULD numpy_const
+
+SCENARIO:
+    GIVEN numpy_const
+    WHEN called by print_const
+    THEN numpy_const
+
+SCENARIO:
     WHEN call acquire
     THEN SHOULD NOT locked
     AND locked
