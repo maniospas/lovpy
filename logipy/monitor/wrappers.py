@@ -147,18 +147,18 @@ class LogipyPrimitive:
         if isinstance(value, LogipyPrimitive):
             # If given value is already a LogipyPrimitive, copy its execution graph.
             self.__logipy_value = value.__logipy_value
-            self.execution_graph = value.get_execution_graph().get_copy()
-            self.timestamp = value.timestamp
+            self.__execution_graph = value.get_execution_graph().get_copy()
+            self.__timestamp = value.__timestamp
         else:
             # If given value is not a LogipyPrimitive, instantiate a new set of properties.
             self.__logipy_value = value
-            self.execution_graph = TimedPropertyGraph()
-            self.timestamp = global_stamp_and_increment()
+            self.__execution_graph = TimedPropertyGraph()
+            self.__timestamp = global_stamp_and_increment()
 
         if previous_execution_graph is not None:
             previous_copy = previous_execution_graph.get_copy()
-            previous_copy.logical_and(self.execution_graph)
-            self.execution_graph = previous_copy
+            previous_copy.logical_and(self.__execution_graph)
+            self.__execution_graph = previous_copy
 
         # Initialize a mapping between all properties to prove and the last frame they found
         # to hold.
@@ -176,13 +176,13 @@ class LogipyPrimitive:
         return self.__logipy_value
 
     def get_timestamp(self):
-        return self.timestamp
+        return self.__timestamp
 
     def increase_time(self):
-        self.timestamp += 1
+        self.__timestamp += 1
 
     def get_execution_graph(self):
-        return self.execution_graph
+        return self.__execution_graph
 
     def __get_property_last_proved_frame__(self, prop):
         return self.__properties_last_proved_frame.get(prop, None)
