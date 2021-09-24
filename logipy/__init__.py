@@ -26,7 +26,11 @@ temp_dir = os.environ.get("LOGIPY_TEMP_DIR", None)
 config.tearup_logipy(session_name=session_name, temp_dir=temp_dir)
 
 atexit.register(config.teardown_logipy)
-sys.excepthook = logipy.exception_handler.logipy_exception_handler
+if os.environ.get("LOGIPY_DEV_MODE", 0) == "1":
+    sys.excepthook = exception_handler.logipy_dev_exception_handler
+else:
+    sys.excepthook = exception_handler.logipy_exception_handler
+
 
 # Choose between hybrid and deterministic prover.
 if config.is_neural_selector_enabled():
