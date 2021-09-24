@@ -39,6 +39,10 @@ SCENARIO:
     AND NOT locked
 
 SCENARIO:
+    WHEN returned by read_csv
+    THEN NOT produced_by_validation_split
+
+SCENARIO:
     WHEN returned by train_test_split
     THEN produced_by_validation_split
 
