@@ -1,22 +1,19 @@
 import sys
 import atexit
 import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+import logging
 
+# Configure environment of tensorflow before importing any other module.
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 if os.environ.get("LOGIPY_DISABLE_GPU", 0) == "1":
     # Disable GPU usage.
     import tensorflow as tf
     tf.config.set_visible_devices([], 'GPU')
 
-from logipy.monitor.wrappers import *
-from logipy.logic.rules import add_rule
-from logipy.monitor.wrappers import LogipyPrimitive as logipy_obj
-from logipy.monitor.wrappers import logipy_call as logipy_call
-import logipy.importer.file_converter
-import logipy.importer.gherkin_importer
-import logipy.exception_handler
+from .monitor.wrappers import LogipyPrimitive, logipy_call
+from .models.train_model import load_or_train_model
+from . import exception_handler
 from . import config
-from logipy.models.train_model import load_or_train_model
 
 
 LOGGER_NAME = "logipy"

@@ -6,13 +6,15 @@ from datetime import datetime
 
 from logipy.logic.next_theorem_selectors import set_default_theorem_selector, \
     get_default_theorem_selector, BetterNextTheoremSelector
-import logipy.graphs
+import logipy.graphs.timed_property_graph
 import logipy.models
+import logipy.models.io
 import logipy.logic.prover
-from . import importer
-from logipy.models.neural_theorem_selector import NeuralNextTheoremSelector
-from logipy.models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
+from .models.neural_theorem_selector import NeuralNextTheoremSelector
+from .models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
+from .models.gnn_model import GNNModel
 from logipy.models.gnn_model import GNNModel
+from .importer import file_converter, gherkin_importer
 
 
 VERSION = "0.0.1"
@@ -229,10 +231,10 @@ def _teardown_models_module():
 
 
 def _tearup_importer_module():
-    importer.file_converter.logipy_root_path = LOGIPY_ROOT_PATH
-    logipy.importer.file_converter.convert_path()
-    logipy.importer.gherkin_importer.import_gherkin_path()
+    file_converter.logipy_root_path = LOGIPY_ROOT_PATH
+    file_converter.convert_path()
+    gherkin_importer.import_gherkin_path()
 
 
 def _teardown_importer_module():
-    importer.file_converter.restore_path()
+    file_converter.restore_path()
