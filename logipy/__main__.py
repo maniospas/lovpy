@@ -10,6 +10,9 @@ from .config import VERSION
 
 def main():
     if len(argv) > 1 and argv[1].endswith(".py"):
+        print("-" * 80)
+        print(f"Running {argv[1]} under logipy's verification.")
+        print("-" * 80)
         sys.argv = sys.argv[1:]
         runpy.run_path(sys.argv[0], run_name="__main__")
 
