@@ -13,7 +13,7 @@ import logipy.logic.prover
 from .models.neural_theorem_selector import NeuralNextTheoremSelector
 from .models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
 from .models.gnn_model import GNNModel
-from logipy.models.gnn_model import GNNModel
+from .models.simple_model import SimpleModel
 from .importer import file_converter, gherkin_importer
 
 
@@ -127,7 +127,7 @@ def set_theorem_selector(theorem_selector: TheoremSelector):
 
     elif theorem_selector is TheoremSelector.SIMPLE_NN:
         logger.info("Setting theorem prover to the simple neural one.")
-        set_default_theorem_selector(NeuralNextTheoremSelector())
+        set_default_theorem_selector(NeuralNextTheoremSelector(SimpleModel.load()))
 
     elif theorem_selector is TheoremSelector.DGCNN or theorem_selector is TheoremSelector.HYBRID:
         gnn_model = GNNModel.load()
