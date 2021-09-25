@@ -120,6 +120,7 @@ def set_theorem_selector(theorem_selector: TheoremSelector):
             False.
     """
     logger = logging.getLogger(LOGGER_NAME)
+    logger.setLevel(logging.INFO)
 
     if theorem_selector is TheoremSelector.DETERMINISTIC:
         logger.info("Setting theorem prover to the deterministic one.")
