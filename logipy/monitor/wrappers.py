@@ -1,3 +1,4 @@
+import threading
 import types
 import warnings
 import inspect
@@ -76,8 +77,12 @@ class LogipyMethod:
             if is_predicate_monitored(call_predicate) or not MONITOR_ONLY_MONITORED_PREDICATES:
                 call_graph = call_predicate.convert_to_graph()
                 call_graph.set_timestamp(current_timestamp)
+
+                # Update the state of parent object and verify it.
+                self.__parent_object.__get_lock__().acquire()
                 self.__parent_object.get_execution_graph().logical_and(call_graph)
                 _verify_object_when_no_exception(self.__parent_object)
+                self.__parent_object.__get_lock__().release()
 
             total_execution_graph.logical_and(self.__parent_object.get_execution_graph())
 
@@ -96,8 +101,11 @@ class LogipyMethod:
                     # Add the called by predicate to the execution graphs of all arguments.
                     called_by_graph = called_by_predicate.convert_to_graph()
                     called_by_graph.set_timestamp(current_timestamp)
+
+                    arg.__get_lock__().acquire()
                     arg.get_execution_graph().logical_and(called_by_graph)
                     _verify_object_when_no_exception(arg)
+                    arg.__get_lock__().release()
 
                 total_execution_graph.logical_and(arg.get_execution_graph())
 
@@ -132,8 +140,11 @@ class LogipyMethod:
         if is_predicate_monitored(returned_by_predicate) or not MONITOR_ONLY_MONITORED_PREDICATES:
             returned_by_graph = returned_by_predicate.convert_to_graph()
             returned_by_graph.set_timestamp(current_timestamp)
+
+            ret.__get_lock__().acquire()
             ret.get_execution_graph().logical_and(returned_by_graph)
             _verify_object_when_no_exception(ret)
+            ret.__get_lock__().release()
 
         return ret
 
@@ -154,6 +165,8 @@ class LogipyPrimitive:
             self.__logipy_value = value
             self.__execution_graph = TimedPropertyGraph()
             self.__timestamp = global_stamp_and_increment()
+
+        self.__lock = threading.Lock()  # Lock for performing thread-safe state modifications.
 
         if previous_execution_graph is not None:
             previous_copy = previous_execution_graph.get_copy()
@@ -214,6 +227,9 @@ class LogipyPrimitive:
     # def __setattr__(self, key, value):
         # self.__dict__["_LogipyPrimitive__logipy_value"].__dict__[key] = value
         # self.__dict__[key] = value
+
+    def __get_lock__(self):
+        return self.__lock
 
     def __nonzero__(self):
         return bool(self.value())  # TODO: value() method?????
