@@ -1,5 +1,6 @@
-#Logipy
-## An easy-to-use yet powerful logic verification library for Python.
+# Logipy
+
+## An easy-to-use, yet powerful, logic verification library for Python.
 
 Developed by *Dimitrios Karageorgiou*,\
 during diploma thesis on *Automated Proving using Graph Neural Networks for Logic Verification of Code at Runtime*,\
