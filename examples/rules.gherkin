@@ -41,6 +41,10 @@ SCENARIO:
     THEN numpy_const
 
 SCENARIO:
+    WHEN returned by allocate_lock
+    THEN NOT locked
+
+SCENARIO:
     WHEN call acquire
     THEN SHOULD NOT locked
     AND locked
