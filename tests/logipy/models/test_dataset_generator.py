@@ -1,14 +1,14 @@
 import unittest
 from collections import Counter
 
-from logipy import config
-from logipy.models.dataset_generator import *
-from logipy.logic.prover import split_into_theorems_and_properties_to_prove
-from logipy.importer.gherkin_importer import import_gherkin_path, import_gherkin_file, \
+from lovpy import config
+from lovpy.models.dataset_generator import *
+from lovpy.logic.prover import split_into_theorems_and_properties_to_prove
+from lovpy.importer.gherkin_importer import import_gherkin_path, import_gherkin_file, \
     convert_gherkin_to_graphs
-from logipy.logic.properties import get_global_properties
+from lovpy.logic.properties import get_global_properties
 
-from tests.logipy.importer.sample_properties import get_threading_sample_properties
+from tests.lovpy.importer.sample_properties import get_threading_sample_properties
 
 
 class TestDatasetEntity(unittest.TestCase):
@@ -179,7 +179,7 @@ class TestDatasetGenerator(unittest.TestCase):
     def test_non_chronological_dataset(self):
         get_global_properties().clear()
         import_gherkin_file(
-            str(config.LOGIPY_ROOT_PATH.parent/"examples/non_chronological_rules.gherkin"))
+            str(config.LOVPY_ROOT_PATH.parent/"examples/non_chronological_rules.gherkin"))
         properties = get_global_properties()
 
         max_depth = 10
@@ -214,9 +214,9 @@ class TestDatasetGenerator(unittest.TestCase):
         self._test_all_predicates_have_different_timestamps(samples)
 
     def test_full_examples_dataset(self):
-        # Utilize logipy's import scheme to import all examples.
-        print(f"Importing from {config.LOGIPY_ROOT_PATH.parent}")
-        import_gherkin_path(config.LOGIPY_ROOT_PATH.parent)
+        # Utilize lovpy's import scheme to import all examples.
+        print(f"Importing from {config.LOVPY_ROOT_PATH.parent}")
+        import_gherkin_path(config.LOVPY_ROOT_PATH.parent)
         properties = get_global_properties()
 
         max_depth = 10

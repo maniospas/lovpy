@@ -1,12 +1,12 @@
 import unittest
 from copy import deepcopy
 
-from tests.logipy.importer.sample_properties import get_threading_sample_properties
-from logipy.monitor.monitored_predicate import Call, ReturnedBy
-from logipy.graphs.timestamps import Timestamp
-from logipy.logic.prover import *
-from logipy.logic.properties import split_into_theorems_and_properties_to_prove
-from logipy.importer.gherkin_importer import convert_gherkin_to_graphs
+from tests.lovpy.importer.sample_properties import get_threading_sample_properties
+from lovpy.monitor.monitored_predicate import Call, ReturnedBy
+from lovpy.graphs.timestamps import Timestamp
+from lovpy.logic.prover import *
+from lovpy.logic.properties import split_into_theorems_and_properties_to_prove
+from lovpy.importer.gherkin_importer import convert_gherkin_to_graphs
 
 
 class TestProver(unittest.TestCase):

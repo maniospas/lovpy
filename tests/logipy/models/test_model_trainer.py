@@ -1,7 +1,7 @@
 import unittest
 
-from logipy.models.simple_model import *
-from tests.logipy.importer.sample_properties import get_threading_sample_properties
+from lovpy.models.simple_model import *
+from tests.lovpy.importer.sample_properties import get_threading_sample_properties
 
 
 class TestModelTrainer(unittest.TestCase):

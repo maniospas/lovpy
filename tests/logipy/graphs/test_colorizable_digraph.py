@@ -1,6 +1,6 @@
 import unittest
 
-from logipy.graphs.colorizable_multidigraph import ColorizableMultiDiGraph
+from lovpy.graphs.colorizable_multidigraph import ColorizableMultiDiGraph
 
 
 class TestColorizableDiGraph(unittest.TestCase):

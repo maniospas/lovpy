@@ -1,14 +1,14 @@
 import unittest
 
-from logipy.importer.gherkin_importer import *
-from logipy.monitor.monitored_predicate import *
+from lovpy.importer.gherkin_importer import *
+from lovpy.monitor.monitored_predicate import *
 
 
 class TestConvertSpecificationToGraph(unittest.TestCase):
 
     def test_conclusion_with_negated_past_and_positive_present_and_special_function(self):
         spec = "WHEN call acquire "
-        spec += "THEN SHOULD NOT locked AND locked AND PRINT locked [VAR.logipy_value()]"
+        spec += "THEN SHOULD NOT locked AND locked AND PRINT locked [VAR.lovpy_value()]"
 
         property_graph = convert_specification_to_graph(spec)
 
@@ -26,7 +26,7 @@ class TestConvertSpecificationToGraph(unittest.TestCase):
         locked_pred = PredicateGraph("locked", var)
         locked_pred.set_timestamp(RelativeTimestamp(0))
 
-        # print_pred = PredicateGraph("PRINT locked [VAR.logipy_value()]", var)
+        # print_pred = PredicateGraph("PRINT locked [VAR.lovpy_value()]", var)
         # print_pred.set_timestamp(RelativeTimestamp(0))
 
         conclusion_graph = should_not_locked_pred

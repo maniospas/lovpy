@@ -1,4 +1,4 @@
-from tests.logipy.importer.sample_properties import get_threading_sample_properties
+from tests.lovpy.importer.sample_properties import get_threading_sample_properties
 
 
 def test_visualize_thread_properties():

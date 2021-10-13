@@ -1,4 +1,4 @@
-from logipy.importer.gherkin_importer import convert_specification_to_graph
+from lovpy.importer.gherkin_importer import convert_specification_to_graph
 
 
 def get_counter_sample_properties():
@@ -23,7 +23,7 @@ def get_threading_sample_properties():
         WHEN call acquire
         THEN SHOULD NOT locked
         AND locked
-        AND PRINT locked [VAR.logipy_value()]
+        AND PRINT locked [VAR.lovpy_value()]
     """.replace('\n', '')
     rule1 = ' '.join(rule1.split())
 

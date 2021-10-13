@@ -2,12 +2,12 @@ import unittest
 
 from networkx.algorithms.dag import is_directed_acyclic_graph
 
-from logipy.monitor.monitored_predicate import *
-from logipy.graphs.timed_property_graph import PredicateNode
-from logipy.graphs.timed_property_graph import PredicateGraph
-from logipy.monitor.time_source import get_zero_locked_timesource, TimeSource
-from tests.logipy.importer.sample_properties import get_counter_sample_properties
-import logipy.logic.prover as prover
+from lovpy.monitor.monitored_predicate import *
+from lovpy.graphs.timed_property_graph import PredicateNode
+from lovpy.graphs.timed_property_graph import PredicateGraph
+from lovpy.monitor.time_source import get_zero_locked_timesource, TimeSource
+from tests.lovpy.importer.sample_properties import get_counter_sample_properties
+import lovpy.logic.prover as prover
 
 
 class TestTimedPropertyGraph(unittest.TestCase):
@@ -27,7 +27,7 @@ class TestTimedPropertyGraph(unittest.TestCase):
         locked_pred = PredicateGraph("locked", var)
         locked_pred.set_timestamp(RelativeTimestamp(0))
 
-        print_pred = PredicateGraph("PRINT locked [VAR.logipy_value()]", var)
+        print_pred = PredicateGraph("PRINT locked [VAR.lovpy_value()]", var)
         print_pred.set_timestamp(RelativeTimestamp(0))
 
         conclusion_graph = should_not_locked_pred

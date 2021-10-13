@@ -1,7 +1,7 @@
 import unittest
 
-from logipy.graphs.timestamps import *
-from logipy.monitor.time_source import get_zero_locked_timesource
+from lovpy.graphs.timestamps import *
+from lovpy.monitor.time_source import get_zero_locked_timesource
 
 
 class TestTimestampSequenceMatches(unittest.TestCase):

@@ -1,4 +1,4 @@
-# Logipy
+# Lovpy
 
 ## An easy-to-use, yet powerful, logic verification library for Python.
 
@@ -16,22 +16,22 @@ TODO
 
 ## Basic usage:
 ### Start validation:
-`python -m logipy <script.py>`
+`python -m lovpy <script.py>`
 
 An alternative way to start validation programmatically is the addition of a single python line:\
-`import logipy`
+`import lovpy`
 
 ### Train models:
-`python -m logipy -t <all | simple | gnn>`
+`python -m lovpy -t <all | simple | gnn>`
 
 ### Evaluate:
-`python -m logipy -e <examples | synthetics>`
+`python -m lovpy -e <examples | synthetics>`
 
 ### Supported Environmental Variables:
-- `LOGIPY_DISABLE_GPU = 0 | 1` : When set to `1` disables GPU usage by tensorflow.
-- `LOGIPY_SESSION_NAME = <name>` : Sets a custom name for current session.
-- `LOGIPY_TEMP_DIR = <dir>` : Sets directory where logipy will store all data and reports of a session.
-- `LOGIPY_DEV_MODE = 0 | 1` : When set to `1` enables development mode.
+- `LOVPY_DISABLE_GPU = 0 | 1` : When set to `1` disables GPU usage by tensorflow.
+- `LOVPY_SESSION_NAME = <name>` : Sets a custom name for current session.
+- `LOVPY_TEMP_DIR = <dir>` : Sets directory where lovpy will store all data and reports of a session.
+- `LOVPY_DEV_MODE = 0 | 1` : When set to `1` enables development mode.
 
 ## License:
 
