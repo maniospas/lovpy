@@ -20,7 +20,8 @@ LOGGER_NAME = "lovpy"
 
 session_name = os.environ.get("LOVPY_SESSION_NAME", "")
 temp_dir = os.environ.get("LOVPY_TEMP_DIR", None)
-config.tearup_lovpy(session_name=session_name, temp_dir=temp_dir)
+models_dir = os.environ.get("LOVPY_MODELS_DIR", None)
+config.tearup_lovpy(session_name=session_name, temp_dir=temp_dir, models_dir=None)
 
 atexit.register(config.teardown_lovpy)
 if os.environ.get("LOVPY_DEV_MODE", 0) == "1":

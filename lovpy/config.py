@@ -27,7 +27,6 @@ LOGGER_NAME = "lovpy"
 GRAPHVIZ_OUT_FILE = 'temp_graphviz_out.png'
 
 # Attributes controlling models module.
-MODELS_DIR = "models"
 USE_NEURAL_SELECTOR = True
 # Constants for simple NN model.
 MAIN_MODEL_NAME = "main_model"
@@ -46,6 +45,7 @@ NEXT_GRAPH_FILENAME = "temp_next.png"
 SIMPLE_MODEL_TRAIN_OUTPUT_DIR = "train_simple"
 GRAPH_MODEL_TRAIN_OUTPUT_DIR = "train_gnn"
 
+_models_dir = "examples/models"
 _lovpy_session_name = ""  # A name of the session to be appended to the output directories.
 _lovpy_temp_dir = Path(tempfile.gettempdir()) / "__lovpy_temp__/"
 
@@ -104,7 +104,7 @@ def get_models_dir_path(filename=None):
             filename is not provided. If filename is provided, Path points to the absolute path
             of a file with given filename, inside models' directory.
     """
-    absolute_path = Path(__file__).absolute().parent.parent / MODELS_DIR
+    absolute_path = Path(_models_dir).absolute()
     if not absolute_path.exists():
         absolute_path.mkdir()
     if filename:
@@ -168,10 +168,11 @@ def enable_proving_process_visualization():
         current_theorem_selector.export = True
 
 
-def tearup_lovpy(session_name="", temp_dir=None):
+def tearup_lovpy(session_name="", temp_dir=None, models_dir=None):
     """Initializes lovpy's modules."""
     global _lovpy_session_name
     global _lovpy_temp_dir
+    global _models_dir
 
     # Generate session name.
     _lovpy_session_name = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
@@ -183,6 +184,9 @@ def tearup_lovpy(session_name="", temp_dir=None):
         logging.getLogger(LOGGER_NAME).warning("-"*80)
         logging.getLogger(LOGGER_NAME).warning(f"Set lovpy's temp dir to {str(_lovpy_temp_dir)}")
         logging.getLogger(LOGGER_NAME).warning("-" * 80)
+
+    if models_dir:
+        _models_dir = models_dir
 
     _tearup_importer_module()
     _tearup_graphs_module()

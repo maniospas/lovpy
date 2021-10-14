@@ -3,7 +3,7 @@ import sys
 from sklearn.model_selection import train_test_split, StratifiedKFold
 
 from lovpy.logic.properties import get_global_properties
-from lovpy.config import get_scratchfile_path, GRAPH_MODEL_TRAIN_OUTPUT_DIR, MODELS_DIR, \
+from lovpy.config import get_scratchfile_path, GRAPH_MODEL_TRAIN_OUTPUT_DIR, _models_dir, \
     GRAPH_SELECTION_MODEL_NAME, MAIN_MODEL_NAME, \
     SIMPLE_MODEL_TRAIN_OUTPUT_DIR, set_theorem_selector, TheoremSelector
 from lovpy.evaluation.evaluation import evaluate_theorem_selector_on_samples
@@ -77,17 +77,17 @@ def train_models(arch=None):
 
     if arch == "simple":
         # Train Simple NN model.
-        models.append(SimpleModel("Simple Model", MODELS_DIR + "/" + MAIN_MODEL_NAME))
+        models.append(SimpleModel("Simple Model", _models_dir + "/" + MAIN_MODEL_NAME))
         configs.append(generate_simple_config())
     elif arch == "gnn":
         # Train GNN model.
-        models.append(GNNModel("GNN Model", MODELS_DIR + "/" + GRAPH_SELECTION_MODEL_NAME))
+        models.append(GNNModel("GNN Model", _models_dir + "/" + GRAPH_SELECTION_MODEL_NAME))
         configs.append(generate_gnn_config())
     else:
         # Train everything.
-        models.append(SimpleModel("Simple Model", MODELS_DIR + "/" + MAIN_MODEL_NAME))
+        models.append(SimpleModel("Simple Model", _models_dir + "/" + MAIN_MODEL_NAME))
         configs.append(generate_simple_config())
-        models.append(GNNModel("GNN Model", MODELS_DIR + "/" + GRAPH_SELECTION_MODEL_NAME))
+        models.append(GNNModel("GNN Model", _models_dir + "/" + GRAPH_SELECTION_MODEL_NAME))
         configs.append(generate_gnn_config())
 
     dataset = generate_dataset(properties, configs[0])
@@ -148,8 +148,8 @@ def generate_simple_config():
         False,
         RANDOM_EXPANSION_PROBABILITY,
         NEGATIVE_SAMPLES_PERCENTAGE,
-        (get_scratchfile_path(SIMPLE_MODEL_TRAIN_OUTPUT_DIR) / MODELS_DIR) / "selection_models",
-        (get_scratchfile_path(SIMPLE_MODEL_TRAIN_OUTPUT_DIR) / MODELS_DIR) / "termination_models"
+        (get_scratchfile_path(SIMPLE_MODEL_TRAIN_OUTPUT_DIR) / _models_dir) / "selection_models",
+        (get_scratchfile_path(SIMPLE_MODEL_TRAIN_OUTPUT_DIR) / _models_dir) / "termination_models"
     )
 
 
@@ -167,8 +167,8 @@ def generate_gnn_config():
         SYSTEM_COMPARISON_TO_DETERMINISTIC_AFTER_TRAIN,
         RANDOM_EXPANSION_PROBABILITY,
         NEGATIVE_SAMPLES_PERCENTAGE,
-        (get_scratchfile_path(GRAPH_MODEL_TRAIN_OUTPUT_DIR) / MODELS_DIR) / "selection_models",
-        (get_scratchfile_path(GRAPH_MODEL_TRAIN_OUTPUT_DIR) / MODELS_DIR) / "termination_models"
+        (get_scratchfile_path(GRAPH_MODEL_TRAIN_OUTPUT_DIR) / _models_dir) / "selection_models",
+        (get_scratchfile_path(GRAPH_MODEL_TRAIN_OUTPUT_DIR) / _models_dir) / "termination_models"
     )
 
 
