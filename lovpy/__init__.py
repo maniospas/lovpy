@@ -30,9 +30,19 @@ else:
 
 
 # Choose between hybrid and deterministic prover.
-if config.is_neural_selector_enabled():
+theorem_selector = os.environ.get("LOVPY_ENGINE", "HYBRID")
+
+if theorem_selector == "BASIC" or not config.is_neural_selector_enabled():
+    config.set_theorem_selector(config.TheoremSelector.DETERMINISTIC)
+elif theorem_selector == "MLP":
+    config.set_theorem_selector(config.TheoremSelector.SIMPLE_NN)
+elif theorem_selector == "GNN":
+    config.set_theorem_selector(config.TheoremSelector.DGCNN)
+elif theorem_selector == "HYBRID":
     logger = logging.getLogger(LOGGER_NAME)
     if not config.set_theorem_selector(config.TheoremSelector.HYBRID):
         config.set_theorem_selector(config.TheoremSelector.DETERMINISTIC)
         logger.warning("\tTrain a model by executing train_model.py script.")
         logger.warning("\tFalling back to deterministic theorem prover.")
+else:
+    config.set_theorem_selector(config.TheoremSelector.DETERMINISTIC)

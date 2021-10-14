@@ -21,6 +21,7 @@ An alternative way to start validation programmatically is the addition of a sin
 `python -m lovpy -e <examples | synthetics>`
 
 ### Supported Environmental Variables:
+- `LOVPY_ENGINE = BASIC | MLP | GNN | HYBRID` : Explicitly enables a specific verification engine.  
 - `LOVPY_DISABLE_GPU = 0 | 1` : When set to `1` disables GPU usage by tensorflow.
 - `LOVPY_SESSION_NAME = <name>` : Sets a custom name for current session.
 - `LOVPY_TEMP_DIR = <dir>` : Sets directory where lovpy will store all data and reports of a session.
