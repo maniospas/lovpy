@@ -5,9 +5,17 @@ import logging
 
 # Configure environment of tensorflow before importing any other module.
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-if os.environ.get("LOVPY_DISABLE_GPU", 0) == "1":
-    # Disable GPU usage.
+tf_installed = True
+try:
     import tensorflow as tf
+except ModuleNotFoundError:
+    tf_installed = False
+    print("-" * 80)
+    print("Tensorflow is not installed - Only basic engine is available.")
+    print("-" * 80)
+
+if tf_installed and os.environ.get("LOVPY_DISABLE_GPU", 0) == "1":
+    # Disable GPU usage.
     tf.config.set_visible_devices([], 'GPU')
 
 from .monitor.wrappers import LogipyPrimitive, lovpy_call
@@ -33,7 +41,7 @@ else:
 # Choose between hybrid and deterministic prover.
 theorem_selector = os.environ.get("LOVPY_ENGINE", "HYBRID")
 
-if theorem_selector == "BASIC" or not config.is_neural_selector_enabled():
+if theorem_selector == "BASIC" or not config.is_neural_selector_enabled() or not tf_installed:
     config.set_theorem_selector(config.TheoremSelector.DETERMINISTIC)
 elif theorem_selector == "MLP":
     config.set_theorem_selector(config.TheoremSelector.SIMPLE_NN)
