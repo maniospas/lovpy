@@ -1,12 +1,5 @@
 # Lovpy
-
-## An easy-to-use, yet powerful, logic verification library for Python.
-
-Developed by *Dimitrios Karageorgiou*,\
-during diploma thesis on *Automated Proving using Graph Neural Networks for Logic Verification of Code at Runtime*,\
-*Electrical and Computers Engineering Department,*\
-*Aristotle University Of Thessaloniki, Greece,*\
-*2020-2021.*
+#### An easy-to-use, yet powerful, logic verification library for Python.
 
 ## Description:
 TODO
@@ -35,5 +28,6 @@ An alternative way to start validation programmatically is the addition of a sin
 
 ## License:
 
-This project is licensed under Mozilla Public License Version 2.0. A copy of this license is contained in current project. It applies to all files in this project whether or not it is stated in them.
+This project is licensed under Apache License 2.0. A copy of this license is contained in current project under `LICENSE` file. It applies to all files in this project whether or not it is stated in them.
 
+Copyright 2021 | Dimitrios S. Karageorgiou
