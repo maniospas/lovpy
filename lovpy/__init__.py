@@ -17,9 +17,10 @@ except ModuleNotFoundError:
 if tf_installed and os.environ.get("LOVPY_DISABLE_GPU", 0) == "1":
     # Disable GPU usage.
     tf.config.set_visible_devices([], 'GPU')
+if tf_installed:
+    from .models.train_model import load_or_train_model
 
 from .monitor.wrappers import LogipyPrimitive, lovpy_call
-from .models.train_model import load_or_train_model
 from . import exception_handler
 from . import config
 

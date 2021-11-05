@@ -7,13 +7,7 @@ from datetime import datetime
 from lovpy.logic.next_theorem_selectors import set_default_theorem_selector, \
     get_default_theorem_selector, BetterNextTheoremSelector
 import lovpy.graphs.timed_property_graph
-import lovpy.models
-import lovpy.models.io
 import lovpy.logic.prover
-from .models.neural_theorem_selector import NeuralNextTheoremSelector
-from .models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
-from .models.gnn_model import GNNModel
-from .models.simple_model import SimpleModel
 from .importer import file_converter, gherkin_importer
 
 
@@ -128,11 +122,15 @@ def set_theorem_selector(theorem_selector: TheoremSelector):
 
     elif theorem_selector is TheoremSelector.SIMPLE_NN:
         logger.info("Setting theorem prover to the simple neural one.")
+        from .models.neural_theorem_selector import NeuralNextTheoremSelector
+        from .models.simple_model import SimpleModel
         set_default_theorem_selector(NeuralNextTheoremSelector(SimpleModel.load()))
 
     elif theorem_selector is TheoremSelector.DGCNN or theorem_selector is TheoremSelector.HYBRID:
+        from .models.gnn_model import GNNModel
         gnn_model = GNNModel.load()
         if gnn_model:
+            from .models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
             if theorem_selector is TheoremSelector.DGCNN:
                 logger.info("Setting theorem prover to the graph neural one.")
                 set_default_theorem_selector(GraphNeuralNextTheoremSelector(
@@ -163,6 +161,8 @@ def enable_failure_visualization():
 
 def enable_proving_process_visualization():
     """Enables visualization of the whole proving process."""
+    from .models.graph_neural_theorem_selector import GraphNeuralNextTheoremSelector
+
     current_theorem_selector = get_default_theorem_selector()
     if isinstance(current_theorem_selector, GraphNeuralNextTheoremSelector):
         current_theorem_selector.export = True
@@ -190,12 +190,22 @@ def tearup_lovpy(session_name="", temp_dir=None, models_dir=None):
 
     _tearup_importer_module()
     _tearup_graphs_module()
-    _tearup_models_module()
+
+    try:
+        import tensorflow
+        _tearup_models_module()
+    except ModuleNotFoundError:
+        pass
 
 
 def teardown_lovpy():
     """Frees up resources allocated by lovpy's modules."""
-    _teardown_models_module()
+    try:
+        import tensorflow
+        _teardown_models_module()
+    except ModuleNotFoundError:
+        pass
+
     _teardown_graphs_module()
     _teardown_importer_module()
 
@@ -210,6 +220,8 @@ def _teardown_graphs_module():
 
 
 def _tearup_models_module():
+    import lovpy.models.io
+
     # Set model paths.
     lovpy.models.io.main_model_path = get_models_dir_path(MAIN_MODEL_NAME)
     lovpy.models.io.predicates_map_path = get_models_dir_path(PREDICATES_MAP_NAME)

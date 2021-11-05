@@ -2,9 +2,6 @@ import runpy
 import sys
 from sys import argv
 
-from .models.train_model import train_models
-from .evaluation.evaluate_on_synthetics import evaluate as eval_on_synthetics
-from .evaluation.evaluate_on_examples import evaluate_proving_methods as eval_on_examples
 from .config import VERSION
 
 
@@ -17,6 +14,8 @@ def main():
         runpy.run_path(sys.argv[0], run_name="__main__")
 
     elif len(argv) > 1 and (argv[1] == "--train" or argv[1] == "-t"):
+        from .models.train_model import train_models
+
         if len(argv) > 2 and argv[2] == "simple":
             train_models(arch="simple")
         elif len(argv) > 2 and argv[2] == "gnn":
@@ -26,8 +25,11 @@ def main():
 
     elif len(argv) > 1 and (argv[1] == "--eval" or argv[1] == "-e"):
         if len(argv) > 2 and argv[2] == "examples":
+            from .evaluation.evaluate_on_examples import \
+                evaluate_proving_methods as eval_on_examples
             eval_on_examples()
         elif len(argv) > 2 and argv[2] == "synthetics":
+            from .evaluation.evaluate_on_synthetics import evaluate as eval_on_synthetics
             eval_on_synthetics()
 
     elif len(argv) > 1 and (argv[1] == "--version" or argv[1] == "-v"):
