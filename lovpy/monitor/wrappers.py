@@ -238,7 +238,7 @@ class LogipyPrimitive:
     #     return hash(self.__lovpy_value)
 
     def __repr__(self):
-        return repr(self.__lovpy_value) +" (" +", ".join(self.__execution_graph) + ")"
+        return repr(self.__lovpy_value) + " (" + ", ".join(self.__execution_graph) + ")"
 
 
 def lovpy_call(method, *args, **kwargs):
@@ -332,7 +332,8 @@ def _make_primitive_method(method_name):
         # for arg in kwargs.values():
         #     graph_logic = graph_logic.union(_properties(arg))
         #     _apply_method_rules(method_name, arg, call_rules, *args, **kwargs)
-        # ret = LogipyPrimitive(getattr(self.lovpy_value(), method_name)(*args, **kwargs), graph_logic)
+        # ret = LogipyPrimitive(getattr(self.lovpy_value(), method_name)(*args, **kwargs),
+        #                       graph_logic)
         # _apply_method_rules(method_name, ret, return_rules, *args, **kwargs)
         # return ret
     return method

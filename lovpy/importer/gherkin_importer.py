@@ -89,7 +89,7 @@ def get_fundamental_clauses(formula):
 def convert_clause_to_graph(clause):
     """Converts a fundamental step clause, to property graph.
 
-    A fundamental step clause, is the text tha follows GIVEN, WHEN, THEN steps.
+    A fundamental step clause, is the text that follows GIVEN, WHEN, THEN steps.
 
     Steps are allowed to contain SHOULD modifier.
     """
@@ -130,7 +130,7 @@ def convert_clause_to_graph(clause):
 
 
 def convert_predicate_to_graph(predicate):
-    """Converts a predicate to a graph representation"""
+    """Converts a predicate to a graph representation."""
     # Check if predicate is a defined function.
     monitored_predicate = MonitoredPredicate.find_text_matching_monitored_predicate(predicate)
 
