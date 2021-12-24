@@ -1,3 +1,5 @@
+import pathlib
+
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
@@ -104,12 +106,25 @@ class GNNModel(TheoremProvingModel):
         # )
 
     @staticmethod
-    def load(path=None):
+    def load(path: pathlib.Path = None):
+        """Loads a GNN model.
+
+        Model is loaded from path set via global configuration.
+
+        :param path: Path to save the model later on.
+
+        :return: If model loaded successful, returns a valid `GNNModel` object.
+                In case of failure, it returns None.
+        """
+        # TODO: Create a new class for configuration and fix path hard-coding.
         next_model, term_model, encoder = load_gnn_models()
-        return GNNModel("GNN Model", path,
-                        next_theorem_model=next_model,
-                        proving_termination_model=term_model,
-                        nodes_encoder=encoder)
+        if next_model and encoder:
+            return GNNModel("GNN Model", path,
+                            next_theorem_model=next_model,
+                            proving_termination_model=term_model,
+                            nodes_encoder=encoder)
+        else:
+            return None
 
 
 class ProvingModelSamplesGenerator(Sequence):
