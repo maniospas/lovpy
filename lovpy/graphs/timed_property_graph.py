@@ -1,6 +1,7 @@
 import itertools
 import logging
 from copy import deepcopy
+from io import BytesIO
 
 import networkx
 from networkx.readwrite.graphml import write_graphml
@@ -24,8 +25,6 @@ ASSUMPTION_GRAPH = "assumption"
 CONCLUSION_GRAPH = "conclusion"
 
 LOGGER_NAME = "lovpy.logic.timed_property_graph"
-
-graphviz_out_scratchfile_path = None
 
 
 class TimedPath:
@@ -467,9 +466,12 @@ class TimedPropertyGraph:
         a_graph.layout('dot')
         a_graph.graph_attr.update(dpi=300)
         a_graph.graph_attr.update(size=4)
-        path = graphviz_out_scratchfile_path
-        a_graph.draw(path)
-        plt.imshow(mpimage.imread(path))
+
+        buffer = BytesIO(a_graph.draw(format="png"))
+        with buffer:
+            image = mpimage.imread(buffer, format="png")
+        plt.imshow(image)
+
         if export_path:
             plt.savefig(export_path)
             plt.close('all')

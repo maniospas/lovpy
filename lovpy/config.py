@@ -189,7 +189,6 @@ def tearup_lovpy(session_name="", temp_dir=None, models_dir=None):
         _models_dir = models_dir
 
     _tearup_importer_module()
-    _tearup_graphs_module()
 
     try:
         import tensorflow
@@ -205,18 +204,7 @@ def teardown_lovpy():
         _teardown_models_module()
     except ModuleNotFoundError:
         pass
-
-    _teardown_graphs_module()
     _teardown_importer_module()
-
-
-def _tearup_graphs_module():
-    lovpy.graphs.timed_property_graph.graphviz_out_scratchfile_path = \
-        get_scratchfile_path(GRAPHVIZ_OUT_FILE)
-
-
-def _teardown_graphs_module():
-    remove_scratchfile(get_scratchfile_path(GRAPHVIZ_OUT_FILE))
 
 
 def _tearup_models_module():
