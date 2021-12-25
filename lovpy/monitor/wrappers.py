@@ -8,7 +8,7 @@ import lovpy.logic.properties as lovpy_properties
 from lovpy.logic import prover
 from .monitored_predicate import *
 from .time_source import global_stamp_and_increment
-
+from ..graphs.dynamic_temporal_graph import DynamicGraph
 
 MONITOR_ONLY_MONITORED_PREDICATES = True
 DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED = True
@@ -57,19 +57,20 @@ class LogipyMethod:
         if hasattr(method, "__module__"):
             self.__module__ = method.__module__
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, globs, locs, *args, **kwargs):
         """Wrapper method for monitoring the calls on a callable object."""
         # A graph to include the state of caller, the state of args and the new steps.
         total_execution_graph = TimedPropertyGraph()
 
-        total_execution_graph = self.__monitor_call__(total_execution_graph)
-        total_execution_graph = self.__monitor_called_by__(args, kwargs, total_execution_graph)
-        return self.__monitor_returned_by__(args, kwargs, total_execution_graph)
+        total_execution_graph = self.__monitor_call__(total_execution_graph, globs, locs)
+        total_execution_graph = self.__monitor_called_by__(args, kwargs, total_execution_graph,
+                                                           globs, locs)
+        return self.__monitor_returned_by__(args, kwargs, total_execution_graph, globs, locs)
 
     def __get__(self, instance, cls):
         return types.MethodType(self, instance) if instance else self
 
-    def __monitor_call__(self, total_execution_graph):
+    def __monitor_call__(self, total_execution_graph, globs, locs):
         """Monitor "call" predicate on parent object."""
         if self.__parent_object is not None and isinstance(self.__parent_object, LogipyPrimitive):
             current_timestamp = Timestamp(global_stamp_and_increment())
@@ -81,14 +82,14 @@ class LogipyMethod:
                 # Update the state of parent object and verify it.
                 self.__parent_object.__get_lock__().acquire()
                 self.__parent_object.get_execution_graph().logical_and(call_graph)
-                _verify_object_when_no_exception(self.__parent_object)
+                _verify_object_when_no_exception(self.__parent_object, globs, locs)
                 self.__parent_object.__get_lock__().release()
 
             total_execution_graph.logical_and(self.__parent_object.get_execution_graph())
 
         return total_execution_graph
 
-    def __monitor_called_by__(self, args, kwargs, total_execution_graph):
+    def __monitor_called_by__(self, args, kwargs, total_execution_graph, globs, locs):
         """Monitor "called by" predicate on arguments passed to current call."""
         args_list = list(args)
         args_list.extend(kwargs.values())
@@ -104,14 +105,14 @@ class LogipyMethod:
 
                     arg.__get_lock__().acquire()
                     arg.get_execution_graph().logical_and(called_by_graph)
-                    _verify_object_when_no_exception(arg)
+                    _verify_object_when_no_exception(arg, globs, locs)
                     arg.__get_lock__().release()
 
                 total_execution_graph.logical_and(arg.get_execution_graph())
 
         return total_execution_graph
 
-    def __monitor_returned_by__(self, args, kwargs, total_execution_graph):
+    def __monitor_returned_by__(self, args, kwargs, total_execution_graph, globs, locs):
         global _property_exception_raised
 
         # TODO: FIND THE BEST WAY TO DO THE FOLLOWING
@@ -143,7 +144,7 @@ class LogipyMethod:
 
             ret.__get_lock__().acquire()
             ret.get_execution_graph().logical_and(returned_by_graph)
-            _verify_object_when_no_exception(ret)
+            _verify_object_when_no_exception(ret, globs, locs)
             ret.__get_lock__().release()
 
         return ret
@@ -241,9 +242,11 @@ class LogipyPrimitive:
         return repr(self.__lovpy_value) + " (" + ", ".join(self.__execution_graph) + ")"
 
 
-def lovpy_call(method, *args, **kwargs):
+def lovpy_call(globs, locs, method, *args, **kwargs):
     """Call a callable object inside a LogipyMethod wrapper.
 
+    :param globs: Dictionary of available global vars.
+    :param locs: Dictionary of available local vars.
     :param method: The callable object to be wrapped and called.
     :param args: Arguments to be passed to the callable object.
     :param kwargs: Keyword arguments to be passed to the callable object.
@@ -253,8 +256,8 @@ def lovpy_call(method, *args, **kwargs):
     by the callable.
     """
     if isinstance(method, LogipyMethod):
-        return method(*args, **kwargs)
-    return LogipyMethod(method)(*args, **kwargs)
+        return method(globs, locs, *args, **kwargs)
+    return LogipyMethod(method)(globs, locs, *args, **kwargs)
 
 
 def lovpy_value(obj):
@@ -279,44 +282,51 @@ def clear_previous_raised_exceptions():
     _property_exception_raised = False
 
 
-def _verify_object_when_no_exception(o: LogipyPrimitive):
+def _verify_object_when_no_exception(o: LogipyPrimitive, globs, locs):
     if not _property_exception_raised or not DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED:
-        _verify_object(o)
+        _verify_object(o, globs, locs)
 
 
-def _verify_object(o: LogipyPrimitive):
-    _prove_negative_properties(o)
+def _verify_object(o: LogipyPrimitive, globs, locs):
+    _prove_negative_properties(o, globs, locs)
     if KEEP_TRACK_OF_LAST_VERIFIED_FRAME:
-        _prove_positive_properties(o)
+        _prove_positive_properties(o, globs, locs)
 
 
-def _prove_negative_properties(o: LogipyPrimitive):
-    for p in lovpy_properties.get_negative_properties_to_prove():
+def _prove_negative_properties(o: LogipyPrimitive, globs, locs):
+    # First, evaluate dynamic properties and theorems.
+    neg_properties, dyn_neg_properties = _evaluate_dynamic_graphs(
+        lovpy_properties.get_negative_properties_to_prove(), globs, locs)
+    theorems, _ = _evaluate_dynamic_graphs(lovpy_properties.get_global_theorems(), globs, locs)
+
+    for p, dyn_p in zip(neg_properties, dyn_neg_properties):
         proved, theorems_applied, intermediate_graphs = prover.prove_property(
-            o.get_execution_graph(),
-            p,
-            lovpy_properties.get_global_theorems()
-        )
+            o.get_execution_graph(), p, theorems)
 
         if proved:
             if prover.full_visualization_enabled:
                 prover.visualize_proving_process(intermediate_graphs, theorems_applied, p)
-            positive_property = lovpy_properties.get_negative_to_positive_mapping()[p]
+            positive_property = lovpy_properties.get_negative_to_positive_mapping()[dyn_p]
             raise PropertyNotHoldsException(
                 p.get_property_textual_representation(),
                 o.__get_property_last_proved_frame__(positive_property)
             )
 
 
-def _prove_positive_properties(o: LogipyPrimitive):
-    for p in lovpy_properties.get_global_properties_to_prove():
+def _prove_positive_properties(o: LogipyPrimitive, globs, locs):
+    # First, evaluate dynamic properties and theorems.
+    properties, dyn_properties = _evaluate_dynamic_graphs(
+        lovpy_properties.get_global_properties_to_prove(), globs, locs)
+    theorems, _ = _evaluate_dynamic_graphs(lovpy_properties.get_global_theorems(), globs, locs)
+
+    for p, dyn_p in zip(properties, dyn_properties):
         proved, _, _ = prover.prove_property(
             o.get_execution_graph(),
             p,
-            lovpy_properties.get_global_theorems()
+            theorems
         )
         if proved:
-            o.__update_property_last_proved_frame__(p, inspect.stack())
+            o.__update_property_last_proved_frame__(dyn_p, inspect.stack())
 
 
 def _make_primitive_method(method_name):
@@ -347,6 +357,39 @@ def _is_callable(obj):
     if isinstance(obj, LogipyPrimitive):
         return callable(obj.get_lovpy_value())
     return callable(obj)
+
+
+def _evaluate_dynamic_graphs(graphs, globs, locs):
+    """Evaluates a mixed list of dynamic and normal temporal graphs.
+
+    :param graphs:
+    :param globs:
+    :param locs:
+
+    :return:
+        -evaluated: A list containing all possible evaluations of given graphs.
+        -corresponding_dyn: Dynamic graph which was used to produce an evaluated one. If the
+                initial graph wasn't a dynamic one, then None is returned.
+    """
+    evaluated = []  # Evaluated temporal graphs.
+    corresponding_dyn = []  # Corresponding dynamic graph of each evaluated property.
+
+    for g in graphs:
+        if isinstance(g, DynamicGraph):
+            evals = list(g.evaluate(globs, locs))
+            if isinstance(evals, list):
+                evaluated.extend(evals)
+                for _ in evals:
+                    corresponding_dyn.append(g)
+            else:
+                evaluated.append(evals)
+                corresponding_dyn.append(g)
+        else:
+            # If a graph is not dynamic, then it should be appended as is.
+            evaluated.append(g)
+            corresponding_dyn.append(None)
+
+    return evaluated, corresponding_dyn
 
 
 for method_name in _SPECIAL_NAMES:

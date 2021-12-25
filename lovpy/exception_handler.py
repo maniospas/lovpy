@@ -69,9 +69,9 @@ def _clean_summary_from_monitor_calls(summary: StackSummary):
 
         # Remove all wrapper calls to lovpy_call().
         if line:
-            matches = re.match("^(.*)lovpy_call[(](.*)[)](.*)", line)
+            matches = re.match("^(.*)lovpy_call[(]globals[(][)], locals[(][)], (.*)[)](.*)", line)
             if matches:
-                call_parts = matches.groups()[1].split(sep=",")
+                call_parts = matches.groups()[1].split(sep=", ")
                 function_call = call_parts.pop(0)
                 if call_parts:
                     function_call = "{}({})".format(function_call, ", ".join(call_parts))

@@ -31,7 +31,7 @@ def transform_lines(lines):
                             and primitive not in LOVPY_KEYWORDS
                             and "." != primitive[0]):
                         # Pass all callable objects as the first argument to a lovpy_call call.
-                        primitive = "lovpy_call(" + primitive + ","
+                        primitive = "lovpy_call(globals(), locals(), " + primitive + ", "
                         c = ""
                     # elif primitive and primitive not in keywords:
                     #     primitive = "LogipyPrimitive("+primitive+")"

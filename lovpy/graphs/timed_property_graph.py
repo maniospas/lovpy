@@ -9,6 +9,7 @@ from networkx.algorithms.simple_paths import all_simple_edge_paths
 from networkx.algorithms.dag import topological_sort, descendants
 from networkx.drawing.nx_agraph import to_agraph
 from networkx.exception import NodeNotFound
+from networkx.relabel import relabel_nodes
 from matplotlib import pyplot as plt
 from matplotlib import image as mpimage
 
@@ -706,6 +707,14 @@ class TimedPropertyGraph:
 
     def clear_colorization(self):
         self.graph.clear_colorization()
+
+    def replace_nodes(self, mapping):
+        """Replaces nodes in-place.
+
+        :param mapping: A dictionary that maps old nodes (as keys) with the new
+                nodes (as values) to be replaced.
+        """
+        relabel_nodes(self.graph, mapping=mapping, copy=False)
 
     def _get_top_level_implication_edges(self):
         assumption_edge = None
