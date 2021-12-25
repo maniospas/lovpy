@@ -39,7 +39,7 @@ NEXT_GRAPH_FILENAME = "temp_next.png"
 SIMPLE_MODEL_TRAIN_OUTPUT_DIR = "train_simple"
 GRAPH_MODEL_TRAIN_OUTPUT_DIR = "train_gnn"
 
-_models_dir = "examples/models"
+_models_dir = Path.home() / ".lovpy/models"
 _lovpy_session_name = ""  # A name of the session to be appended to the output directories.
 _lovpy_temp_dir = Path(tempfile.gettempdir()) / "__lovpy_temp__/"
 
@@ -100,7 +100,7 @@ def get_models_dir_path(filename=None):
     """
     absolute_path = Path(_models_dir).absolute()
     if not absolute_path.exists():
-        absolute_path.mkdir()
+        absolute_path.mkdir(parents=True)
     if filename:
         absolute_path = absolute_path / filename
     return absolute_path
