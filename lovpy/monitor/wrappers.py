@@ -334,7 +334,8 @@ def _make_primitive_method(method_name):
     def method(self, *args, **kwargs):
         if method_name in _PRIMITIVE_CONVERTERS:
             return getattr(self.get_lovpy_value(), method_name)(*args, **kwargs)
-        return LogipyMethod(getattr(self.get_lovpy_value(), method_name), self)(*args, **kwargs)
+        return LogipyMethod(getattr(self.get_lovpy_value(), method_name), self)(globals(), locals(),
+                                                                                *args, **kwargs)
 
         # _apply_method_rules(method_name, self, call_rules, *args, **kwargs)
         # for arg in args:
