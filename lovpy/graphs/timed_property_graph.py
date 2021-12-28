@@ -2,6 +2,7 @@ import itertools
 import logging
 from copy import deepcopy
 from io import BytesIO
+from typing import Union
 
 import networkx
 from networkx.readwrite.graphml import write_graphml
@@ -80,15 +81,15 @@ class TimedPropertyGraph:
 
         return copy_obj
 
-    def add_constant_property(self, constant_property):
+    def add_constant_property(self, constant_property: 'ConstantProperty'):
         if not isinstance(constant_property, ConstantProperty):
             raise RuntimeError("Given property is not instance of ConstantProperty.")
         self.constant_properties.append(constant_property)
 
-    def logical_and(self, property_graph):
+    def logical_and(self, property_graph: 'TimedPropertyGraph') -> 'TimedPropertyGraph':
         if property_graph.graph.number_of_nodes() == 0:
             # Nothing to do if given graph is empty.
-            return
+            return self
 
         was_empty = self.graph.number_of_nodes() == 0
 
@@ -110,8 +111,9 @@ class TimedPropertyGraph:
             self.root_node = property_graph.get_root_node()
 
         self._apply_all_constant_properties()
+        return self
 
-    def logical_not(self):
+    def logical_not(self) -> 'TimedPropertyGraph':
         timestamp = self.get_most_recent_timestamp()
         if timestamp and isinstance(timestamp, RelativeTimestamp):
             timestamp.set_time_source(self.time_source)
@@ -119,8 +121,9 @@ class TimedPropertyGraph:
         not_node = NotOperator(self.get_root_node())
         self._add_edge(not_node, self.get_root_node(), {TIMESTAMP_PROPERTY_NAME: timestamp})
         self._fix_orphan_logical_operators()
+        return self
 
-    def logical_implication(self, property_graph):
+    def logical_implication(self, property_graph: 'TimedPropertyGraph') -> 'TimedPropertyGraph':
         if not self.get_root_node():
             raise Exception("Implication cannot be performed with an empty assumption.")
         if not property_graph.get_root_node():
@@ -139,6 +142,7 @@ class TimedPropertyGraph:
         self._add_edge(impl_node, property_graph.get_root_node(),
                        {TIMESTAMP_PROPERTY_NAME: conclusion_timestamp,
                        IMPLICATION_PROPERTY_NAME: CONCLUSION_GRAPH})
+        return self
 
     def insert(self, graph, n):
         """Inserts given graph at specified node position.
@@ -271,10 +275,11 @@ class TimedPropertyGraph:
 
         return possible_modus_ponens
 
-    def freeze(self):
+    def freeze(self) -> 'TimedPropertyGraph':
         networkx.freeze(self.graph)
+        return self
 
-    def set_timestamp(self, timestamp):
+    def set_timestamp(self, timestamp: Timestamp) -> 'TimedPropertyGraph':
         """Sets given timestamp, as the timestamp of all edges of the graph.
 
         Set timestamp should not be used on a property graph after it has been used
@@ -289,6 +294,8 @@ class TimedPropertyGraph:
 
         for u, v, k in self.graph.edges(keys=True):
             self.graph.edges[u, v, k][TIMESTAMP_PROPERTY_NAME] = timestamp
+
+        return self
 
     def is_uniform_timestamped(self, timestamp=None):
         """Checks whether current graph contains only timestamps that match.
@@ -397,13 +404,16 @@ class TimedPropertyGraph:
 
         return copy_obj
 
-    def get_property_textual_representation(self):
+    def get_property_textual_representation(self) -> str:
+        """Returns a Gherkin textual representation of the graph."""
+        # TODO: Implement dynamic calculation of representation.
         return self.property_textual_representation if self.property_textual_representation else ""
 
     def set_property_textual_representation(self, textual_representation):
         self.property_textual_representation = textual_representation
 
     def get_leaves(self):
+        """Returns the leaves of temporal graph."""
         return [n for n, d in self.graph.out_degree() if d == 0]
 
     def get_present_time_subgraph(self):
@@ -424,7 +434,7 @@ class TimedPropertyGraph:
 
     def to_agraph(self, title="", show_colorization=False):
         """Converts TimedPropertyGraph to pygraphviz's AGraph suitable for visualization."""
-        prop_graph = self.get_copy()
+        prop_graph = deepcopy(self)
         prop_graph.graph.graph['label'] = title
         prop_graph.graph.graph['labelloc'] = 't'
         prop_graph.graph.graph['fontname'] = 'Segoe UI'
@@ -708,13 +718,26 @@ class TimedPropertyGraph:
     def clear_colorization(self):
         self.graph.clear_colorization()
 
-    def replace_nodes(self, mapping):
+    def replace_nodes(self, mapping: dict[Union['PredicateNode', str],
+                                          Union['PredicateNode', str]]) -> 'TimedPropertyGraph':
         """Replaces nodes in-place.
 
         :param mapping: A dictionary that maps old nodes (as keys) with the new
                 nodes (as values) to be replaced.
         """
+        # Currently, 'str' nodes are used for predicates arguments. So, parent
+        # predicate nodes should also be updated, to stay relevant.
+        for old_atr, new_atr in dict([(o, n) for o, n in mapping.items()
+                                      if isinstance(o, str)]).items():
+            for parent_pred in [p for p in self.graph.predecessors(old_atr)
+                                if isinstance(p, PredicateNode)]:
+                updated_pred = mapping.get(parent_pred, deepcopy(parent_pred))
+                updated_pred.replace_argument(old_atr, new_atr)
+                mapping[parent_pred] = updated_pred
+
         relabel_nodes(self.graph, mapping=mapping, copy=False)
+
+        return self
 
     def _get_top_level_implication_edges(self):
         assumption_edge = None
@@ -1256,7 +1279,12 @@ class TimedPropertyGraph:
 
 class PredicateGraph(TimedPropertyGraph):
     # TODO: Name predicate nodes using their children too, to not be treated equal.
-    def __init__(self, predicate, *args):
+    def __init__(self, predicate: str, *args):
+        """Creates a new predicate graph.
+
+        :param predicate: The name of the predicate represented by graph.
+        :param *arg: Arguments of the predicate. These will be added as adjacent nodes.
+        """
         super().__init__()
 
         # Build predicate node first, so hash doesn't change. Implement it better later.
@@ -1295,18 +1323,22 @@ class PredicateGraph(TimedPropertyGraph):
         self._add_edge(self._predicate_node, argument)
 
 
-class PredicateNode:
+class TemporalNode:
+
+    def __init__(self):
+        pass
+
+
+class PredicateNode(TemporalNode):
+
     def __init__(self, predicate):
+        super().__init__()
         self.predicate = predicate
         self.arguments = []
 
-    def add_argument(self, argument):
-        self.arguments.append(argument)
-        # self.arguments.sort()
-
     def __str__(self):
         str_repr = "{}({})".format(
-            self.predicate.__str__(), ",".join([arg.__str__() for arg in self.arguments]))
+            str(self.predicate), ",".join([str(arg) for arg in self.arguments]))
         str_repr = str_repr.replace(" ", "_")
         return str_repr
 
@@ -1322,11 +1354,22 @@ class PredicateNode:
     def __repr__(self):
         return self.__str__()
 
+    def add_argument(self, argument):
+        self.arguments.append(argument)
+        # self.arguments.sort()
 
-class MonitoredVariable:
+    def replace_argument(self, old, new):
+        """Replaces old argument with a new one."""
+        index = self.arguments.index(old)
+        self.arguments.pop(index)
+        self.arguments.insert(index, new)
+
+
+class MonitoredVariable(TemporalNode):
     # TODO: Make a registrar so monitored variables with the same name, are the same
     # object in memory too, also encasuplating the real variable.
     def __init__(self, monitored_variable):
+        super().__init__()
         self.monitored_variable = monitored_variable
 
     def __str__(self):

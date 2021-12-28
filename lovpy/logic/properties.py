@@ -1,5 +1,8 @@
+from copy import deepcopy
+from typing import Union, Iterable
+
 from lovpy.graphs.timestamps import RelativeTimestamp
-from lovpy.graphs.dynamic_temporal_graph import DynamicGraph
+from lovpy.graphs.dynamic_temporal_graph import DynamicGraph, EvaluatedDynamicGraph
 from lovpy.graphs.timed_property_graph import TimedPropertyGraph
 from lovpy.monitor.time_source import get_global_time_source, get_zero_locked_timesource
 
@@ -14,6 +17,99 @@ negative_to_positive_mapping = dict()
 class LogipyPropertyException(Exception):
     def __init__(self, message):
         super().__init__(message)
+
+
+class RuleSet:
+    def __init__(self):
+        self.rules = set()                # Raw rule graphs.
+        self.properties = set()           # Properties of rules to be proved.
+        self.negative_properties = set()  # Properties with negated conclusion part.
+        self.theorems = set()             # Theorems of rules.
+        self.neg_to_pos_property_mapping = {}  # Mapping of negative properties to positives.
+
+    def add_rule(self, rule: TimedPropertyGraph) -> None:
+        """Adds given rule to the set.
+
+        Rule is required to be frozen in order to be successfully added to the set.
+        """
+        rule.set_time_source(get_global_time_source())
+        self.rules.add(rule)
+
+        theorems, properties = split_into_theorems_and_properties_to_prove([deepcopy(rule)])
+        for t in theorems:
+            self._add_theorem(t)
+        for p in properties:
+            self._add_property(p)
+
+    def get_evaluated_theorems(self, globs: dict = None,
+                               locs: dict = None) -> list[Union[TimedPropertyGraph,
+                                                                EvaluatedDynamicGraph]]:
+        """Computes all evaluations of the theorems in the set.
+
+        :param globs: A mapping of available global variables during evaluation.
+        :param locs: A mapping of available local variables during evaluation.
+        :return: A list containing all
+        """
+        return RuleSet._evaluate_dynamic_graphs(self.theorems, globs, locs)
+
+    def get_evaluated_properties(self, globs: dict = None, locs: dict = None,
+                                 negatives: bool = False) -> list[Union[TimedPropertyGraph,
+                                                                        EvaluatedDynamicGraph]]:
+        """Computes all evaluations of the properties in the set.
+
+        :param globs: A mapping of available global variables during evaluation.
+        :param locs: A mapping of available local variables during evaluation.
+        :param negatives: If set to True returns the evaluations of the properties
+                with negated conclusion part.
+        :return:
+        """
+        if negatives:
+            return RuleSet._evaluate_dynamic_graphs(self.negative_properties, globs, locs)
+        return RuleSet._evaluate_dynamic_graphs(self.properties, globs, locs)
+
+    def _add_theorem(self, theorem: TimedPropertyGraph) -> None:
+        theorem.freeze()
+        dynamic = DynamicGraph.to_dynamic(theorem)
+        self.theorems.add(dynamic) if dynamic else self.theorems.add(theorem)
+
+    def _add_property(self, prop: TimedPropertyGraph) -> None:
+        prop.freeze()
+        dynamic = DynamicGraph.to_dynamic(prop)
+        final_prop = dynamic if dynamic else prop
+        self.properties.add(final_prop)
+
+        negative = convert_implication_to_and(negate_implication_property(prop))
+        negative.freeze()
+        dynamic_neg = DynamicGraph.to_dynamic(prop)
+        final_neg = dynamic_neg if dynamic_neg else negative
+        self.negative_properties.add(final_neg)
+        self.neg_to_pos_property_mapping[final_neg] = final_prop
+
+    @staticmethod
+    def _evaluate_dynamic_graphs(graphs: Iterable[Union[TimedPropertyGraph, DynamicGraph]],
+                                 globs: dict,
+                                 locs: dict) -> list[Union[TimedPropertyGraph,
+                                                           EvaluatedDynamicGraph]]:
+        """Evaluates a mixed list of dynamic and normal temporal graphs.
+
+        :param graphs:
+        :param globs:
+        :param locs:
+
+        :return:
+            -evaluated: A list containing all possible evaluations of given graphs.
+        """
+        evaluated = []  # Evaluated temporal graphs.
+
+        for g in graphs:
+            if isinstance(g, DynamicGraph):
+                evals = list(g.evaluate(globs, locs))
+                evaluated.extend(evals)
+            else:
+                # If a graph is not dynamic, then it should be appended as is.
+                evaluated.append(g)
+
+        return evaluated
 
 
 def get_global_properties():

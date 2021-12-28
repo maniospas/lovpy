@@ -1,5 +1,6 @@
 from itertools import product
 from copy import copy, deepcopy
+from typing import Generator
 import re
 
 from .timed_property_graph import TimedPropertyGraph, PredicateNode
@@ -8,12 +9,13 @@ from .timed_property_graph import TimedPropertyGraph, PredicateNode
 class DynamicGraph:
     """A dynamic graph that produces temporal graphs by dynamic code execution."""
 
-    def __init__(self, graph: TimedPropertyGraph, mappings={}):
+    def __init__(self, graph: TimedPropertyGraph, mappings: dict = {}):
         self.temporal_graph = graph
         # Map between predicate nodes and list of the dynamic parts of each node.
         self.dynamic_mappings = mappings
 
-    def evaluate(self, globs={}, locs={}):
+    def evaluate(self, globs: dict = {}, locs: dict = {}) -> Generator['EvaluatedDynamicGraph',
+                                                                       None, None]:
         """Evaluates dynamic graph into each possible temporal graph.
 
         Each dynamic part that is evaluated into a list produces multiple
@@ -28,10 +30,11 @@ class DynamicGraph:
         evaluated_mappings = self._evaluate_mappings(globs, locs)
 
         for case in evaluated_mappings:
-            yield self._generate_graph_from_evaluation(case)
+            yield EvaluatedDynamicGraph.convert_temporal_graph(
+                self._generate_graph_from_evaluation(case), self)
 
     @staticmethod
-    def to_dynamic(graph: TimedPropertyGraph):
+    def to_dynamic(graph: TimedPropertyGraph) -> 'DynamicGraph':
         """Converts a temporal graph to a dynamic graph.
 
         :param graph: Temporal graph to be converted to a dynamic one.
@@ -42,11 +45,16 @@ class DynamicGraph:
         mappings = dict()
 
         for n in graph.graph.nodes():
+            dynamic_parts = []
+
             if isinstance(n, PredicateNode):
                 # Extract the dynamic parts of each predicate.
                 dynamic_parts = re.findall(r"\$[^$]*\$", n.predicate)
-                if dynamic_parts:
-                    mappings[n] = dynamic_parts
+            elif isinstance(n, str):
+                dynamic_parts = re.findall(r"\$[^$]*\$", n)
+
+            if dynamic_parts:
+                mappings[n] = dynamic_parts
 
         return DynamicGraph(graph, mappings) if mappings else None
 
@@ -85,10 +93,40 @@ class DynamicGraph:
         replace_mappings = {}
 
         for n, dynamic_part, evaluated in evaluated_mapping:
-            new_node = deepcopy(n)
-            new_node.predicate = n.predicate.replace(dynamic_part, str(evaluated))
-            replace_mappings[n] = new_node
+            if isinstance(n, PredicateNode):
+                new_node = deepcopy(n)
+                new_node.predicate = n.predicate.replace(dynamic_part, str(evaluated))
+                replace_mappings[n] = new_node
+            elif isinstance(n, str):
+                new_node = n.replace(dynamic_part, str(evaluated))
+                replace_mappings[n] = new_node
 
         evaluated_graph.replace_nodes(replace_mappings)
 
         return evaluated_graph
+
+
+class EvaluatedDynamicGraph(TimedPropertyGraph):
+    """A wrapper for adding dynamic origin info to `TimedPropertyGraph` objects."""
+
+    def __init__(self, dynamic_graph: DynamicGraph = None):
+        super().__init__()
+        self.dynamic_graph = dynamic_graph
+
+    @classmethod
+    def convert_temporal_graph(cls, temporal_graph: TimedPropertyGraph,
+                               dynamic_graph: DynamicGraph) -> 'EvaluatedDynamicGraph':
+        """Converts a temporal graph to an evaluated one.
+
+        Conversion is performed in-place, so given `TimedPropertyGraph` instance
+        will be forever converted to an `EvaluatedDynamicGraph` instance.
+
+        :param temporal_graph: Temporal graph to be permanently converted to an
+                `EvaluatedDynamicGraph`.
+        :param dynamic_graph: Dynamic graph from which given temporal graph
+                `originates.
+        :return: A reference to the converted temporal graph.
+        """
+        temporal_graph.__class__ = cls
+        temporal_graph.dynamic_graph = dynamic_graph
+        return temporal_graph
