@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-import lovpy.logic.properties
+from lovpy.logic.properties import RuleSet, add_global_rule_set
 from lovpy.monitor.monitored_predicate import MonitoredPredicate, add_predicate_to_monitor
 from lovpy.graphs.timed_property_graph import *
 from lovpy.graphs.timestamps import RelativeTimestamp, LesserThanRelativeTimestamp
@@ -22,9 +22,13 @@ def import_gherkin_file(path):
     with open(path, "r") as file:
         gherkin = file.read()
 
-    properties = convert_gherkin_to_graphs(gherkin)
-    for p in properties:
-        lovpy.logic.properties.add_global_property(p)
+    rules = convert_gherkin_to_graphs(gherkin)
+
+    # For each file create a new rules repository.
+    rules_repo = RuleSet()
+    for r in rules:
+        rules_repo.add_rule(r.freeze())
+    add_global_rule_set(rules_repo)
 
 
 def convert_gherkin_to_graphs(gherkin):

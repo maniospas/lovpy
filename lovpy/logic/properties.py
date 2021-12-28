@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Union, Iterable
+from typing import Union, Iterable, List
 
 from lovpy.graphs.timestamps import RelativeTimestamp
 from lovpy.graphs.dynamic_temporal_graph import DynamicGraph, EvaluatedDynamicGraph
@@ -7,11 +7,7 @@ from lovpy.graphs.timed_property_graph import TimedPropertyGraph
 from lovpy.monitor.time_source import get_global_time_source, get_zero_locked_timesource
 
 
-global_properties = list()  # Storage for graph properties that apply everywhere.
-global_theorems = set()
-global_properties_to_prove = set()
-global_negative_properties_to_prove = set()
-negative_to_positive_mapping = dict()
+global_rule_sets = list()
 
 
 class LogipyPropertyException(Exception):
@@ -112,58 +108,15 @@ class RuleSet:
         return evaluated
 
 
-def get_global_properties():
-    return global_properties
+def add_global_rule_set(rule_set: RuleSet) -> None:
+    """Registers a new rule set to the global ones."""
+    global global_rule_sets
+    global_rule_sets.append(rule_set)
 
 
-def get_global_theorems():
-    return global_theorems
-
-
-def get_global_properties_to_prove():
-    return global_properties_to_prove
-
-
-def get_negative_properties_to_prove():
-    return global_negative_properties_to_prove
-
-
-def get_negative_to_positive_mapping():
-    return negative_to_positive_mapping
-
-
-def add_global_property(property_graph: TimedPropertyGraph):
-    """Adds given rule graph to global rules storage."""
-    property_graph.set_time_source(get_global_time_source())
-    global_properties.append(property_graph.get_copy())
-
-    theorems, properties_to_prove = split_into_theorems_and_properties_to_prove([property_graph])
-
-    # Final theorems and properties should include the dynamic ones, as dynamic graphs.
-    dyn_theorems = []
-    dyn_properties = []
-    for t in theorems:
-        t.freeze()
-        dyn = DynamicGraph.to_dynamic(t)
-        dyn_theorems.append(dyn if dyn else t)
-    for p in properties_to_prove:
-        p.freeze()
-        dyn = DynamicGraph.to_dynamic(p)
-        dyn_theorems.append(dyn if dyn else p)
-    global_theorems.update(dyn_theorems)
-    global_properties_to_prove.update(dyn_properties)
-
-    negative_properties = negate_conclusion_part_of_properties(properties_to_prove)
-
-    # Final negated properties should include the dynamic ones, as dynamic graphs.
-    neg_dyn_properties = []
-    for p in negative_properties:
-        p.freeze()
-        dyn = DynamicGraph.to_dynamic(p)
-        neg_dyn_properties.append(dyn if dyn else p)
-    global_negative_properties_to_prove.update(neg_dyn_properties)
-    for pos, neg in zip(dyn_properties, neg_dyn_properties):
-        negative_to_positive_mapping[neg] = pos
+def get_global_rule_sets() -> List[RuleSet]:
+    """Returns all registered global rule sets."""
+    return global_rule_sets
 
 
 def split_into_theorems_and_properties_to_prove(properties):
@@ -240,7 +193,27 @@ def convert_implication_to_and(property_graph):
     return assumption
 
 
-# All code below, is deprecated.
+#  ==== Deprecated functions. To be removed in next update. ====
+def get_global_properties():
+    return get_global_rule_sets()[0].rules
+
+
+def get_global_theorems():
+    return get_global_rule_sets()[0].theorems
+
+
+def get_global_properties_to_prove():
+    return get_global_rule_sets()[0].properties
+
+
+def get_negative_properties_to_prove():
+    return get_global_rule_sets()[0].negative_properties
+
+
+def get_negative_to_positive_mapping():
+    return get_global_rule_sets()[0].neg_to_pos_property_mapping
+
+
 def empty_properties():
     return set()
 

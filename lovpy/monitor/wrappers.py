@@ -8,7 +8,7 @@ import lovpy.logic.properties as lovpy_properties
 from lovpy.logic import prover
 from .monitored_predicate import *
 from .time_source import global_stamp_and_increment
-from ..graphs.dynamic_temporal_graph import DynamicGraph
+from ..graphs.dynamic_temporal_graph import DynamicGraph, EvaluatedDynamicGraph
 
 MONITOR_ONLY_MONITORED_PREDICATES = True
 DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED = True
@@ -294,39 +294,40 @@ def _verify_object(o: LogipyPrimitive, globs, locs):
 
 
 def _prove_negative_properties(o: LogipyPrimitive, globs, locs):
-    # First, evaluate dynamic properties and theorems.
-    neg_properties, dyn_neg_properties = _evaluate_dynamic_graphs(
-        lovpy_properties.get_negative_properties_to_prove(), globs, locs)
-    theorems, _ = _evaluate_dynamic_graphs(lovpy_properties.get_global_theorems(), globs, locs)
+    for rule_set in lovpy_properties.get_global_rule_sets():
+        # First, evaluate dynamic properties and theorems.
+        neg_properties = rule_set.get_evaluated_properties(globs, locs, negatives=True)
+        theorems = rule_set.get_evaluated_theorems(globs, locs)
 
-    for p, dyn_p in zip(neg_properties, dyn_neg_properties):
-        proved, theorems_applied, intermediate_graphs = prover.prove_property(
-            o.get_execution_graph(), p, theorems)
+        for p in neg_properties:
+            proved, theorems_applied, intermediate_graphs = prover.prove_property(
+                o.get_execution_graph(), p, theorems)
 
-        if proved:
-            if prover.full_visualization_enabled:
-                prover.visualize_proving_process(intermediate_graphs, theorems_applied, p)
-            positive_property = lovpy_properties.get_negative_to_positive_mapping()[dyn_p]
-            raise PropertyNotHoldsException(
-                p.get_property_textual_representation(),
-                o.__get_property_last_proved_frame__(positive_property)
-            )
+            if proved:
+                if prover.full_visualization_enabled:
+                    prover.visualize_proving_process(intermediate_graphs, theorems_applied, p)
+                positive_property = rule_set.neg_to_pos_property_mapping[p]
+                raise PropertyNotHoldsException(
+                    p.get_property_textual_representation(),
+                    o.__get_property_last_proved_frame__(positive_property)
+                )
 
 
 def _prove_positive_properties(o: LogipyPrimitive, globs, locs):
-    # First, evaluate dynamic properties and theorems.
-    properties, dyn_properties = _evaluate_dynamic_graphs(
-        lovpy_properties.get_global_properties_to_prove(), globs, locs)
-    theorems, _ = _evaluate_dynamic_graphs(lovpy_properties.get_global_theorems(), globs, locs)
+    for rule_set in lovpy_properties.get_global_rule_sets():
+        # First, evaluate dynamic properties and theorems.
+        properties = rule_set.get_evaluated_properties(globs, locs)
+        theorems = rule_set.get_evaluated_theorems(globs, locs)
 
-    for p, dyn_p in zip(properties, dyn_properties):
-        proved, _, _ = prover.prove_property(
-            o.get_execution_graph(),
-            p,
-            theorems
-        )
-        if proved:
-            o.__update_property_last_proved_frame__(dyn_p, inspect.stack())
+        for p in properties:
+            proved, _, _ = prover.prove_property(
+                o.get_execution_graph(),
+                p,
+                theorems
+            )
+            if proved:
+                o.__update_property_last_proved_frame__(
+                    p.dynamic_graph if isinstance(p, EvaluatedDynamicGraph) else p, inspect.stack())
 
 
 def _make_primitive_method(method_name):
