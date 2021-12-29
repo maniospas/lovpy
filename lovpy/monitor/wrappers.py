@@ -306,7 +306,8 @@ def _prove_negative_properties(o: LogipyPrimitive, globs, locs):
             if proved:
                 if prover.full_visualization_enabled:
                     prover.visualize_proving_process(intermediate_graphs, theorems_applied, p)
-                positive_property = rule_set.neg_to_pos_property_mapping[p]
+                key = p.dynamic_graph if isinstance(p, EvaluatedDynamicGraph) else p
+                positive_property = rule_set.neg_to_pos_property_mapping[key]
                 raise PropertyNotHoldsException(
                     p.get_property_textual_representation(),
                     o.__get_property_last_proved_frame__(positive_property)
