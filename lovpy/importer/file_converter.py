@@ -5,6 +5,12 @@ from . import text_converter
 from . import lovpy_ignore
 
 
+# TODO: Implement verified execution without modifying source files. It can be
+#  implemented either by utilizing sys.settrace() to set a custom execution tracer,
+#  or by using metaclasses and overriding builtins.__build_class__ method. The
+#  later works only for monitoring custom defined classes.
+
+
 BACKUP_FOLDER = "__lovpy_backup__"
 
 lovpy_root_path = None  # Set to current lovpy installation directory at module initialization.
