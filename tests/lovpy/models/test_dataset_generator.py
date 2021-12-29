@@ -28,7 +28,7 @@ class TestDatasetEntity(unittest.TestCase):
         entity.add_property_to_prove(self.threading_properties_to_prove[0])
         self.assertTrue(entity.contains_property_to_prove())
 
-        entity.current_graph.visualize("Current Graph after adding property on empty graph.")
+        # entity.current_graph.visualize("Current Graph after adding property on empty graph.")
         return entity
 
     def test_expand_with_theorem(self):
@@ -36,12 +36,12 @@ class TestDatasetEntity(unittest.TestCase):
 
         theorem_applications = entity.get_reverse_theorem_applications(self.threading_theorems)
         self.assertGreater(len(theorem_applications), 0)
-        entity.current_graph.visualize("Current graph before theorem application.")
+        # entity.current_graph.visualize("Current graph before theorem application.")
         theorem_to_apply = theorem_applications[0]
-        theorem_to_apply.implication_graph.visualize()
+        # theorem_to_apply.implication_graph.visualize()
 
         entity.expand_with_theorem(theorem_applications[0])
-        entity.current_graph.visualize("Current graph after expanding with theorem.")
+        # entity.current_graph.visualize("Current graph after expanding with theorem.")
 
         return entity
 
@@ -101,44 +101,44 @@ class TestDatasetEntity(unittest.TestCase):
 
         # Expand by reversely applying theorem for call(acquire).
         applications = entity.get_reverse_theorem_applications(self.threading_theorems)
-        applications[0].implication_graph.visualize("Next theorem to reversely apply.")
+        # applications[0].implication_graph.visualize("Next theorem to reversely apply.")
         entity.expand_with_theorem(applications[0])
-        entity.current_graph.visualize("Current graph after reverse theorem expansion.")
+        # entity.current_graph.visualize("Current graph after reverse theorem expansion.")
 
         # Expand by adding a suppressed predicate.
         suppressed = entity.get_non_suppressible_suppressed_predicates()
         entity.add_suppressed_predicate(suppressed[0])
-        entity.current_graph.visualize("Added suppressed predicate.")
+        # entity.current_graph.visualize("Added suppressed predicate.")
 
         # Expand by reversely applying theorem for release() predicate to show up.
         applications = entity.get_reverse_theorem_applications(self.threading_theorems)
-        applications[0].implication_graph.visualize("Next theorem to reversely apply.")
+        # applications[0].implication_graph.visualize("Next theorem to reversely apply.")
         entity.expand_with_theorem(applications[0])
-        entity.current_graph.visualize("Current graph after reverse theorem expansion.")
+        # entity.current_graph.visualize("Current graph after reverse theorem expansion.")
 
         # Expand by reversely applying theorem for call(acquire).
         applications = entity.get_reverse_theorem_applications(self.threading_theorems)
-        applications[0].implication_graph.visualize("Next theorem to reversely apply.")
+        # applications[0].implication_graph.visualize("Next theorem to reversely apply.")
         entity.expand_with_theorem(applications[0])
-        entity.current_graph.visualize("Current graph after reverse theorem expansion.")
+        # entity.current_graph.visualize("Current graph after reverse theorem expansion.")
 
         # Expand by adding a suppressed predicate.
         suppressed = entity.get_non_suppressible_suppressed_predicates()
         entity.add_suppressed_predicate(suppressed[0])
-        entity.current_graph.visualize("Added suppressed predicate.")
+        # entity.current_graph.visualize("Added suppressed predicate.")
 
         # Expand by reversely applying theorem for release() predicate to show up.
         applications = entity.get_reverse_theorem_applications(self.threading_theorems)
-        applications[0].implication_graph.visualize("Next theorem to reversely apply.")
+        # applications[0].implication_graph.visualize("Next theorem to reversely apply.")
         entity.expand_with_theorem(applications[0])
-        entity.current_graph.visualize("Current graph after reverse theorem expansion.")
+        # entity.current_graph.visualize("Current graph after reverse theorem expansion.")
 
         # Expand by reversely applying theorem for call(acquire).
         # TODO: Fix theorem application.
         applications = entity.get_reverse_theorem_applications(self.threading_theorems)
-        applications[0].implication_graph.visualize("Next theorem to reversely apply.")
+        # applications[0].implication_graph.visualize("Next theorem to reversely apply.")
         entity.expand_with_theorem(applications[0])
-        entity.current_graph.visualize("Current graph after reverse theorem expansion.")
+        # entity.current_graph.visualize("Current graph after reverse theorem expansion.")
 
 
 class TestDatasetGenerator(unittest.TestCase):

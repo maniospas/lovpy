@@ -206,10 +206,10 @@ class TestProver(unittest.TestCase):
 
         theorems, properties_to_prove = split_into_theorems_and_properties_to_prove(graphs)
 
-        for i, t in enumerate(theorems):
-            t.visualize(f"Theorem #{i+1}")
-        for i, p in enumerate(properties_to_prove):
-            p.visualize(f"Property #{i+1}")
+        # for i, t in enumerate(theorems):
+        #     t.visualize(f"Theorem #{i+1}")
+        # for i, p in enumerate(properties_to_prove):
+        #     p.visualize(f"Property #{i+1}")
 
         call_maint = Call("perform_maintainance").convert_to_graph()
         call_maint.set_timestamp(Timestamp(3))
