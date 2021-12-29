@@ -76,7 +76,7 @@ class RuleSet:
 
         negative = convert_implication_to_and(negate_implication_property(prop))
         negative.freeze()
-        dynamic_neg = DynamicGraph.to_dynamic(prop)
+        dynamic_neg = DynamicGraph.to_dynamic(negative)
         final_neg = dynamic_neg if dynamic_neg else negative
         self.negative_properties.add(final_neg)
         self.neg_to_pos_property_mapping[final_neg] = final_prop

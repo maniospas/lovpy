@@ -195,6 +195,42 @@ class TestRuleSet(TestCase):
                 evaluated_dynamic_properties += 1
         self.assertEqual(evaluated_dynamic_properties, 2)
 
+    def test_get_evaluated_properties_negative_with_mixed_properties(self) -> None:
+        property1 = TestRuleSet.create_property_rule()
+        property2, var2 = TestRuleSet.create_dynamic_property_rule()
+        rule3, var3 = TestRuleSet.create_dynamic_complex_rule()
+        property1.freeze()
+        property2.freeze()
+        rule3.freeze()
+
+        rules = RuleSet()
+        rules.add_rule(property1)
+        rules.add_rule(property2)
+        rules.add_rule(rule3)
+
+        replacement = "new_var"
+        locs = {var2: replacement}  # var2 == var3
+
+        eval_properties = rules.get_evaluated_properties(locs=locs, negatives=True)
+
+        self.assertEqual(len(eval_properties), 3)
+        self.assertNotIn(property1, eval_properties)
+        self.assertNotIn(property2, eval_properties)
+        evaluated_dynamic_properties = 0
+        for p in eval_properties:
+            if isinstance(p, EvaluatedDynamicGraph):
+                evaluated_dynamic_properties += 1
+        self.assertEqual(evaluated_dynamic_properties, 2)
+
+        # Checking that negative property differs from corresponding positive one.
+        # Maybe is an incomplete test.
+        for neg in eval_properties:
+            pos = rules.neg_to_pos_property_mapping[
+                neg.dynamic_graph if isinstance(neg, EvaluatedDynamicGraph) else neg]
+            if isinstance(pos, DynamicGraph):
+                pos = list(pos.evaluate(locs=locs))[0]
+            self.assertFalse(neg.contains_property_graph(pos))
+
     @staticmethod
     def create_property_rule() -> TimedPropertyGraph:
         rule = PredicateGraph("A", "a", "b").set_timestamp(RelativeTimestamp(0))
