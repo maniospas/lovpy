@@ -33,7 +33,7 @@ def main():
             eval_on_synthetics()
 
     elif len(argv) > 1 and (argv[1] == "--version" or argv[1] == "-v"):
-        print(f"Logipy version: {VERSION}")
+        print(f"Lovpy version: {VERSION}")
 
     else:
         print("Usage: python -m lovpy <script.py>|((-t|--train) [simple|gnn])")
