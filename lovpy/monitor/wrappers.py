@@ -120,15 +120,16 @@ class LogipyMethod:
             ret = self.__method(*args, **kwargs)
         except Exception as err:
             if not isinstance(err, prover.PropertyNotHoldsException):
-                args = [arg.get_lovpy_value() if isinstance(arg, LogipyPrimitive) else arg for arg
-                        in args]
-                kwargs = {key: arg.get_lovpy_value() if isinstance(arg, LogipyPrimitive) else arg
-                          for key, arg in kwargs.items()}
-                ret = self.__method(*args, **kwargs)
-                lovpy_warning(
-                    "A method " + self.__method.__name__ +
-                    " was called a second time at least once by casting away LogipyPrimitive " +
-                    "due to invoking the error: " + str(err))
+                # args = [arg.get_lovpy_value() if isinstance(arg, LogipyPrimitive) else arg for arg
+                #         in args]
+                # kwargs = {key: arg.get_lovpy_value() if isinstance(arg, LogipyPrimitive) else arg
+                #           for key, arg in kwargs.items()}
+                # ret = self.__method(*args, **kwargs)
+                # lovpy_warning(
+                #     "A method " + self.__method.__name__ +
+                #     " was called a second time at least once by casting away LogipyPrimitive " +
+                #     "due to invoking the error: " + str(err))
+                raise err
             else:
                 _property_exception_raised = True
                 raise err
