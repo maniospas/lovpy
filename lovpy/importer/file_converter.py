@@ -52,12 +52,16 @@ def convert_file(path: Path):
         save_file.close()
 
 
-def restore_path(root_path=""):
-    """Restores original python files from backup directory."""
-    backup_base = Path(root_path).absolute() / BACKUP_FOLDER
+def restore_path(root_path: Path = Path.cwd()) -> None:
+    """Restores original python files from backup directory.
+
+    Backup directory is expected to be located right under `root_path`
+    and named according to `BACKUP_FOLDER`.
+    """
+    backup_base: Path = root_path.absolute() / BACKUP_FOLDER
 
     for backup_path in backup_base.rglob("*.*"):
-        original_path = backup_path.relative_to(backup_base).absolute()
+        original_path: Path = root_path / backup_path.relative_to(backup_base)
         copy2(backup_path, original_path)
 
     rmtree(backup_base)
