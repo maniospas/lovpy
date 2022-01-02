@@ -1,0 +1,17 @@
+SCENARIO:
+    WHEN returned by __add__
+    THEN NOT is_counter
+
+SCENARIO:
+    WHEN returned by range
+    THEN is_iterated
+    AND is_counter
+
+SCENARIO:
+    WHEN called by print_counter
+    THEN SHOULD is_counter
+
+SCENARIO:
+    WHEN is_iterated
+    AND is_counter
+    THEN is_counter

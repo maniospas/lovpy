@@ -4,6 +4,37 @@ from lovpy.importer.gherkin_importer import *
 from lovpy.monitor.monitored_predicate import *
 
 
+class TestGherkinImporter(unittest.TestCase):
+
+    def test_init(self) -> None:
+        importer = GherkinImporter()
+        self.assertEqual(len(importer.import_paths), 0)
+
+    def test_add_import_path(self) -> None:
+        importer = GherkinImporter()
+        path = Path(__file__).parent / Path("test_programs/invalid_counter_rules.gherkin")
+        importer.add_import_path(path)
+        self.assertEqual(len(importer.import_paths), 1)
+        self.assertEqual(importer.import_paths[0], path)
+
+    def test_discover(self):
+        importer = GherkinImporter()
+        root = Path(__file__).parent / Path("test_programs")
+        importer.discover(root)
+        self.assertEqual(len(importer.import_paths), 2)
+
+    def test_import_rules(self):
+        importer = GherkinImporter()
+        path = Path(__file__).parent / Path("test_programs/invalid_counter_rules.gherkin")
+        importer.add_import_path(path)
+        self.assertEqual(len(importer.import_paths), 1)
+        self.assertEqual(importer.import_paths[0], path)
+
+        rules = importer.import_rules()
+        self.assertEqual(len(rules), 1)
+        self.assertEqual(len(rules[0].rules), 4)
+
+
 class TestConvertSpecificationToGraph(unittest.TestCase):
 
     def test_conclusion_with_negated_past_and_positive_present_and_special_function(self):

@@ -7,6 +7,64 @@ from lovpy.graphs.timed_property_graph import *
 from lovpy.graphs.timestamps import RelativeTimestamp, LesserThanRelativeTimestamp
 
 
+class GherkinImporter:
+    """A mechanism that converts Gherkin-like rules to temporal graphs."""
+    def __init__(self):
+        self.import_paths: list[Path] = []
+
+    def add_import_path(self, path: Path) -> 'GherkinImporter':
+        """Adds a Gherkin file to the list of files to be imported.
+
+        :param path: Path of the Gherkin file.
+        :type path: Path
+        :returns: A reference to current instance.
+        :rtype: GherkinImporter
+        """
+        self.import_paths.append(path)
+        return self
+
+    def discover(self, root: Path) -> 'GherkinImporter':
+        """Automatically finds and adds all Gherkin files under root path.
+
+        Valid Gherkin files are considered the ones ending in `.gherkin`.
+
+        :param root: Root path under which will search for Gherkin files.
+        :type root: Path
+        :returns: A reference to current instance.
+        :rtype: GherkinImporter
+        """
+        self.import_paths.extend(Path(root).rglob("*.gherkin"))
+        return self
+
+    def import_rules(self) -> list[RuleSet]:
+        """Imports the rules of all available Gherkin files.
+
+        Gherkin files should have been previously added to the importer by
+        using either `add_import_path` or `discover` methods.
+
+        The rules of each file are added to a separate `RulesSet`.
+
+        :returns: Rule sets containing the imported rules.
+        :rtype: list[RuleSet]
+        """
+        repositories: list[RuleSet] = []
+
+        for p in self.import_paths:
+            with open(p, "r") as file:
+                gherkin = file.read()
+
+            rules: list[TimedPropertyGraph] = convert_gherkin_to_graphs(gherkin)
+
+            # For each file create a new rules repository.
+            rules_repo = RuleSet()
+            for r in rules:
+                rules_repo.add_rule(r.freeze())
+
+            repositories.append(rules_repo)
+
+        return repositories
+
+
 def import_gherkin_path(root_path=""):
     """Imports the rules from all .gherkin files under root_path."""
     for gherkin_file in Path(root_path).rglob("*.gherkin"):
