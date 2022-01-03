@@ -1,6 +1,7 @@
 from shutil import copy2, rmtree
 from pathlib import Path
 
+from lovpy.config import LOVPY_ROOT_PATH
 from . import text_converter
 from . import lovpy_ignore
 
@@ -12,8 +13,6 @@ from . import lovpy_ignore
 
 
 BACKUP_FOLDER = "__lovpy_backup__"
-
-lovpy_root_path = None  # Set to current lovpy installation directory at module initialization.
 
 
 def convert_path(root_path=""):
@@ -93,7 +92,7 @@ def _remove_files_to_ignore(paths):
         for pattern in lovpy_ignore.parse_lovpy_ignore(ignore_file):
             for path in Path().glob(pattern):
                 ignore_paths.add(path.absolute())
-    ignore_paths.add(lovpy_root_path)
+    ignore_paths.add(LOVPY_ROOT_PATH)
 
     for p in paths:
         for ignore in ignore_paths:

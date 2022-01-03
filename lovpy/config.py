@@ -8,7 +8,6 @@ from lovpy.logic.next_theorem_selectors import set_default_theorem_selector, \
     get_default_theorem_selector, BetterNextTheoremSelector
 import lovpy.graphs.timed_property_graph
 import lovpy.logic.prover
-from .importer import file_converter, gherkin_importer
 
 
 VERSION = "0.0.1"
@@ -188,8 +187,6 @@ def tearup_lovpy(session_name="", temp_dir=None, models_dir=None):
     if models_dir:
         _models_dir = models_dir
 
-    _tearup_importer_module()
-
     try:
         import tensorflow
         _tearup_models_module()
@@ -204,7 +201,6 @@ def teardown_lovpy():
         _teardown_models_module()
     except ModuleNotFoundError:
         pass
-    _teardown_importer_module()
 
 
 def _tearup_models_module():
@@ -233,13 +229,3 @@ def _teardown_models_module():
     remove_scratchfile(get_scratchfile_path(CURRENT_GRAPH_FILENAME))
     remove_scratchfile(get_scratchfile_path(GOAL_GRAPH_FILENAME))
     remove_scratchfile(get_scratchfile_path(NEXT_GRAPH_FILENAME))
-
-
-def _tearup_importer_module():
-    file_converter.lovpy_root_path = LOVPY_ROOT_PATH
-    file_converter.convert_path()
-    gherkin_importer.import_gherkin_path()
-
-
-def _teardown_importer_module():
-    file_converter.restore_path()

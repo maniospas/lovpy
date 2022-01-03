@@ -5,6 +5,7 @@ from pathlib import Path
 from lovpy.logic.properties import RuleSet, add_global_rule_set
 from lovpy.logic.next_theorem_selectors import NextTheoremSelector
 from lovpy.importer.file_converter import convert_path, restore_path
+from lovpy.exception_handler import set_after_handle_callback
 
 
 class InvalidConversionPath(RuntimeError):
@@ -55,9 +56,12 @@ class Program:
 
         try:
             runpy.run_path(str(self.entry_point), run_name="__main__")
+            restore_path(self.config.conversion_root)
         finally:
             sys.argv = old_argv
-            restore_path(self.config.conversion_root)
+            # Workaround for not restoring executed files before exception handler
+            # builds its stacktrace. Otherwise, lines of code in stacktrace are incorrect.
+            set_after_handle_callback(restore_path, self.config.conversion_root)
 
     def add_monitored_rules(self, rules: RuleSet) -> None:
         """Adds a set of rules to be monitored.
