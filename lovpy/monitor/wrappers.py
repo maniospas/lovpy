@@ -8,7 +8,7 @@ import lovpy.logic.properties as lovpy_properties
 from lovpy.logic import prover
 from .monitored_predicate import *
 from .time_source import global_stamp_and_increment
-from ..graphs.dynamic_temporal_graph import DynamicGraph, EvaluatedDynamicGraph
+from ..graphs.dynamic_temporal_graph import EvaluatedDynamicGraph
 
 MONITOR_ONLY_MONITORED_PREDICATES = True
 DISABLE_MONITORING_WHEN_PROPERTY_EXCEPTION_RAISED = True
@@ -24,13 +24,13 @@ _SPECIAL_NAMES = [
     '__isub__', '__iter__', '__itruediv__', '__ixor__', '__le__',
     '__long__', '__lshift__', '__lt__', '__mod__', '__mul__', '__ne__',
     '__neg__', '__oct__', '__or__', '__pos__', '__pow__', '__len__',
-    '__radd__', # comment to not create string errors
+    '__radd__',
     '__float__', '__int__', '__bool__', '__hash__', '__str__',
     '__rand__', '__rdiv__', '__rdivmod__', '__reduce__', '__reduce_ex__',
     '__reversed__', '__rfloorfiv__', '__rlshift__', '__rmod__',
     '__rmul__', '__ror__', '__rpow__', '__rrshift__', '__rshift__', '__rsub__',
     '__rtruediv__', '__rxor__', '__setitem__', '__setslice__', '__sub__',
-    '__truediv__', '__xor__', '__next__', #'__repr__',
+    '__truediv__', '__xor__', '__next__',  # '__repr__',  # comment to not create string errors
 ]
 _PRIMITIVE_CONVERTERS = {'__float__', '__int__', '__bool__', '__str__', '__hash__', '__len__'}
 
@@ -361,39 +361,6 @@ def _is_callable(obj):
     if isinstance(obj, LogipyPrimitive):
         return callable(obj.get_lovpy_value())
     return callable(obj)
-
-
-def _evaluate_dynamic_graphs(graphs, globs, locs):
-    """Evaluates a mixed list of dynamic and normal temporal graphs.
-
-    :param graphs:
-    :param globs:
-    :param locs:
-
-    :return:
-        -evaluated: A list containing all possible evaluations of given graphs.
-        -corresponding_dyn: Dynamic graph which was used to produce an evaluated one. If the
-                initial graph wasn't a dynamic one, then None is returned.
-    """
-    evaluated = []  # Evaluated temporal graphs.
-    corresponding_dyn = []  # Corresponding dynamic graph of each evaluated property.
-
-    for g in graphs:
-        if isinstance(g, DynamicGraph):
-            evals = list(g.evaluate(globs, locs))
-            if isinstance(evals, list):
-                evaluated.extend(evals)
-                for _ in evals:
-                    corresponding_dyn.append(g)
-            else:
-                evaluated.append(evals)
-                corresponding_dyn.append(g)
-        else:
-            # If a graph is not dynamic, then it should be appended as is.
-            evaluated.append(g)
-            corresponding_dyn.append(None)
-
-    return evaluated, corresponding_dyn
 
 
 for method_name in _SPECIAL_NAMES:
