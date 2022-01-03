@@ -178,7 +178,7 @@ class LogipyPrimitive:
         # Initialize a mapping between all properties to prove and the last frame they found
         # to hold.
         self.__properties_last_proved_frame = dict.fromkeys(
-            lovpy_properties.get_global_properties_to_prove()
+            [(p for p in group.properties) for group in lovpy_properties.get_global_rule_sets()]
         )
 
         self.__lovpy_id = str(LogipyPrimitive.__lovpy_id_count)
