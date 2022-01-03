@@ -1,6 +1,7 @@
 from itertools import product
 from copy import copy, deepcopy
 from typing import Generator
+import warnings
 import re
 
 from .timed_property_graph import TimedPropertyGraph, PredicateNode
@@ -25,7 +26,8 @@ class DynamicGraph:
         :param locs: Dictionary of local variables for dynamic execution.
 
         :return: A generator of all possible temporal graphs produced after dynamic
-                parts evaluation.
+                parts evaluation. In case a dynamic graph cannot be evaluated under
+                the scope of `globs` and `locs`, an empty generator is returned.
         """
         evaluated_mappings = self._evaluate_mappings(globs, locs)
 
@@ -58,13 +60,19 @@ class DynamicGraph:
 
         return DynamicGraph(graph, mappings) if mappings else None
 
-    def _evaluate_mappings(self, globs, locs):
+    def _evaluate_mappings(self, globs: dict, locs: dict) -> list[list[tuple]]:
         """Computes all possible evaluated instances of mappings."""
-        evaluated_cases = []  # [[(n, dyn_text, eval_tex), ...], ...]
+        evaluated_cases: list[list[tuple]] = []  # [[(n, dyn_text, eval_tex), ...], ...]
 
         for n, dyn_parts in self.dynamic_mappings.items():
             for d in dyn_parts:
-                part_evaluations = eval(str(d).strip("$"), globs, locs)
+                try:
+                    part_evaluations = eval(str(d).strip("$"), globs, locs)
+                except NameError:
+                    warnings.warn(
+                        f"{d} failed to be evaluated in current scope. Skipping this rule.")
+                    return []
+
                 if not isinstance(part_evaluations, list):
                     part_evaluations = [part_evaluations]
 

@@ -93,6 +93,19 @@ class TestDynamicGraph(unittest.TestCase):
         for g in evaluated_cases:
             self.assertIsInstance(g, EvaluatedDynamicGraph)
 
+    def test_evaluate_with_out_of_scope_lib_call(self) -> None:
+        a = PredicateGraph("call", "release")
+        b = PredicateGraph("locked_$threading.get_ident()$")
+        b.logical_not()
+        a.logical_implication(b)
+        a.set_timestamp(Timestamp(1))
+
+        dynamic = DynamicGraph.to_dynamic(a)
+
+        with self.assertWarns(Warning):
+            evaluated_cases = list(dynamic.evaluate(locs=locals()))
+            self.assertEqual(len(evaluated_cases), 0)
+
     def test_evaluate_with_dynamic_arguments(self) -> None:
         graph, dyn_var = TestDynamicGraph.create_dynamic_property_rule()
 
