@@ -1,14 +1,9 @@
 import sys
 import re
-from typing import Callable, Optional
 from traceback import StackSummary, FrameSummary, TracebackException, extract_tb
-from functools import partial
 
 from .exceptions import PropertyNotHoldsException
 from .lovpy_utils import get_lovpy_system_files
-
-
-after_handle_callback: Optional[Callable] = None  # To be called after handling exception.
 
 
 def lovpy_exception_handler(ex_type, value, tb) -> None:
@@ -32,13 +27,13 @@ def lovpy_exception_handler(ex_type, value, tb) -> None:
     for line in tb_ex.format():
         print(line, file=file, end="")
 
-    if after_handle_callback:
-        after_handle_callback()
-
 
 def lovpy_dev_exception_handler(ex_type, value, tb):
     """Exception handler that doesn't hide lovpy's internal errors, used for dev purposes."""
     file = sys.stderr
+
+    # print(dir(tb))
+    # print(dir(tb.tb_frame))
 
     exception_stack_summary = extract_tb(tb)
 
@@ -55,14 +50,6 @@ def lovpy_dev_exception_handler(ex_type, value, tb):
 
     for line in tb_ex.format():
         print(line, file=file, end="")
-
-    if after_handle_callback:
-        after_handle_callback()
-
-
-def set_after_handle_callback(callback: Callable, *args, **kwargs) -> None:
-    global after_handle_callback
-    after_handle_callback = partial(callback, *args, **kwargs)
 
 
 def _clean_summary_from_lovpy_files(summary: StackSummary):
