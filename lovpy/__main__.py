@@ -1,7 +1,7 @@
 from sys import argv
 from pathlib import Path
 
-from logic.properties import RuleSet
+from .logic.properties import RuleSet
 from .config import VERSION
 from .monitor.program import Program, VerificationConfiguration
 from .logic.next_theorem_selectors import default_theorem_selector
