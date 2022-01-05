@@ -1,9 +1,12 @@
 import hashlib
 from unittest import TestCase
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from shutil import copytree
 import sys
+import os
 
-from logic.properties import RuleSet
+from lovpy.logic.properties import RuleSet
 from lovpy.monitor.program import Program, VerificationConfiguration, InvalidConversionPath
 from lovpy.importer.gherkin_importer import GherkinImporter
 from lovpy.exceptions import PropertyNotHoldsException
@@ -12,8 +15,14 @@ from lovpy.logic.next_theorem_selectors import BetterNextTheoremSelector
 
 class TestProgram(TestCase):
 
+    def setUp(self) -> None:
+        self.temp_dir: TemporaryDirectory = TemporaryDirectory()
+        test_programs_folder: Path = Path(__file__).parent / Path("test_programs")
+        self.programs_path: Path = Path(self.temp_dir.name) / test_programs_folder.name
+        copytree(test_programs_folder, self.programs_path)
+
     def test_init(self) -> Program:
-        entry_point: Path = Path(__file__).parent / Path("test_programs/invalid_counter_test.py")
+        entry_point: Path = self.programs_path / "invalid_counter_test.py"
         config: VerificationConfiguration = VerificationConfiguration(
             provers=[BetterNextTheoremSelector()]
         )
@@ -27,8 +36,7 @@ class TestProgram(TestCase):
         program: Program = self.test_init()
 
         rules: list[RuleSet] = GherkinImporter().add_import_path(
-            Path(__file__).parent / Path("test_programs/invalid_counter_rules.gherkin")
-        ).import_rules()
+            self.programs_path / "invalid_counter_rules.gherkin").import_rules()
         for r in rules:
             program.add_monitored_rules(r)
 
@@ -39,7 +47,7 @@ class TestProgram(TestCase):
     def test_call(self) -> None:
         program: Program = self.test_add_monitored_rules()
 
-        conversion_root: Path = Path(__file__).parent / Path("test_programs")
+        conversion_root: Path = self.programs_path
         program.config.conversion_root = conversion_root
 
         old_argv: list = sys.argv
@@ -67,9 +75,9 @@ class TestProgram(TestCase):
 
     def test_call_with_relative_script_absolute_conversion_root(self) -> None:
         program: Program = self.test_add_monitored_rules()
-        program.entry_point = program.entry_point.relative_to(Path.cwd())
+        program.entry_point = program.entry_point.relative_to(self.programs_path)
 
-        conversion_root: Path = Path(__file__).parent / Path("test_programs")
+        conversion_root: Path = self.programs_path
         conversion_root = conversion_root.absolute()
         program.config.conversion_root = conversion_root
 
@@ -78,7 +86,12 @@ class TestProgram(TestCase):
         for file in conversion_root.rglob("*.*"):
             original_hashes[file] = TestProgram.calculate_file_blake2b(file)
 
+        old_cwd = os.getcwd()
+        os.chdir(self.programs_path)
+
         self.assertRaises(PropertyNotHoldsException, program.__call__)
+
+        os.chdir(old_cwd)
 
         for file, original_hash in original_hashes.items():
             new_hash: str = TestProgram.calculate_file_blake2b(file)
