@@ -1,3 +1,4 @@
+import sys
 from shutil import copy2, rmtree
 from pathlib import Path
 
@@ -38,14 +39,18 @@ def convert_file(path: Path):
 
     # Load file in memory.
     lines = list()
-    with path.open("r") as file:
-        for line in file:
-            lines.append(line)
-        file.close()
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            for line in file:
+                lines.append(line)
+            file.close()
+    except UnicodeDecodeError as e:
+        print(f"An error occurred while decoding {str(path)}.", file=sys.stderr)
+        raise e
 
     # Replace file with the converted one.
     lines = text_converter.transform_lines(lines)
-    with path.open("w") as save_file:
+    with path.open("w", encoding="utf-8") as save_file:
         for line in lines:
             save_file.write(line)
         save_file.close()
