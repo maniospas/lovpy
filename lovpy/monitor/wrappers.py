@@ -239,8 +239,8 @@ class LogipyPrimitive:
     # def __hash__(self):
     #     return hash(self.__lovpy_value)
 
-    def __repr__(self):
-        return repr(self.__lovpy_value) + " (" + ", ".join(self.__execution_graph) + ")"
+    def __repr__(self) -> str:
+        return repr(self.__lovpy_value)
 
 
 def lovpy_call(globs, locs, method, *args, **kwargs):
