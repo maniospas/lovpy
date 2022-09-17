@@ -42,18 +42,18 @@ SCENARIO:
 
 SCENARIO:
     WHEN returned by allocate_lock
-    THEN NOT locked_$threading.get_ident()$
+    THEN NOT locked $threading.get_ident()$
 
 SCENARIO:
     WHEN call acquire
-    THEN SHOULD NOT locked_$threading.get_ident()$
-    AND locked_$threading.get_ident()$
+    THEN SHOULD NOT locked $threading.get_ident()$
+    AND locked $threading.get_ident()$
 
 SCENARIO:
     GIVEN locked_$threading.get_ident()$
     WHEN call release
     THEN PRINT released by [METHOD]
-    AND NOT locked_$threading.get_ident()$
+    AND NOT locked $threading.get_ident()$
 
 SCENARIO:
     WHEN returned by read_csv

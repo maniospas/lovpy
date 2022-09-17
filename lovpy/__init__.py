@@ -8,10 +8,11 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 tf_installed = True
 try:
     import tensorflow as tf
+    import stellargraph
 except ModuleNotFoundError:
     tf_installed = False
     print("-" * 80)
-    print("Tensorflow is not installed - Only basic engine is available.")
+    print("Tensorflow and stellargraph are not installed - Only basic engine is available.")
     print("-" * 80)
 
 if tf_installed and os.environ.get("LOVPY_DISABLE_GPU", 0) == "1":

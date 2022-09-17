@@ -9,7 +9,6 @@ from lovpy.config import get_scratchfile_path, GRAPH_MODEL_TRAIN_OUTPUT_DIR, _mo
 from lovpy.evaluation.evaluation import evaluate_theorem_selector_on_samples
 from .train_config import TrainConfiguration
 from .theorem_proving_model import TheoremProvingModel
-from .gnn_model import GNNModel
 from .simple_model import SimpleModel
 from .dataset_generator import DatasetGenerator
 from .io import export_generated_samples, export_theorems_and_properties
@@ -81,10 +80,12 @@ def train_models(arch=None):
         configs.append(generate_simple_config())
     elif arch == "gnn":
         # Train GNN model.
+        from .gnn_model import GNNModel
         models.append(GNNModel("GNN Model", _models_dir + "/" + GRAPH_SELECTION_MODEL_NAME))
         configs.append(generate_gnn_config())
     else:
         # Train everything.
+        from .gnn_model import GNNModel
         models.append(SimpleModel("Simple Model", _models_dir + "/" + MAIN_MODEL_NAME))
         configs.append(generate_simple_config())
         models.append(GNNModel("GNN Model", _models_dir + "/" + GRAPH_SELECTION_MODEL_NAME))

@@ -10,9 +10,9 @@ from .importer.gherkin_importer import GherkinImporter
 
 def main():
     if len(argv) > 1 and argv[1].endswith(".py"):
-        print("-" * 80)
-        print(f"Running {argv[1]} under lovpy's verification.")
-        print("-" * 80)
+        #print("-" * 80)
+        #print(f"Running {argv[1]} under lovpy's verification.")
+        #print("-" * 80)
         run(Path(argv[1]), *argv[1:])
 
     elif len(argv) > 1 and (argv[1] == "--train" or argv[1] == "-t"):
